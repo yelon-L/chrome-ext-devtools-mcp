@@ -4,9 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Dialog, ElementHandle, Page} from 'puppeteer-core';
+import type {Browser, Dialog, ElementHandle, Page} from 'puppeteer-core';
 import z from 'zod';
 
+import type {
+  ExtensionContext,
+  ExtensionInfo,
+  StorageData,
+  StorageType,
+} from '../extension/types.js';
 import type {TraceResult} from '../trace-processing/parse.js';
 
 import type {ToolCategories} from './categories.js';
@@ -79,6 +85,40 @@ export type Context = Readonly<{
     filename: string,
   ): Promise<{filename: string}>;
   waitForEventsAfterAction(action: () => Promise<unknown>): Promise<void>;
+
+  // Extension debugging methods
+  getBrowser(): Browser;
+  getExtensions(includeDisabled?: boolean): Promise<ExtensionInfo[]>;
+  getExtensionDetails(extensionId: string): Promise<ExtensionInfo | null>;
+  getExtensionContexts(extensionId: string): Promise<ExtensionContext[]>;
+  switchToExtensionContext(contextId: string): Promise<Page>;
+  evaluateInExtensionContext(
+    contextId: string,
+    code: string,
+    awaitPromise?: boolean,
+  ): Promise<unknown>;
+  isServiceWorkerActive(extensionId: string): Promise<boolean>;
+  activateServiceWorker(extensionId: string): Promise<{
+    success: boolean;
+    method?: string;
+    url?: string;
+    error?: string;
+    suggestion?: string;
+  }>;
+  getExtensionLogs(extensionId: string): Promise<{
+    logs: Array<{
+      type: string;
+      text: string;
+      timestamp: number;
+      source: string;
+    }>;
+    isActive: boolean;
+  }>;
+  getExtensionStorage(
+    extensionId: string,
+    storageType: StorageType,
+  ): Promise<StorageData>;
+  getExtensionBackgroundTarget(extensionId: string): Promise<Page | null>;
 }>;
 
 export function defineTool<Schema extends z.ZodRawShape>(

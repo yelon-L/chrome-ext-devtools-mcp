@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Enhanced MCP Debug Test Extension",
+  "version": "2.1.0",
+  "description": "Enhanced MCP Debug Test Extension v2.1.0 - Compatible with Chrome Debug MCP架构优化版：Mutex保护、10秒超时、CLI参数、统一上下文管理",
+  "permissions": [
+    "activeTab", 
+    "scripting", 
+    "tabs", 
+    "storage",
+    "alarms",
+    "webRequest",
+    "notifications",
+    "management"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Enhanced MCP Debug Test",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

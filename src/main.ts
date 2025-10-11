@@ -24,6 +24,7 @@ import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
 import * as consoleTools from './tools/console.js';
 import * as emulationTools from './tools/emulation.js';
+import * as extensionTools from './tools/extensions.js';
 import * as inputTools from './tools/input.js';
 import * as networkTools from './tools/network.js';
 import * as pagesTools from './tools/pages.js';
@@ -160,6 +161,7 @@ function registerTool(tool: ToolDefinition): void {
 const tools = [
   ...Object.values(consoleTools),
   ...Object.values(emulationTools),
+  ...Object.values(extensionTools),
   ...Object.values(inputTools),
   ...Object.values(networkTools),
   ...Object.values(pagesTools),

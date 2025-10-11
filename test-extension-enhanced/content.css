@@ -1,0 +1,60 @@
+/**
+ * Enhanced Content CSS for Week 3 功能测试
+ * 设计目的：测试CSS注入检测和冲突分析
+ */
+
+/* Week 3测试：可识别的样式注入标记 */
+.enhanced-mcp-test-injected {
+  border: 2px solid #4CAF50 !important;
+  background: rgba(76, 175, 80, 0.1) !important;
+}
+
+/* Week 3测试：性能分析用的CSS动画 */
+@keyframes enhanced-mcp-pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+#enhanced-mcp-test-indicator {
+  animation: enhanced-mcp-pulse 2s infinite ease-in-out;
+}
+
+/* Week 3测试：DOM冲突检测用的样式 */
+.enhanced-mcp-conflict-test {
+  position: relative !important;
+  z-index: 999999 !important;
+  background-color: #ff9800 !important;
+  color: white !important;
+  padding: 5px !important;
+  border-radius: 3px !important;
+}
+
+/* Week 3测试：样式覆盖测试 */
+body {
+  --enhanced-mcp-test: "injected";
+}
+
+/* Week 3测试：高特异性选择器测试 */
+html body div.enhanced-mcp-test-selector {
+  background: linear-gradient(45deg, #e3f2fd, #bbdefb) !important;
+}
+
+/* Week 3测试：媒体查询测试 */
+@media (max-width: 768px) {
+  .enhanced-mcp-mobile-test {
+    display: block !important;
+    width: 100% !important;
+  }
+}
+
+/* Week 3测试：伪元素注入测试 */
+.enhanced-mcp-before-test::before {
+  content: "📡 MCP Test Injection";
+  position: fixed;
+  top: 0;
+  left: 0;
+  font-size: 10px;
+  color: #4CAF50;
+  z-index: 1000000;
+}

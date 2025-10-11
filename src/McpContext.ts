@@ -19,6 +19,13 @@ import type {
   PredefinedNetworkConditions,
 } from 'puppeteer-core';
 
+import {ExtensionHelper} from './extension/ExtensionHelper.js';
+import type {
+  ExtensionContext,
+  ExtensionInfo,
+  StorageData,
+  StorageType,
+} from './extension/types.js';
 import {NetworkCollector, PageCollector} from './PageCollector.js';
 import {listPages} from './tools/pages.js';
 import {takeSnapshot} from './tools/snapshot.js';
@@ -90,9 +97,13 @@ export class McpContext implements Context {
   #nextSnapshotId = 1;
   #traceResults: TraceResult[] = [];
 
+  // Extension helper for extension debugging functionality
+  #extensionHelper: ExtensionHelper;
+
   private constructor(browser: Browser, logger: Debugger) {
     this.browser = browser;
     this.logger = logger;
+    this.#extensionHelper = new ExtensionHelper(browser);
 
     this.#networkCollector = new NetworkCollector(
       this.browser,
@@ -412,5 +423,133 @@ export class McpContext implements Context {
       networkMultiplier,
     );
     return waitForHelper.waitForEventsAfterAction(action);
+  }
+
+  // ===== Extension Debugging Methods =====
+
+  /**
+   * Get the browser instance
+   */
+  getBrowser(): Browser {
+    return this.browser;
+  }
+
+  /**
+   * Get all installed extensions
+   */
+  async getExtensions(includeDisabled = false): Promise<ExtensionInfo[]> {
+    return this.#extensionHelper.getExtensions(includeDisabled);
+  }
+
+  /**
+   * Get detailed information about a specific extension
+   */
+  async getExtensionDetails(
+    extensionId: string,
+  ): Promise<ExtensionInfo | null> {
+    return this.#extensionHelper.getExtensionDetails(extensionId);
+  }
+
+  /**
+   * Get all contexts for an extension
+   */
+  async getExtensionContexts(
+    extensionId: string,
+  ): Promise<ExtensionContext[]> {
+    return this.#extensionHelper.getExtensionContexts(extensionId);
+  }
+
+  /**
+   * Switch to a specific extension context
+   */
+  async switchToExtensionContext(contextId: string): Promise<Page> {
+    const page = await this.#extensionHelper.switchToExtensionContext(contextId);
+    if (!page) {
+      throw new Error(`Cannot access context ${contextId}`);
+    }
+    return page;
+  }
+
+  /**
+   * Get extension storage data
+   */
+  async getExtensionStorage(
+    extensionId: string,
+    storageType: StorageType,
+  ): Promise<StorageData> {
+    return this.#extensionHelper.getExtensionStorage(extensionId, storageType);
+  }
+
+  /**
+   * Evaluate code in an extension context (works for Service Workers)
+   */
+  async evaluateInExtensionContext(
+    contextId: string,
+    code: string,
+    awaitPromise = true,
+  ): Promise<unknown> {
+    return this.#extensionHelper.evaluateInContext(
+      contextId,
+      code,
+      awaitPromise,
+    );
+  }
+
+  /**
+   * Check if Service Worker is active
+   */
+  async isServiceWorkerActive(extensionId: string): Promise<boolean> {
+    return this.#extensionHelper.isServiceWorkerActive(extensionId);
+  }
+
+  /**
+   * Activate Service Worker automatically
+   */
+  async activateServiceWorker(extensionId: string): Promise<{
+    success: boolean;
+    method?: string;
+    url?: string;
+    error?: string;
+    suggestion?: string;
+  }> {
+    return this.#extensionHelper.activateServiceWorker(extensionId);
+  }
+
+  /**
+   * Get extension logs
+   */
+  async getExtensionLogs(extensionId: string): Promise<{
+    logs: Array<{
+      type: string;
+      text: string;
+      timestamp: number;
+      source: string;
+    }>;
+    isActive: boolean;
+  }> {
+    return this.#extensionHelper.getExtensionLogs(extensionId);
+  }
+
+  /**
+   * Get extension background target (Service Worker or Background Page)
+   */
+  async getExtensionBackgroundTarget(extensionId: string): Promise<Page | null> {
+    const target =
+      await this.#extensionHelper.getExtensionBackgroundTarget(extensionId);
+    if (!target) {
+      return null;
+    }
+
+    // 使用 puppeteer Target API 获取 Page
+    const targets = await this.browser.targets();
+    const puppeteerTarget = targets.find(
+      t => (t as unknown as {_targetId: string})._targetId === target.targetId,
+    );
+
+    if (puppeteerTarget) {
+      return await puppeteerTarget.page();
+    }
+
+    return null;
   }
 }

@@ -1,0 +1,58 @@
+Phase 2 - 核心工具（5/7）
+✅ list_extensions - 列出所有扩展
+✅ get_extension_details - 获取扩展详情
+✅ list_extension_contexts - 列出扩展上下文
+✅ switch_extension_context - 切换上下文
+✅ inspect_extension_storage - 检查 Storage
+
+测试反馈:
+list_extensions 两次返回 “No extensions found”；对比 chrome://extensions/ 页面可见扩展列表，推测接口当前尚未覆盖 MV3 service worker 或需额外权限。
+list_extension_contexts 对 bekcbmopkiajilfliobihjgnghfcbido 返回一个 background.js 上下文，但 switch_extension_context 提示无法访问；说明上下文存在但调试权限不足或 service worker 未激活。
+get_extension_details 同样报告找不到扩展，意味着 ext-debug 的扩展信息接口仍未对该实例生效。
+inspect_extension_storage 因无法访问背景页而失败，和上述上下文访问受限一致。
+对 egnlfhdfnakiibiecidlcooehojeagfa 查询上下文返回空，符合其 service worker 处于 Inactive 的状态。
+
+
+Phase 3 - 扩展调试工具（6/7）
+✅ reload_extension - 重新加载扩展
+✅ evaluate_in_extension - 在扩展上下文中执行代码
+
+测试反馈:
+list_extensions 成功列出唯一扩展 Enhanced MCP Debug Test Extension，确认可见 Manifest、权限等信息。
+get_extension_details 返回完整元数据，与列表信息一致。
+list_extension_contexts 能发现背景 Service Worker，但 switch_extension_context 多次报错“Cannot access context…”，说明当前 MCP 无法切入该 Target。
+reload_extension 失败：“No background context found…”，猜测 Service Worker 未激活或被休眠，需先触发扩展事件。
+inspect_extension_storage 和 evaluate_in_extension 均失败，同样指向无法获取后台上下文。
+网络层工具 list_network_requests 正常工作，但只针对浏览器页面，与扩展调试无直接关联。
+
+
+
+
+
+
+### 扩展工具测试总结
+
+1. **列出扩展**：成功列出了一个名为 "Enhanced MCP Debug Test Extension" 的扩展，ID 为 `bekcbmopkiajilfliobihjgnghfcbido`。
+
+2. **扩展详情**：获取了扩展的基本信息，包括：
+   - 版本：2.1.0
+   - 清单版本：MV3
+   - 权限：activeTab, scripting, tabs, storage 等
+   - 背景服务工作者：`background.js`
+
+3. **扩展上下文**：仅发现一个背景服务工作者上下文。
+
+4. **扩展存储**：
+   - 尝试检查本地存储时遇到了一些困难
+   - 使用 `evaluate_in_extension` 检查，发现本地存储为空 `{}`
+
+5. **扩展日志**：
+   - 服务工作者处于非活动状态
+   - 未找到任何日志记录
+
+建议：
+- 对于持久日志，可以在扩展中实现自定义日志存储机制
+- 检查存储和日志时，确保服务工作者处于活动状态
+- 可以考虑在扩展中添加更多日志记录和存储机制以便调试
+
+是否需要我对这些发现进行更深入的探索？
