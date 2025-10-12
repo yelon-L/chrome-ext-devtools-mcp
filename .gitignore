@@ -148,3 +148,4 @@ log.txt
 .DS_Store
 package-lock.json
 .windsurf/
+Caddyfile.dev
