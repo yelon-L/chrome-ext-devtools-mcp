@@ -37,6 +37,7 @@ import * as performanceTools from './tools/performance.js';
 import * as screenshotTools from './tools/screenshot.js';
 import * as scriptTools from './tools/script.js';
 import * as snapshotTools from './tools/snapshot.js';
+import {readPackageJson} from './utils/common.js';
 
 const sessions = new Map<string, {
   transport: SSEServerTransport;
@@ -45,7 +46,7 @@ const sessions = new Map<string, {
 }>();
 
 async function startSSEServer() {
-  const version = '0.8.0';
+  const version = readPackageJson().version ?? '0.8.1';
   const args = parseArguments(version);
   const port = parseInt(process.env.PORT || '32122', 10);
 
@@ -227,15 +228,59 @@ async function startSSEServer() {
     res.end('Not found');
   });
 
+  // 错误处理
+  httpServer.on('error', (error: NodeJS.ErrnoException) => {
+    console.error('\n[SSE] ❌ 服务器启动失败');
+    console.error('');
+    
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ 端口 ${port} 已被占用`);
+      console.error('');
+      console.error('解决方案：');
+      console.error(`  1. 使用其他端口: --port ${port + 1}`);
+      console.error(`  2. 查找占用端口的进程:`);
+      console.error(`     Windows: netstat -ano | findstr ${port}`);
+      console.error(`     Linux/Mac: lsof -i :${port}`);
+      console.error(`  3. 关闭占用端口的程序`);
+    } else if (error.code === 'EACCES') {
+      console.error(`❌ 权限不足，无法绑定端口 ${port}`);
+      console.error('');
+      console.error('解决方案：');
+      console.error(`  1. 使用非特权端口 (>1024): --port 8080`);
+      console.error(`  2. Windows: 以管理员身份运行`);
+      console.error(`  3. Linux/Mac: 使用 sudo 或更改端口`);
+    } else if (error.code === 'EADDRNOTAVAIL') {
+      console.error(`❌ 地址不可用`);
+      console.error('');
+      console.error('可能原因：');
+      console.error('  - 网络接口未启用');
+      console.error('  - 防火墙阻止');
+    } else {
+      console.error(`❌ 错误: ${error.message}`);
+      console.error(`   错误码: ${error.code || '未知'}`);
+      console.error('');
+      console.error('详细信息：');
+      console.error(error.stack || error);
+    }
+    
+    console.error('');
+    process.exit(1);
+  });
+
   httpServer.listen(port, () => {
     console.log('\n╔════════════════════════════════════════════════════════╗');
-    console.log('║   Chrome DevTools MCP - SSE Server                     ║');
+    console.log('║     Chrome DevTools MCP - SSE Server                   ║');
     console.log('╚════════════════════════════════════════════════════════╝\n');
-    console.log(`🌐 服务器: http://localhost:${port}`);
-    console.log(`❤️  健康检查: http://localhost:${port}/health`);
-    console.log(`🧪 测试页面: http://localhost:${port}/test`);
-    console.log(`📡 SSE 端点: http://localhost:${port}/sse`);
-    console.log('\n按 Ctrl+C 停止\n');
+    console.log(`[SSE] 🌐 服务器已启动`);
+    console.log(`[SSE] 📡 端口: ${port}`);
+    console.log(`[SSE] 🔗 端点:`);
+    console.log(`      - Health:  http://localhost:${port}/health`);
+    console.log(`      - SSE:     http://localhost:${port}/sse`);
+    console.log(`      - Message: http://localhost:${port}/message`);
+    console.log(`      - Test:    http://localhost:${port}/test`);
+    console.log('');
+    console.log('传输方式: Server-Sent Events (SSE)');
+    console.log('按 Ctrl+C 停止\n');
   });
 
   process.on('SIGINT', async () => {
@@ -409,12 +454,6 @@ function getTestPage(): string {
         
         log(\`✅ list_extensions 完成 (耗时: \${duration}ms)\`, 'success');
         log(\`   找到 \${count} 个扩展\`, 'success');
-        
-        const hasHelper = text.includes('MCP Service Worker Activator');
-        const hasSW = text.includes('Service Worker:');
-        
-        log(\`   Helper Extension: \${hasHelper ? '✅' : '❌'}\`, hasHelper ? 'success' : 'error');
-        log(\`   SW 状态显示: \${hasSW ? '✅' : '❌'}\`, hasSW ? 'success' : 'error');
         
         document.getElementById('result').innerHTML = '<pre>' + text.substring(0, 1000) + '</pre>';
       } else {

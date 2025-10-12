@@ -14,7 +14,6 @@ import type {
   ManifestV3,
   ExtensionContextType,
 } from './types.js';
-import {HelperExtensionClient} from './HelperExtensionClient.js';
 
 interface CDPTargetInfo {
   targetId: string;
@@ -53,8 +52,6 @@ export interface ExtensionHelperOptions {
  */
 export class ExtensionHelper {
   private cdpSession: CDPSession | null = null;
-  private helperClient: HelperExtensionClient | null = null;
-  private helperDetectionAttempted: boolean = false;
   private options: Required<ExtensionHelperOptions>;
 
   constructor(
@@ -450,7 +447,6 @@ export class ExtensionHelper {
       this.log(`[ExtensionHelper] 从 targets 找到 ${extensionIds.size} 个扩展 ID`);
       
       // 添加已知的扩展 ID（即使它们的 SW 是 inactive）
-      // 这样可以检测到 Helper Extension 和其他可能的扩展
       const knownIds = this.options.knownExtensionIds || [];
       
       let addedCount = 0;
@@ -784,20 +780,9 @@ export class ExtensionHelper {
     }
   }
 
-  /**
-   * 检测并初始化 Helper Extension Client
-   */
-  private async ensureHelperClient(): Promise<void> {
-    if (!this.helperDetectionAttempted) {
-      this.helperDetectionAttempted = true;
-      this.helperClient = new HelperExtensionClient(this.browser);
-      await this.helperClient.detectHelperExtension();
-    }
-  }
 
   /**
-   * 自动激活 Service Worker - 增强版
-   * 方法 0: Helper Extension（如果可用）⭐⭐⭐⭐⭐
+   * 自动激活 Service Worker
    * 方法 1: 直接触发 Service Worker (CDP)
    * 方法 2: 打开扩展页面
    * 方法 3: 指导手动激活
@@ -811,29 +796,6 @@ export class ExtensionHelper {
   }> {
     try {
       this.log(`[ExtensionHelper] 尝试激活 Service Worker: ${extensionId}`);
-      
-      // ===== 方法 0: Helper Extension（优先级最高）=====
-      await this.ensureHelperClient();
-      
-      if (this.helperClient && this.helperClient.isHelperAvailable()) {
-        this.log(`[ExtensionHelper] ✨ 检测到 Helper Extension，使用增强模式`);
-        
-        const helperResult = await this.helperClient.activateExtension(extensionId);
-        
-        if (helperResult.success) {
-          this.log(`[ExtensionHelper] ✅ Helper Extension 激活成功`);
-          return {
-            success: true,
-            method: `Helper Extension (${helperResult.method})`,
-            url: undefined,
-          };
-        }
-        
-        this.log(`[ExtensionHelper] ⚠️ Helper Extension 激活失败: ${helperResult.error}`);
-        // 继续尝试其他方法
-      } else {
-        this.log(`[ExtensionHelper] ℹ️ 未检测到 Helper Extension，使用标准模式`);
-      }
       
       // ===== 方法 1: 直接通过 CDP 触发 Service Worker =====
       this.log(`[ExtensionHelper] 方法 1: 直接触发 Service Worker`);
@@ -852,14 +814,10 @@ export class ExtensionHelper {
       this.log(`[ExtensionHelper] 方法 2 失败: ${pageActivation.error}`);
       
       // ===== 所有方法都失败 =====
-      const suggestion = this.helperClient && this.helperClient.isHelperAvailable()
-        ? this.getManualActivationGuide(extensionId)
-        : await this.getManualActivationGuideWithHelperHint(extensionId);
-        
       return {
         success: false,
         error: '所有自动激活方法均失败',
-        suggestion,
+        suggestion: this.getManualActivationGuide(extensionId),
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -867,7 +825,7 @@ export class ExtensionHelper {
       return {
         success: false,
         error: `激活过程异常: ${errorMsg}`,
-        suggestion: await this.getManualActivationGuideWithHelperHint(extensionId),
+        suggestion: this.getManualActivationGuide(extensionId),
       };
     }
   }
@@ -1157,101 +1115,6 @@ export class ExtensionHelper {
 - 如果看到错误，请检查扩展的 background.js 是否有语法错误`;
   }
 
-  /**
-   * 获取手动激活指南（包含 Helper Extension 提示）
-   */
-  private async getManualActivationGuideWithHelperHint(extensionId: string): Promise<string> {
-    let helperPath = '';
-    
-    // 尝试生成临时 Helper Extension
-    try {
-      const {HelperExtensionGenerator} = await import('./HelperExtensionGenerator.js');
-      const generator = new HelperExtensionGenerator();
-      
-      // 检查是否已经生成
-      if (!generator.isGenerated()) {
-        this.log('[ExtensionHelper] 生成临时 Helper Extension 以供安装...');
-        helperPath = await generator.generateHelperExtension();
-        this.log(`[ExtensionHelper] Helper Extension 已生成: ${helperPath}`);
-      } else {
-        helperPath = generator.getHelperPath() || '';
-      }
-    } catch (error) {
-      this.logWarn('[ExtensionHelper] 无法生成 Helper Extension:');
-      this.logError('', error);
-    }
-    
-    const helperInstallGuide = helperPath ? `
-╔═══════════════════════════════════════════════════════════╗
-║  🚀 推荐：安装 Helper Extension 实现 95%+ 自动激活！      ║
-╚═══════════════════════════════════════════════════════════╝
-
-📦 Helper Extension 已自动生成！
-
-📁 路径: ${helperPath}
-
-📋 安装步骤：
-1. 访问 chrome://extensions/
-2. 开启右上角的 "开发者模式"
-3. 点击 "加载已解压的扩展程序"
-4. 选择目录: ${helperPath}
-5. 完成！扩展会显示为 "MCP Service Worker Activator (Auto-Generated)"
-
-✅ 安装后：
-- 自动激活成功率提升到 95%+
-- 无需再手动激活 Service Worker
-- 立即生效，无需重启 MCP
-
-Helper Extension 说明：
-- 使用 chrome.debugger API 实现可靠的自动激活
-- 开源、安全、不收集数据
-- 可选安装，卸载后降级到手动模式
-
-────────────────────────────────────────────────────────────
-
-` : `
-🚀 可选增强（推荐）：
-安装 MCP Helper Extension 可实现 95%+ 自动激活成功率！
-
-💡 提示：如果使用 --browser-url 连接模式，建议改用自动启动模式：
-   移除 --browser-url 参数，MCP 会自动启动 Chrome 并注入 Helper Extension
-
-────────────────────────────────────────────────────────────
-
-`;
-
-    return `❌ Service Worker 自动激活失败
-
-有两个解决方案：
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-【方案 1】立即恢复使用 - 手动激活（临时，需每次操作）
-
-📋 操作步骤：
-1. 在 Chrome 中，打开新标签页
-2. 访问: chrome://extensions/
-3. 找到扩展（ID: ${extensionId}）
-4. 点击蓝色的 "Service worker" 链接
-5. 等待 DevTools 打开，Service Worker 将自动激活
-6. 重新运行 MCP 命令
-
-💡 提示：
-- Service worker 链接在扩展卡片中间，通常是蓝色可点击文字
-- 如果看不到链接，说明扩展可能有错误
-- 激活后保持活跃约 30 秒，之后再次休眠
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-【方案 2】一劳永逸 - 安装 Helper Extension（推荐，95%+ 成功率）
-${helperInstallGuide}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔍 调试信息：
-- 扩展 ID: ${extensionId}
-- 如果持续失败，请检查扩展的 background.js 是否有语法错误
-- 建议使用方案 2 以获得最佳体验`;
-  }
 
   /**
    * 检查 Service Worker 是否激活（chrome.storage 是否可用）

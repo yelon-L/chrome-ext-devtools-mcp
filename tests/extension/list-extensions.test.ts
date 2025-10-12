@@ -90,20 +90,4 @@ describe('list_extensions', () => {
       console.log(`✅ ${ext.name} 包含完整信息`);
     }
   });
-
-  it('should detect Helper Extension if installed', async () => {
-    const extensions = await helper.getExtensions();
-    
-    const helperExt = extensions.find(ext => 
-      ext.name.includes('MCP Service Worker Activator')
-    );
-    
-    if (helperExt) {
-      console.log(`✅ 检测到 Helper Extension: ${helperExt.id}`);
-      assert.ok(helperExt.permissions?.includes('management'), '应该有 management 权限');
-      assert.ok(helperExt.permissions?.includes('debugger'), '应该有 debugger 权限');
-    } else {
-      console.log(`ℹ️  Helper Extension 未安装（预期行为）`);
-    }
-  });
 });

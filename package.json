@@ -1,7 +1,7 @@
 {
-  "name": "chrome-devtools-mcp",
-  "version": "0.8.0",
-  "description": "MCP server for Chrome DevTools",
+  "name": "chrome-extension-debug-mcp",
+  "version": "0.8.1",
+  "description": "MCP server for Chrome Extension Debugging",
   "type": "module",
   "bin": "./build/src/index.js",
   "main": "index.js",
@@ -20,7 +20,9 @@
     "test:only:no-build": "node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test --test-only \"build/tests/**/*.test.js\"",
     "test:update-snapshots": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-force-exit --test --test-update-snapshots \"build/tests/**/*.test.js\"",
     "prepare": "node --experimental-strip-types scripts/prepare.ts",
-    "sync-server-json-version": "node  --experimental-strip-types scripts/sync-server-json-version.ts && npm run format"
+    "sync-server-json-version": "node  --experimental-strip-types scripts/sync-server-json-version.ts && npm run format",
+    "generate-config": "node scripts/generate-ide-config.js",
+    "postinstall": "npm run generate-config"
   },
   "files": [
     "build/src",

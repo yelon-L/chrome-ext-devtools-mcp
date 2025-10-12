@@ -6,10 +6,6 @@
 
 import './polyfill.js';
 
-import assert from 'node:assert';
-import fs from 'node:fs';
-import path from 'node:path';
-
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
@@ -33,21 +29,7 @@ import * as screenshotTools from './tools/screenshot.js';
 import * as scriptTools from './tools/script.js';
 import * as snapshotTools from './tools/snapshot.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-
-function readPackageJson(): {version?: string} {
-  const currentDir = import.meta.dirname;
-  const packageJsonPath = path.join(currentDir, '..', '..', 'package.json');
-  if (!fs.existsSync(packageJsonPath)) {
-    return {};
-  }
-  try {
-    const json = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-    assert.strict(json['name'], 'chrome-devtools-mcp');
-    return json;
-  } catch {
-    return {};
-  }
-}
+import {readPackageJson} from './utils/common.js';
 
 const version = readPackageJson().version ?? 'unknown';
 

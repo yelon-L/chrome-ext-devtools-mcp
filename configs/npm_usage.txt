@@ -1,0 +1,23 @@
+# Chrome Extension Debug MCP - NPM 使用方式
+
+## 全局安装
+npm install -g chrome-extension-debug-mcp
+
+# 然后直接运行
+chrome-extension-debug-mcp --browser-url http://localhost:9222
+
+## 使用 npx（推荐，无需安装）
+npx chrome-extension-debug-mcp --browser-url http://localhost:9222
+
+## IDE 配置（使用 npx）
+{
+  "command": "npx",
+  "args": ["-y", "chrome-extension-debug-mcp", "--browser-url", "http://localhost:9222"]
+}
+
+## 本地开发
+git clone <repo>
+cd chrome-extension-debug-mcp
+npm install
+npm run build
+node build/src/index.js --browser-url http://localhost:9222

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "command": "node",
+      "args": [
+        "/home/p/workspace/chrome-ext-devtools-mcp/build/src/index.js",
+        "--browser-url",
+        "http://localhost:9222"
+      ],
+      "disabled": false
+    }
+  }
+}

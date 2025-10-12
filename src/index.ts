@@ -6,29 +6,55 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {version} from 'node:process';
+/**
+ * Unified entry point for all transport modes
+ * 
+ * Supports:
+ * - stdio (default): Standard MCP transport
+ * - sse: Server-Sent Events HTTP transport
+ * - streamable: Streamable HTTP transport
+ */
 
-const [major, minor] = version.substring(1).split('.').map(Number);
+import {checkNodeVersion, readPackageJson} from './utils/common.js';
+import {parseArguments} from './cli.js';
 
-if (major === 20 && minor < 19) {
-  console.error(
-    `ERROR: \`chrome-devtools-mcp\` does not support Node ${process.version}. Please upgrade to Node 20.19.0 LTS or a newer LTS.`,
-  );
-  process.exit(1);
+checkNodeVersion();
+
+const pkgVersion = readPackageJson().version ?? '0.8.1';
+const args = parseArguments(pkgVersion);
+
+const transport = (args as any).transport || 'stdio';
+
+console.log(`[MCP] Chrome Extension Debug MCP v${pkgVersion}`);
+console.log(`[MCP] Transport: ${transport}`);
+
+if (transport === 'sse') {
+  console.log('[MCP] Starting SSE server...');
+  const defaultPort = 32122;
+  const port = (args as any).port || parseInt(process.env.PORT || String(defaultPort), 10);
+  if ((args as any).port) {
+    process.env.PORT = String((args as any).port);
+  } else if (!process.env.PORT) {
+    process.env.PORT = String(defaultPort);
+  }
+  console.log(`[MCP] Port: ${port}`);
+  console.log('');
+  await import('./server-sse.js');
+} else if (transport === 'streamable') {
+  console.log('[MCP] Starting Streamable HTTP server...');
+  const defaultPort = 32123;
+  const port = (args as any).port || parseInt(process.env.PORT || String(defaultPort), 10);
+  if ((args as any).port) {
+    process.env.PORT = String((args as any).port);
+  } else if (!process.env.PORT) {
+    process.env.PORT = String(defaultPort);
+  }
+  console.log(`[MCP] Port: ${port}`);
+  console.log('');
+  await import('./server-http.js');
+} else {
+  // stdio mode
+  console.log('[MCP] Starting stdio server...');
+  console.log('');
+  await import('./main.js');
 }
-
-if (major === 22 && minor < 12) {
-  console.error(
-    `ERROR: \`chrome-devtools-mcp\` does not support Node ${process.version}. Please upgrade to Node 22.12.0 LTS or a newer LTS.`,
-  );
-  process.exit(1);
-}
-
-if (major < 20) {
-  console.error(
-    `ERROR: \`chrome-devtools-mcp\` does not support Node ${process.version}. Please upgrade to Node 20.19.0 LTS or a newer LTS.`,
-  );
-  process.exit(1);
-}
-
-await import('./main.js');

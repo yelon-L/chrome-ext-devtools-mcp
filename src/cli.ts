@@ -89,13 +89,43 @@ export const cliOptions = {
   chromeArg: {
     type: 'array',
     describe:
-      'Additional arguments for Chrome. Only applies when Chrome is launched by chrome-devtools-mcp.',
+      'Additional arguments for Chrome. Only applies when Chrome is launched by chrome-extension-debug-mcp.',
+  },
+  transport: {
+    type: 'string',
+    description:
+      'Transport protocol to use for MCP communication.',
+    choices: ['stdio', 'sse', 'streamable'] as const,
+    default: 'stdio',
+    alias: 't',
+  },
+  port: {
+    type: 'number',
+    description:
+      'Port number for HTTP-based transports (SSE or Streamable).',
+    alias: 'p',
   },
 } satisfies Record<string, YargsOptions>;
 
 export function parseArguments(version: string, argv = process.argv) {
+  // 检测是否是打包的二进制文件
+  const isBundled = !process.argv[1] || process.argv[1].includes('bun-') || !process.argv[1].endsWith('.js');
+  const scriptName = isBundled 
+    ? 'chrome-extension-debug-mcp'  // 打包后的可执行文件名
+    : 'npx chrome-extension-debug-mcp@latest';  // npm 运行方式
+
   const yargsInstance = yargs(hideBin(argv))
-    .scriptName('npx chrome-devtools-mcp@latest')
+    .scriptName(scriptName)
+    .usage('$0 [options]')
+    .epilog(`Chrome Extension Debug MCP v${version}
+
+Transport Modes:
+  stdio      - Standard I/O (default, for MCP clients)
+  sse        - Server-Sent Events (HTTP streaming, port 32122 or --port)
+  streamable - Streamable HTTP (latest standard, port 32123 or --port)
+
+For more information, visit:
+  https://github.com/GoogleChromeLabs/chrome-devtools-mcp`)
     .options(cliOptions)
     .check(args => {
       // We can't set default in the options else
@@ -107,24 +137,31 @@ export function parseArguments(version: string, argv = process.argv) {
     })
     .example([
       [
+        '$0',
+        'Start with stdio transport (default)',
+      ],
+      [
+        '$0 --transport sse',
+        'Start SSE server on port 32122',
+      ],
+      [
+        '$0 --transport streamable --port 3000',
+        'Start Streamable HTTP server on port 3000',
+      ],
+      [
         '$0 --browserUrl http://127.0.0.1:9222',
         'Connect to an existing browser instance',
       ],
-      ['$0 --channel beta', 'Use Chrome Beta installed on this system'],
-      ['$0 --channel canary', 'Use Chrome Canary installed on this system'],
-      ['$0 --channel dev', 'Use Chrome Dev installed on this system'],
-      ['$0 --channel stable', 'Use stable Chrome installed on this system'],
+      ['$0 --channel beta', 'Use Chrome Beta'],
+      ['$0 --headless', 'Run in headless mode'],
       ['$0 --logFile /tmp/log.txt', 'Save logs to a file'],
-      ['$0 --help', 'Print CLI options'],
       [
         '$0 --viewport 1280x720',
-        'Launch Chrome with the initial viewport size of 1280x720px',
+        'Launch with viewport size 1280x720px',
       ],
-      [
-        `$0 --chrome-arg='--no-sandbox' --chrome-arg='--disable-setuid-sandbox'`,
-        'Launch Chrome without sandboxes. Use with caution.',
-      ],
-    ]);
+    ])
+    .alias('h', 'help')
+    .alias('v', 'version');
 
   return yargsInstance
     .wrap(Math.min(120, yargsInstance.terminalWidth()))

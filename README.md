@@ -1,24 +1,26 @@
-# Chrome DevTools MCP
+# Chrome Extension Debug MCP
 
-[![npm chrome-devtools-mcp package](https://img.shields.io/npm/v/chrome-devtools-mcp.svg)](https://npmjs.org/package/chrome-devtools-mcp)
+[![npm chrome-extension-debug-mcp package](https://img.shields.io/npm/v/chrome-extension-debug-mcp.svg)](https://npmjs.org/package/chrome-extension-debug-mcp)
 
-`chrome-devtools-mcp` lets your coding agent (such as Gemini, Claude, Cursor or Copilot)
+`chrome-extension-debug-mcp` lets your coding agent (such as Gemini, Claude, Cursor or Copilot)
 control and inspect a live Chrome browser. It acts as a Model-Context-Protocol
 (MCP) server, giving your AI coding assistant access to the full power of
-Chrome DevTools for reliable automation, in-depth debugging, and performance analysis.
+Chrome DevTools for reliable automation, in-depth debugging, performance analysis, and **Chrome Extension debugging**.
 
 ## [Tool reference](./docs/tool-reference.md) | [Changelog](./CHANGELOG.md) | [Contributing](./CONTRIBUTING.md) | [Troubleshooting](./docs/troubleshooting.md)
 
 ## Key features
 
+- **Chrome Extension Debugging**: Debug Chrome extensions with MV2/MV3 support, inspect storage, manage Service Workers, and evaluate code in extension contexts.
 - **Get performance insights**: Uses [Chrome
   DevTools](https://github.com/ChromeDevTools/devtools-frontend) to record
   traces and extract actionable performance insights.
 - **Advanced browser debugging**: Analyze network requests, take screenshots and
   check the browser console.
-- **Reliable automation**. Uses
+- **Reliable automation**: Uses
   [puppeteer](https://github.com/puppeteer/puppeteer) to automate actions in
   Chrome and automatically wait for action results.
+- **Multiple transport modes**: Support for stdio (default), SSE, and Streamable HTTP transports.
 
 ## Disclaimers
 
@@ -211,6 +213,15 @@ If you run into any issues, checkout our [troubleshooting guide](./docs/troubles
 
 <!-- BEGIN AUTO GENERATED TOOLS -->
 
+- **Chrome Extension Debugging** (8 tools)
+  - [`list_extensions`](#list_extensions) - List all installed Chrome extensions
+  - [`get_extension_details`](#get_extension_details) - Get detailed info about a specific extension
+  - [`list_extension_contexts`](#list_extension_contexts) - List all execution contexts for an extension
+  - [`switch_extension_context`](#switch_extension_context) - Switch to a specific extension context
+  - [`inspect_extension_storage`](#inspect_extension_storage) - Inspect extension storage (local/sync/session/managed)
+  - [`reload_extension`](#reload_extension) - Reload an extension to apply code changes
+  - [`get_extension_logs`](#get_extension_logs) - Get console logs from extension Service Worker
+  - [`evaluate_in_extension`](#evaluate_in_extension) - Evaluate JavaScript in extension context
 - **Input automation** (7 tools)
   - [`click`](docs/tool-reference.md#click)
   - [`drag`](docs/tool-reference.md#drag)
@@ -292,8 +303,19 @@ The Chrome DevTools MCP server supports the following configuration option:
   - **Type:** boolean
 
 - **`--chromeArg`**
-  Additional arguments for Chrome. Only applies when Chrome is launched by chrome-devtools-mcp.
+  Additional arguments for Chrome. Only applies when Chrome is launched by chrome-extension-debug-mcp.
   - **Type:** array
+
+- **`--transport`, `-t`**
+  Transport protocol to use for MCP communication.
+  - **Type:** string
+  - **Choices:** `stdio`, `sse`, `streamable`
+  - **Default:** `stdio`
+
+- **`--port`, `-p`**
+  Port number for HTTP-based transports (SSE or Streamable).
+  - **Type:** number
+  - **Default:** `32122` for SSE, `32123` for Streamable
 
 <!-- END AUTO GENERATED OPTIONS -->
 
@@ -302,10 +324,10 @@ Pass them via the `args` property in the JSON configuration. For example:
 ```json
 {
   "mcpServers": {
-    "chrome-devtools": {
+    "chrome-extension-debug": {
       "command": "npx",
       "args": [
-        "chrome-devtools-mcp@latest",
+        "chrome-extension-debug-mcp@latest",
         "--channel=canary",
         "--headless=true",
         "--isolated=true"
@@ -315,20 +337,304 @@ Pass them via the `args` property in the JSON configuration. For example:
 }
 ```
 
-You can also run `npx chrome-devtools-mcp@latest --help` to see all available configuration options.
+You can also run `npx chrome-extension-debug-mcp@latest --help` to see all available configuration options.
+
+## Transport Modes
+
+`chrome-extension-debug-mcp` supports three transport protocols for MCP communication:
+
+### stdio (Default)
+
+Standard input/output transport - the default mode used by most MCP clients.
+
+```json
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "command": "npx",
+      "args": ["chrome-extension-debug-mcp@latest"]
+    }
+  }
+}
+```
+
+### SSE (Server-Sent Events)
+
+HTTP streaming transport using Server-Sent Events. Useful for web-based MCP clients or remote server deployments.
+
+**Start the SSE server:**
+
+```bash
+# Using npx
+npx chrome-extension-debug-mcp@latest --transport sse
+
+# Using standalone binary
+./chrome-extension-debug-mcp --transport sse
+
+# Using Node.js directly (after npm install)
+node build/src/server-sse.js
+
+# Custom port (default: 32122)
+npx chrome-extension-debug-mcp@latest --transport sse --port 3000
+
+# With browser options
+npx chrome-extension-debug-mcp@latest --transport sse --browserUrl http://localhost:9222 --headless
+```
+
+> **Note**: SSE server listens on port **32122** by default. Use `--port` to customize.
+
+**Test the server:**
+
+Open in browser: `http://localhost:32122/test`
+
+**Available endpoints:**
+- **Health check**: `http://localhost:32122/health`
+- **SSE endpoint**: `http://localhost:32122/sse` (MCP client connects here)
+- **Message endpoint**: `http://localhost:32122/message` (for posting MCP messages)
+- **Test page**: `http://localhost:32122/test` (browser-based testing interface)
+
+**Configure MCP client to connect:**
+
+For SSE transport, you need an HTTP-based MCP client. Example configuration:
+
+```json
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "transport": {
+        "type": "sse",
+        "url": "http://localhost:32122/sse"
+      }
+    }
+  }
+}
+```
+
+**For remote server access:**
+
+If running on a remote server (e.g., `192.168.1.100`):
+
+```json
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "transport": {
+        "type": "sse",
+        "url": "http://192.168.1.100:32122/sse"
+      }
+    }
+  }
+}
+```
+
+### Streamable HTTP
+
+Latest MCP standard using Streamable HTTP transport. This is the recommended HTTP-based transport for production use.
+
+**Start the Streamable HTTP server:**
+
+```bash
+# Using npx
+npx chrome-extension-debug-mcp@latest --transport streamable
+
+# Using standalone binary
+./chrome-extension-debug-mcp --transport streamable
+
+# Using Node.js directly (after npm install)
+node build/src/server-http.js
+
+# Custom port (default: 32123)
+npx chrome-extension-debug-mcp@latest --transport streamable --port 3000
+
+# With browser options
+npx chrome-extension-debug-mcp@latest --transport streamable --headless --isolated
+```
+
+> **Note**: Streamable HTTP server listens on port **32123** by default. Use `--port` to customize.
+
+**Test the server:**
+
+Open in browser: `http://localhost:32123/test`
+
+**Available endpoints:**
+- **Health check**: `http://localhost:32123/health`
+- **MCP endpoint**: `http://localhost:32123/mcp` (MCP client connects here)
+- **Test page**: `http://localhost:32123/test` (browser-based testing interface)
+
+**Configure MCP client to connect:**
+
+Streamable HTTP transport uses the MCP Streamable HTTP protocol. Configure your MCP client with:
+
+```json
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://localhost:32123/mcp"
+      }
+    }
+  }
+}
+```
+
+**For remote server access:**
+
+If running on a remote server (e.g., `192.168.1.100`):
+
+```json
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://192.168.1.100:32123/mcp"
+      }
+    }
+  }
+}
+```
+
+**With reverse proxy (recommended for production):**
+
+```json
+{
+  "mcpServers": {
+    "chrome-extension-debug": {
+      "transport": {
+        "type": "streamable-http",
+        "url": "https://your-domain.com/mcp"
+      }
+    }
+  }
+}
+```
+
+### Combining with Browser Options
+
+All browser configuration options work with any transport mode:
+
+```bash
+# SSE with remote browser
+npx chrome-extension-debug-mcp@latest --transport sse --browserUrl http://localhost:9222
+
+# Streamable with headless Chrome
+npx chrome-extension-debug-mcp@latest --transport streamable --headless
+
+# With specific Chrome channel
+npx chrome-extension-debug-mcp@latest --transport streamable --channel canary
+
+# Custom port with multiple options
+npx chrome-extension-debug-mcp@latest --transport sse --port 3000 --headless --isolated
+
+# Standalone binary usage
+./chrome-extension-debug-mcp --transport streamable --port 8080 --channel beta
+```
+
+### Deployment Considerations
+
+**Network Access:**
+- By default, the HTTP server listens on all network interfaces (`0.0.0.0`)
+- Ensure firewall rules allow access to the configured port
+- Use reverse proxy (Caddy, nginx) for HTTPS in production
+
+**Security:**
+- HTTP transports expose browser control over the network
+- Use HTTPS with authentication in production environments
+- Consider using SSH tunneling for remote access: `ssh -L 3000:localhost:3000 user@remote-server`
+
+**Example: SSH Tunnel for Remote Access**
+
+On your local machine:
+```bash
+# Create SSH tunnel for Streamable HTTP (default port 32123)
+ssh -L 32123:localhost:32123 user@remote-server
+
+# Or for SSE (default port 32122)
+ssh -L 32122:localhost:32122 user@remote-server
+```
+
+On the remote server:
+```bash
+# Start Streamable HTTP server
+npx chrome-extension-debug-mcp@latest --transport streamable
+
+# Or start SSE server
+npx chrome-extension-debug-mcp@latest --transport sse
+
+# Using standalone binary
+./chrome-extension-debug-mcp --transport streamable
+```
+
+Then configure your local MCP client to connect to `http://localhost:32123/mcp` (Streamable) or `http://localhost:32122/sse` (SSE).
+
+## Chrome Extension Debugging
+
+`chrome-extension-debug-mcp` provides comprehensive tools for debugging Chrome extensions:
+
+### Supported Features
+
+- ✅ **Manifest V2 & V3** - Full support for both extension manifest versions
+- ✅ **Service Worker Management** - Detect, activate, and monitor MV3 Service Workers
+- ✅ **Storage Inspection** - Read/write extension storage (local, sync, session, managed)
+- ✅ **Context Switching** - Debug different extension contexts (background, popup, options, content scripts)
+- ✅ **Code Evaluation** - Execute JavaScript in extension contexts
+- ✅ **Console Logs** - Capture and analyze extension console output
+- ✅ **Hot Reload** - Reload extensions to apply code changes
+
+### Quick Start
+
+1. **List installed extensions:**
+   ```
+   Use list_extensions to see all installed extensions
+   ```
+
+2. **Get extension details:**
+   ```
+   Use get_extension_details with the extension ID
+   ```
+
+3. **Inspect extension storage:**
+   ```
+   Use inspect_extension_storage to view local/sync/session storage
+   ```
+
+4. **Execute code in extension:**
+   ```
+   Use evaluate_in_extension to run JavaScript in the extension context
+   ```
+
+### MV3 Service Worker Notes
+
+Chrome MV3 extensions use Service Workers which can be in "inactive" state. If you need to interact with an inactive Service Worker:
+
+1. Open `chrome://extensions/` in a new tab
+2. Find your target extension
+3. Click the blue "**Service worker**" link
+4. Keep the DevTools window open while debugging
+
+This ensures `chrome.*` APIs are available for extension tools.
+
+### Example Prompts
+
+- "List all installed Chrome extensions"
+- "Show me the storage data for extension ID xxxxx"
+- "Reload the extension and check for errors"
+- "Get console logs from the extension Service Worker"
+- "Execute chrome.storage.local.get() in the extension"
 
 ## Concepts
 
 ### User data directory
 
-`chrome-devtools-mcp` starts a Chrome's stable channel instance using the following user
+`chrome-extension-debug-mcp` starts a Chrome's stable channel instance using the following user
 data directory:
 
-- Linux / macOS: `$HOME/.cache/chrome-devtools-mcp/chrome-profile-$CHANNEL`
-- Windows: `%HOMEPATH%/.cache/chrome-devtools-mcp/chrome-profile-$CHANNEL`
+- Linux / macOS: `$HOME/.cache/chrome-extension-debug-mcp/chrome-profile-$CHANNEL`
+- Windows: `%HOMEPATH%/.cache/chrome-extension-debug-mcp/chrome-profile-$CHANNEL`
 
 The user data directory is not cleared between runs and shared across
-all instances of `chrome-devtools-mcp`. Set the `isolated` option to `true`
+all instances of `chrome-extension-debug-mcp`. Set the `isolated` option to `true`
 to use a temporary user data dir instead which will be cleared automatically after
 the browser is closed.
 
@@ -345,10 +651,10 @@ Add the `--browser-url` option to your MCP client configuration. The value of th
 ```json
 {
   "mcpServers": {
-    "chrome-devtools": {
+    "chrome-extension-debug": {
       "command": "npx",
       "args": [
-        "chrome-devtools-mcp@latest",
+        "chrome-extension-debug-mcp@latest",
         "--browser-url=http://localhost:9222"
       ]
     }
@@ -400,8 +706,8 @@ For more details on remote debugging, see the [Chrome DevTools documentation](ht
 ### Operating system sandboxes
 
 Some MCP clients allow sandboxing the MCP server using macOS Seatbelt or Linux
-containers. If sandboxes are enabled, `chrome-devtools-mcp` is not able to start
+containers. If sandboxes are enabled, `chrome-extension-debug-mcp` is not able to start
 Chrome that requires permissions to create its own sandboxes. As a workaround,
-either disable sandboxing for `chrome-devtools-mcp` in your MCP client or use
+either disable sandboxing for `chrome-extension-debug-mcp` in your MCP client or use
 `--browser-url` to connect to a Chrome instance that you start manually outside
 of the MCP client sandbox.

@@ -11,7 +11,6 @@
 - ✅ 查找已安装的扩展
 - ✅ 检测扩展基本信息（ID、名称、版本）
 - ✅ Service Worker 状态检测
-- ✅ Helper Extension 检测
 
 ### 2. `extension-details.test.ts`
 测试 `get_extension_details` 工具
