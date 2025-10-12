@@ -23,7 +23,12 @@ Captures console output from different extension contexts:
 - Popup and options page logs
 
 This is essential for debugging extension behavior without manually opening DevTools.
-Logs are color-coded by level (error, warning, info, log, debug) for easy identification.`,
+Logs are color-coded by level (error, warning, info, log, debug) for easy identification.
+
+⚠️ **Note for MV3 extensions**:
+- Service Worker logs are only available when SW is active
+- If SW is inactive, you may only see logs from other contexts (content scripts, popup, etc.)
+- Use 'activate_extension_service_worker' to activate SW if you need to see its logs`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

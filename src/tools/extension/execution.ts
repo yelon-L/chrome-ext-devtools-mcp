@@ -24,7 +24,12 @@ Note: Reloading will:
 - Close all extension contexts (popup, options, devtools)
 - Restart the background script/service worker
 - Re-inject content scripts
-- Clear extension's in-memory state`,
+- Clear extension's in-memory state
+
+⚠️ **Prerequisites for MV3 extensions**:
+- Service Worker MUST be active to execute chrome.runtime.reload()
+- If SW is inactive, use 'activate_extension_service_worker' first
+- After reload, SW will restart (may take a moment to become active)`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,
@@ -56,7 +61,7 @@ Note: Reloading will:
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
           chrome.runtime.reload();
         } else {
-          throw new Error('chrome.runtime.reload() is not available. Service Worker may be inactive.');
+          throw new Error('chrome.runtime.reload() is not available. Service Worker may be inactive. Try activate_extension_service_worker first.');
         }
         `,
         false, // Don't wait for promise as extension will terminate
@@ -92,7 +97,13 @@ background page for MV2). This is essential for:
 - Inspecting extension state
 - Calling extension functions
 
-The code runs with full extension permissions and has access to all chrome.* APIs.`,
+The code runs with full extension permissions and has access to all chrome.* APIs.
+
+⚠️ **Prerequisites for MV3 extensions**:
+- Service Worker MUST be active before calling this tool
+- If SW is inactive, this tool will fail with "No background context found"
+- Use 'activate_extension_service_worker' first if you see SW status as 🔴 Inactive
+- Check SW status with 'list_extensions' before proceeding`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,
@@ -160,6 +171,7 @@ The code runs with full extension permissions and has access to all chrome.* API
       response.appendResponseLine('- Extension context is not active');
       response.appendResponseLine('- Missing permissions for the API being used');
       response.appendResponseLine('- Service Worker is not running (for MV3)');
+      response.appendResponseLine('\n💡 **Tip**: If the Service Worker is inactive, use `activate_extension_service_worker` to activate it first');
 
       response.setIncludePages(true);
     }

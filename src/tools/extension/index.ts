@@ -13,3 +13,4 @@ export {listExtensionContexts, switchExtensionContext} from './contexts.js';
 export {inspectExtensionStorage} from './storage.js';
 export {getExtensionLogs} from './logs.js';
 export {evaluateInExtension, reloadExtension} from './execution.js';
+export {activateExtensionServiceWorker} from './service-worker-activation.js';

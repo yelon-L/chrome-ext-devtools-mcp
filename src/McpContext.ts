@@ -128,28 +128,132 @@ export class McpContext implements Context {
   }
 
   async #init() {
-    await this.createPagesSnapshot();
-    
-    // 如果浏览器没有打开任何页面，创建一个新页面
-    // 这种情况在连接到只有扩展页面的浏览器时会发生
-    if (this.#pages.length === 0) {
-      this.logger('No pages found, creating a new page');
-      const page = await this.browser.newPage();
-      this.#pages = [page];
-      // 将新页面添加到收集器中
-      this.#networkCollector.addPage(page);
-      this.#consoleCollector.addPage(page);
+    try {
+      // 添加超时保护
+      const pagesPromise = this.createPagesSnapshot();
+      const timeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Pages snapshot timeout')), 5000)
+      );
+      await Promise.race([pagesPromise, timeout]);
+      
+      // 如果浏览器没有打开任何页面，创建一个新页面
+      // 这种情况在连接到只有扩展页面的浏览器时会发生
+      if (this.#pages.length === 0) {
+        this.logger('No pages found, creating a new page');
+        const page = await this.browser.newPage();
+        this.#pages = [page];
+        // 将新页面添加到收集器中
+        this.#networkCollector.addPage(page);
+        this.#consoleCollector.addPage(page);
+      }
+      
+      this.setSelectedPageIdx(0);
+      await this.#networkCollector.init();
+      await this.#consoleCollector.init();
+    } catch (error) {
+      this.logger(`Warning: Failed to initialize context: ${error}`);
+      // 创建一个默认页面作为fallback
+      if (this.#pages.length === 0) {
+        try {
+          const page = await this.browser.newPage();
+          this.#pages = [page];
+          this.#networkCollector.addPage(page);
+          this.#consoleCollector.addPage(page);
+          this.setSelectedPageIdx(0);
+        } catch (pageError) {
+          this.logger(`Failed to create fallback page: ${pageError}`);
+          throw pageError;
+        }
+      }
     }
-    
-    this.setSelectedPageIdx(0);
-    await this.#networkCollector.init();
-    await this.#consoleCollector.init();
   }
 
   static async from(browser: Browser, logger: Debugger) {
     const context = new McpContext(browser, logger);
     await context.#init();
     return context;
+  }
+
+  /**
+   * 快速创建上下文，跳过页面快照（用于多租户场景）
+   * @deprecated 使用 fromMinimal 替代
+   */
+  static async fromFast(browser: Browser, logger: Debugger) {
+    return this.fromMinimal(browser, logger);
+  }
+
+  /**
+   * 最小化初始化：延迟创建页面直到首次使用
+   * 适用于多租户场景，避免连接时卡在 browser.newPage()
+   */
+  static async fromMinimal(browser: Browser, logger: Debugger) {
+    const context = new McpContext(browser, logger);
+    
+    // 不创建页面，标记为未初始化
+    context.#pages = [];
+    context.#initialized = false;
+    
+    logger('Context created with minimal initialization (lazy mode)');
+    
+    return context;
+  }
+
+  #initialized = false;
+  #initPromise?: Promise<void>;
+
+  /**
+   * 确保上下文已初始化（按需创建页面）
+   * 公开方法，供外部调用以触发延迟初始化
+   */
+  async ensureInitialized(): Promise<void> {
+    if (this.#initialized) {
+      return;
+    }
+
+    // 避免重复初始化
+    if (!this.#initPromise) {
+      this.#initPromise = this.#initializeLazy();
+    }
+
+    await this.#initPromise;
+  }
+
+  /**
+   * 延迟初始化：只在需要时创建页面
+   */
+  async #initializeLazy(): Promise<void> {
+    try {
+      this.logger('Lazy initialization: creating page...');
+      
+      // 添加超时保护（增加到30秒，首次可能较慢）
+      const pagePromise = this.browser.newPage();
+      const timeout = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('newPage timeout (30s)')), 30000)
+      );
+      
+      const page = await Promise.race([pagePromise, timeout]);
+      this.logger('Page created successfully');
+      
+      this.#pages = [page];
+      this.setSelectedPageIdx(0);
+      
+      // 初始化收集器
+      this.#networkCollector.addPage(page);
+      this.#consoleCollector.addPage(page);
+      
+      await Promise.all([
+        this.#networkCollector.init(),
+        this.#consoleCollector.init()
+      ]);
+      
+      this.#initialized = true;
+      this.logger('Lazy initialization completed');
+    } catch (error) {
+      this.logger(`Lazy initialization failed: ${error}`);
+      // 清除 promise 以允许重试
+      this.#initPromise = undefined;
+      throw error;
+    }
   }
 
   getNetworkRequests(): HTTPRequest[] {

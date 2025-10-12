@@ -1,0 +1,53 @@
+控制台信息:
+p@ub24043d:~/workspace/chrome-ext-devtools-mcp$ npm run start:multi-tenant:dev
+
+> chrome-extension-debug-mcp@0.8.1 start:multi-tenant:dev
+> npm run build && AUTH_ENABLED=false PORT=32122 node build/src/multi-tenant/server-multi-tenant.js
+
+
+> chrome-extension-debug-mcp@0.8.1 build
+> tsc && node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/post-build.ts
+
+
+╔════════════════════════════════════════════════════════╗
+║   Chrome DevTools MCP - Multi-Tenant Server           ║
+╚════════════════════════════════════════════════════════╝
+
+[Server] 🌐 服务器已启动
+[Server] 📡 端口: 32122
+[Server] 🔗 端点:
+      - Health:   http://localhost:32122/health
+      - Register: http://localhost:32122/api/register
+      - SSE:      http://localhost:32122/sse
+      - Message:  http://localhost:32122/message
+      - Test:     http://localhost:32122/test
+
+[Server] 🔐 认证: 未启用
+[Server] 传输方式: Server-Sent Events (SSE)
+[Server] 按 Ctrl+C 停止
+
+Exception in PromiseRejectCallback:
+file:///home/p/workspace/chrome-ext-devtools-mcp/build/src/multi-tenant/server-multi-tenant.js:315
+            };
+            ^
+
+Exception in PromiseRejectCallback:
+file:///home/p/workspace/chrome-ext-devtools-mcp/build/src/multi-tenant/server-multi-tenant.js:315
+            };
+            ^
+
+RangeError: Maximum call stack size exceeded
+
+Exception in PromiseRejectCallback:
+file:///home/p/workspace/chrome-ext-devtools-mcp/node_modules/.pnpm/@modelcontextprotocol+sdk@1.19.1/node_modules/@modelcontextprotocol/sdk/dist/esm/server/sse.js:144
+    }
+    ^
+
+RangeError: Maximum call stack size exceeded
+
+Exception in PromiseRejectCallback:
+file:///home/p/workspace/chrome-ext-devtools-mcp/build/src/multi-tenant/core/SessionManager.js:116
+            await session.transport.close();
+                                    ^
+
+RangeError: Maximum call stack size exceeded

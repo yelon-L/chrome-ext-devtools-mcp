@@ -27,7 +27,13 @@ This includes:
 - Content scripts
 
 Use this to understand all running contexts of an extension before debugging.
-Each context has a unique Target ID that can be used with switch_extension_context.`,
+Each context has a unique Target ID that can be used with switch_extension_context.
+
+⚠️ **Note for MV3 extensions**:
+- If Service Worker is inactive, it won't appear in the contexts list
+- "No active contexts" may indicate SW is inactive (check with 'list_extensions')
+- Use 'activate_extension_service_worker' to activate SW if needed
+- MV3 SW is ephemeral and may become inactive after 30 seconds of inactivity`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -49,6 +55,9 @@ Each context has a unique Target ID that can be used with switch_extension_conte
       );
       response.appendResponseLine(
         '\nThe extension may be disabled or not running any contexts currently.',
+      );
+      response.appendResponseLine(
+        '\n💡 **Tip**: For MV3 extensions, try `activate_extension_service_worker` to activate the Service Worker',
       );
       response.setIncludePages(true);
       return;

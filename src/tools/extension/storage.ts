@@ -25,7 +25,12 @@ Storage types:
 - local: 5MB quota, persists across browser restarts
 - sync: 100KB quota, syncs across devices signed into same account
 - session: 10MB quota, cleared when browser closes (MV3 only)
-- managed: Enterprise-managed storage (read-only for extension)`,
+- managed: Enterprise-managed storage (read-only for extension)
+
+⚠️ **Prerequisites for MV3 extensions**:
+- Service Worker MUST be active to access chrome.storage API
+- If SW is inactive, this tool may fail or return incomplete data
+- Use 'activate_extension_service_worker' first if SW status is 🔴 Inactive`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
