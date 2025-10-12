@@ -105,14 +105,31 @@ export type Context = Readonly<{
     error?: string;
     suggestion?: string;
   }>;
-  getExtensionLogs(extensionId: string): Promise<{
+  getExtensionLogs(
+    extensionId: string,
+    options?: {
+      capture?: boolean;
+      duration?: number;
+      includeStored?: boolean;
+    }
+  ): Promise<{
     logs: Array<{
       type: string;
       text: string;
       timestamp: number;
-      source: string;
+      source: 'stored' | 'realtime';
+      level?: string;
+      stackTrace?: string;
+      url?: string;
+      lineNumber?: number;
     }>;
     isActive: boolean;
+    captureInfo?: {
+      started: number;
+      ended: number;
+      duration: number;
+      messageCount: number;
+    };
   }>;
   getExtensionStorage(
     extensionId: string,

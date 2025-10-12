@@ -26,6 +26,28 @@ interface CDPTargetInfo {
 }
 
 /**
+ * ExtensionHelper 配置选项
+ */
+export interface ExtensionHelperOptions {
+  /** 已知的扩展ID列表（用于检测未激活的扩展） */
+  knownExtensionIds?: string[];
+  
+  /** 超时配置 */
+  timeouts?: {
+    /** manifest 加载超时（毫秒），默认 2000 */
+    manifestLoad?: number;
+    /** 页面加载超时（毫秒），默认 5000 */
+    pageLoad?: number;
+  };
+  
+  /** 日志配置 */
+  logging?: {
+    /** 是否使用console（开发模式），默认 false */
+    useConsole?: boolean;
+  };
+}
+
+/**
  * 扩展辅助类 - 使用 CDP API 实现可靠的扩展检测
  * 参考 chrome-extension-debug-mcp 的实现方式
  */
@@ -33,9 +55,45 @@ export class ExtensionHelper {
   private cdpSession: CDPSession | null = null;
   private helperClient: HelperExtensionClient | null = null;
   private helperDetectionAttempted: boolean = false;
+  private options: Required<ExtensionHelperOptions>;
 
-  constructor(private browser: Browser) {
+  constructor(
+    private browser: Browser,
+    options: ExtensionHelperOptions = {},
+  ) {
+    // 合并默认配置
+    this.options = {
+      knownExtensionIds: options.knownExtensionIds || [],
+      timeouts: {
+        manifestLoad: options.timeouts?.manifestLoad || 2000,
+        pageLoad: options.timeouts?.pageLoad || 5000,
+      },
+      logging: {
+        useConsole: options.logging?.useConsole || false,
+      },
+    };
     // Helper Client 将在第一次需要时初始化
+  }
+  
+  /**
+   * 日志方法（可配置是否使用console）
+   */
+  private log(message: string): void {
+    if (this.options.logging.useConsole) {
+      console.log(message);
+    }
+  }
+  
+  private logWarn(message: string): void {
+    if (this.options.logging.useConsole) {
+      console.warn(message);
+    }
+  }
+  
+  private logError(message: string, error?: unknown): void {
+    if (this.options.logging.useConsole) {
+      console.error(message, error);
+    }
   }
 
   /**
@@ -61,15 +119,95 @@ export class ExtensionHelper {
   }
 
   /**
-   * 推断上下文类型
+   * 确定 Service Worker 状态
+   * 
+   * @param manifest - 扩展的 manifest 信息
+   * @param backgroundTarget - 从 targets 中找到的 background target
+   * @returns Service Worker 状态
+   * - `active`: Service Worker 正在运行
+   * - `inactive`: Service Worker 已定义但未激活（休眠）
+   * - `not_found`: Manifest 中未定义 Service Worker
+   * - `undefined`: MV2 扩展（没有 Service Worker）
    */
-  private inferContextType(target: CDPTargetInfo): ExtensionContextType {
+  private determineServiceWorkerStatus(
+    manifest: ManifestV2 | ManifestV3,
+    backgroundTarget: CDPTargetInfo | null,
+  ): 'active' | 'inactive' | 'not_found' | undefined {
+    // 只有 MV3 才有 Service Worker
+    if (manifest.manifest_version !== 3) {
+      return undefined;
+    }
+
+    const mv3Manifest = manifest as ManifestV3;
+
+    // 检查 Manifest 中是否定义了 Service Worker
+    if (!mv3Manifest.background?.service_worker) {
+      return 'not_found';
+    }
+
+    // 检查 Service Worker 是否在运行
+    if (backgroundTarget && backgroundTarget.type === 'service_worker') {
+      return 'active';
+    }
+
+    // Manifest 中定义了 SW，但未在 targets 中找到 = Inactive (休眠)
+    return 'inactive';
+  }
+
+  /**
+   * 推断上下文类型
+   * 
+   * @param target - CDP target 信息
+   * @param manifest - 可选的 manifest 信息，用于精确判断
+   * @returns 上下文类型
+   */
+  private inferContextType(
+    target: CDPTargetInfo,
+    manifest?: ManifestV2 | ManifestV3,
+  ): ExtensionContextType {
     const {url, type} = target;
 
+    // 1. 通过 target type 判断（最准确）
     if (type === 'service_worker' || type === 'background_page') {
       return 'background';
     }
 
+    // 2. 如果有 manifest，使用 manifest 精确判断
+    if (manifest) {
+      const manifestV3 = manifest as ManifestV3;
+      const manifestV2 = manifest as ManifestV2;
+
+      // Popup: 检查 action.default_popup 或 browser_action.default_popup
+      const popupPage =
+        manifestV3.action?.default_popup ||
+        manifestV2.browser_action?.default_popup ||
+        manifestV2.page_action?.default_popup;
+
+      if (popupPage && url.endsWith(popupPage)) {
+        return 'popup';
+      }
+
+      // Options: 检查 options_page 或 options_ui.page
+      const optionsPage =
+        manifest.options_page || (manifest as ManifestV3).options_ui?.page;
+
+      if (optionsPage && url.endsWith(optionsPage)) {
+        return 'options';
+      }
+
+      // DevTools: 检查 devtools_page
+      const devtoolsPage = (manifest as any).devtools_page;
+      if (devtoolsPage && url.endsWith(devtoolsPage)) {
+        return 'devtools';
+      }
+    }
+
+    // 3. 检查 offscreen document（MV3 新特性）
+    if (url.includes('/offscreen')) {
+      return 'content_script'; // 暂时归类为 content_script，未来可以添加 'offscreen' 类型
+    }
+
+    // 4. 回退到基于 URL 的推断
     if (url.includes('/popup.html')) {
       return 'popup';
     }
@@ -82,6 +220,7 @@ export class ExtensionHelper {
       return 'devtools';
     }
 
+    // 5. 默认为 content_script
     return 'content_script';
   }
 
@@ -99,10 +238,10 @@ export class ExtensionHelper {
       const manifestUrl = `chrome-extension://${extensionId}/manifest.json`;
       manifestPage = await this.browser.newPage();
       
-      // 添加超时和更快的等待策略
+      // 使用配置的超时时间
       await manifestPage.goto(manifestUrl, {
-        waitUntil: 'domcontentloaded', // 从 networkidle0 改为 domcontentloaded，更快
-        timeout: 3000, // 添加 3 秒超时
+        waitUntil: 'domcontentloaded',
+        timeout: this.options.timeouts.manifestLoad,
       });
 
       // 读取页面内容
@@ -138,18 +277,165 @@ export class ExtensionHelper {
   }
 
   /**
-   * 获取所有扩展信息（优化版：只调用一次 CDP，批量处理）
+   * 🚀 优化方法：通过 chrome.management.getAll() API 获取所有扩展
+   * 优点：一次调用获取所有扩展，包括休眠的扩展
+   */
+  private async getExtensionsViaManagementAPI(allTargets: CDPTargetInfo[]): Promise<ExtensionInfo[]> {
+    try {
+      // 方案A: 找一个已经活跃的扩展 Service Worker
+      let activeExtensionTarget = allTargets.find(
+        t => t.type === 'service_worker' && t.url?.startsWith('chrome-extension://')
+      );
+      
+      // 方案B: 如果没有活跃的SW，尝试主动激活一个
+      if (!activeExtensionTarget) {
+        this.log('[ExtensionHelper] 没有活跃的SW，尝试激活一个扩展...');
+        
+        // 从 targets 中找任意一个扩展页面
+        const anyExtensionTarget = allTargets.find(
+          t => t.url?.startsWith('chrome-extension://')
+        );
+        
+        if (anyExtensionTarget) {
+          const extId = this.extractExtensionId(anyExtensionTarget.url);
+          if (extId) {
+            try {
+              // 通过打开 manifest.json 来触发 SW 激活（轻量级操作）
+              const manifestPage = await this.browser.newPage();
+              await manifestPage.goto(`chrome-extension://${extId}/manifest.json`, {
+                timeout: this.options.timeouts.manifestLoad,
+                waitUntil: 'domcontentloaded'
+              });
+              await manifestPage.close();
+              
+              // 等待 SW 激活
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // 重新获取 targets
+              const cdp = await this.getCDPSession();
+              const {targetInfos} = await cdp.send('Target.getTargets');
+              const newTargets = targetInfos as CDPTargetInfo[];
+              
+              activeExtensionTarget = newTargets.find(
+                t => t.type === 'service_worker' && t.url?.startsWith('chrome-extension://')
+              );
+              
+              if (activeExtensionTarget) {
+                this.log('[ExtensionHelper] ✅ 成功激活一个SW');
+              }
+            } catch (error) {
+              this.log('[ExtensionHelper] 激活SW失败，使用回退方案');
+            }
+          }
+        }
+      }
+      
+      if (!activeExtensionTarget) {
+        this.log('[ExtensionHelper] 仍然没有活跃的SW，使用回退方案');
+        return [];
+      }
+      
+      const extId = this.extractExtensionId(activeExtensionTarget.url);
+      if (!extId) return [];
+      
+      this.log(`[ExtensionHelper] 使用扩展 ${extId} 调用 chrome.management.getAll()`);
+      
+      // 在扩展上下文中执行 chrome.management.getAll()
+      const result = await this.evaluateInContext(
+        activeExtensionTarget.targetId,
+        `
+        (async () => {
+          if (typeof chrome === 'undefined' || !chrome.management) {
+            return {error: 'chrome.management not available'};
+          }
+          try {
+            const extensions = await chrome.management.getAll();
+            return {success: true, extensions};
+          } catch (error) {
+            return {error: error.message};
+          }
+        })()
+        `,
+        true
+      );
+      
+      if (!result || (result as any).error) {
+        this.log(`[ExtensionHelper] chrome.management API 调用失败: ${(result as any)?.error}`);
+        return [];
+      }
+      
+      const managementData = (result as any).extensions || [];
+      this.log(`[ExtensionHelper] chrome.management API 返回 ${managementData.length} 个扩展`);
+      
+      // 🚀 并行获取所有扩展的 manifest
+      const manifestPromises = managementData.map((ext: any) => 
+        this.getExtensionManifestQuick(ext.id).then(manifest => ({ext, manifest}))
+      );
+      
+      const manifestResults = await Promise.all(manifestPromises);
+      
+      // 转换为 ExtensionInfo 格式
+      const extensions: ExtensionInfo[] = [];
+      
+      for (const {ext, manifest} of manifestResults) {
+        const manifestVersion = manifest?.manifest_version || 2;  // 默认 MV2 更安全
+        
+        // 查找该扩展的 background target
+        const backgroundTarget = allTargets.find(
+          t =>
+            (t.type === 'service_worker' || t.type === 'background_page') &&
+            t.url?.includes(ext.id),
+        ) || null;
+        
+        // 确定 Service Worker 状态（使用公共方法）
+        const serviceWorkerStatus = manifest
+          ? this.determineServiceWorkerStatus(manifest, backgroundTarget)
+          : undefined;
+        
+        extensions.push({
+          id: ext.id,
+          name: ext.name,
+          version: ext.version || 'unknown',
+          manifestVersion,  // ✅ 准确的版本号
+          description: ext.description || '',
+          enabled: ext.enabled,
+          backgroundUrl: backgroundTarget?.url,
+          serviceWorkerStatus,
+          permissions: ext.permissions || [],
+          hostPermissions: ext.hostPermissions || [],
+        });
+      }
+      
+      return extensions;
+    } catch (error) {
+      this.logError('[ExtensionHelper] getExtensionsViaManagementAPI 失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取所有扩展信息（优化版：优先使用 chrome.management API）
    */
   async getExtensions(includeDisabled = false): Promise<ExtensionInfo[]> {
     try {
-      console.log('[ExtensionHelper] 获取所有扩展...');
+      this.log('[ExtensionHelper] 获取所有扩展...');
       
       // 获取所有 targets（只调用一次）
       const cdp = await this.getCDPSession();
       const {targetInfos} = await cdp.send('Target.getTargets');
       const allTargets = targetInfos as CDPTargetInfo[];
       
-      // 从所有 chrome-extension:// URLs 中提取唯一的扩展 ID
+      // 🚀 优化：尝试使用 chrome.management.getAll() API
+      const managementExtensions = await this.getExtensionsViaManagementAPI(allTargets);
+      
+      if (managementExtensions.length > 0) {
+        this.log(`[ExtensionHelper] ✅ 通过 chrome.management API 获取到 ${managementExtensions.length} 个扩展`);
+        return includeDisabled ? managementExtensions : managementExtensions.filter(ext => ext.enabled);
+      }
+      
+      this.log('[ExtensionHelper] ⚠️  chrome.management API 不可用，回退到 targets 扫描');
+      
+      // 回退方案：从所有 chrome-extension:// URLs 中提取唯一的扩展 ID
       const extensionIds = new Set<string>();
       
       for (const target of allTargets) {
@@ -161,17 +447,14 @@ export class ExtensionHelper {
         }
       }
       
-      console.log(`[ExtensionHelper] 从 targets 找到 ${extensionIds.size} 个扩展 ID`);
+      this.log(`[ExtensionHelper] 从 targets 找到 ${extensionIds.size} 个扩展 ID`);
       
       // 添加已知的扩展 ID（即使它们的 SW 是 inactive）
       // 这样可以检测到 Helper Extension 和其他可能的扩展
-      const KNOWN_EXTENSION_IDS = [
-        'kppbmoiecmhnnhjnlkojlblanellmonp', // MCP Service Worker Activator (手动安装)
-        // 可以添加更多已知的扩展 ID
-      ];
+      const knownIds = this.options.knownExtensionIds || [];
       
       let addedCount = 0;
-      for (const knownId of KNOWN_EXTENSION_IDS) {
+      for (const knownId of knownIds) {
         if (!extensionIds.has(knownId)) {
           extensionIds.add(knownId);
           addedCount++;
@@ -179,38 +462,45 @@ export class ExtensionHelper {
       }
       
       if (addedCount > 0) {
-        console.log(`[ExtensionHelper] 添加了 ${addedCount} 个已知扩展 ID`);
+        this.log(`[ExtensionHelper] 添加了 ${addedCount} 个已知扩展 ID`);
       }
       
-      console.log(`[ExtensionHelper] 总共将检查 ${extensionIds.size} 个扩展`);
+      this.log(`[ExtensionHelper] 总共将检查 ${extensionIds.size} 个扩展`);
       
-      // 批量获取详细信息
+      // 🚀 优化：并行获取所有扩展的 manifest
       const extensions: ExtensionInfo[] = [];
       
-      for (const extId of extensionIds) {
+      this.log(`[ExtensionHelper] 并行获取 ${extensionIds.size} 个扩展的 manifest...`);
+      const startTime = Date.now();
+      
+      const manifestPromises = Array.from(extensionIds).map(async (extId) => {
         const manifest = await this.getExtensionManifestQuick(extId);
-        if (!manifest) continue;
+        return {extId, manifest};
+      });
+      
+      const manifestResults = await Promise.all(manifestPromises);
+      const elapsed = Date.now() - startTime;
+      this.log(`[ExtensionHelper] 所有 manifest 获取完成，总耗时 ${elapsed}ms`);
+      
+      for (const {extId, manifest} of manifestResults) {
+        if (!manifest) {
+          this.log(`[ExtensionHelper] 扩展 ${extId} manifest 为空，跳过`);
+          continue;
+        }
         
         // 查找该扩展的 background target
         const backgroundTarget = allTargets.find(
           t =>
             (t.type === 'service_worker' || t.type === 'background_page') &&
             t.url?.includes(extId),
+        ) || null;
+        
+        // 确定 Service Worker 状态（使用公共方法）
+        const serviceWorkerStatus = this.determineServiceWorkerStatus(
+          manifest,
+          backgroundTarget,
         );
-        
-        // 确定 Service Worker 状态
-        let serviceWorkerStatus: 'active' | 'inactive' | 'not_found' | undefined;
         const manifestVersion = manifest.manifest_version;
-        
-        if (manifestVersion === 3) {
-          if (backgroundTarget && backgroundTarget.type === 'service_worker') {
-            serviceWorkerStatus = 'active';
-          } else if ((manifest as ManifestV3).background?.service_worker) {
-            serviceWorkerStatus = 'inactive';
-          } else {
-            serviceWorkerStatus = 'not_found';
-          }
-        }
         
         // 扩展启用状态：能读取 manifest = 已安装且启用
         const enabled = true;
@@ -235,10 +525,10 @@ export class ExtensionHelper {
         });
       }
       
-      console.log(`[ExtensionHelper] 成功处理 ${extensions.length} 个扩展`);
+      this.log(`[ExtensionHelper] 成功处理 ${extensions.length} 个扩展`);
       return includeDisabled ? extensions : extensions.filter(ext => ext.enabled);
     } catch (error) {
-      console.error('[ExtensionHelper] 获取扩展列表失败:', error);
+      this.logError('[ExtensionHelper] 获取扩展列表失败:', error);
       return [];
     }
   }
@@ -267,48 +557,44 @@ export class ExtensionHelper {
 
   /**
    * 获取指定扩展的详细信息
+   * 
+   * 直接获取单个扩展的信息，避免获取所有扩展
+   * 性能：~20ms（只获取1个） vs ~200ms（获取所有再过滤）
    */
   async getExtensionDetails(extensionId: string): Promise<ExtensionInfo | null> {
     try {
+      // 1. 获取该扩展的 manifest
       const manifest = await this.getExtensionManifest(extensionId);
       if (!manifest) {
         return null;
       }
 
+      // 2. 获取 targets（轻量级操作）
       const cdp = await this.getCDPSession();
-      const result = await cdp.send('Target.getTargets');
-      const targets = result.targetInfos as CDPTargetInfo[];
+      const {targetInfos} = await cdp.send('Target.getTargets');
+      const allTargets = targetInfos as CDPTargetInfo[];
 
-      // 查找背景页
-      const backgroundTarget = targets.find(
+      // 3. 查找该扩展的 background target
+      const backgroundTarget = allTargets.find(
         t =>
           (t.type === 'service_worker' || t.type === 'background_page') &&
           t.url?.includes(extensionId),
+      ) || null;
+
+      // 4. 确定 Service Worker 状态（使用公共方法）
+      const serviceWorkerStatus = this.determineServiceWorkerStatus(
+        manifest,
+        backgroundTarget,
       );
 
-      // 确定 Service Worker 状态
-      let serviceWorkerStatus: 'active' | 'inactive' | 'not_found' | undefined;
-      if (manifest.manifest_version === 3) {
-        if (backgroundTarget && backgroundTarget.type === 'service_worker') {
-          serviceWorkerStatus = 'active';
-        } else if ((manifest as ManifestV3).background?.service_worker) {
-          // manifest 中定义了 SW，但未在 targets 中找到 = Inactive
-          serviceWorkerStatus = 'inactive';
-        } else {
-          serviceWorkerStatus = 'not_found';
-        }
-      }
-
-      // 扩展启用状态：从 manifest 存在推断（能读取 manifest = 扩展已安装）
-      const enabled = !!manifest;
-
+      // 5. 构建返回结果
       return {
         id: extensionId,
         name: manifest.name,
         version: manifest.version,
         manifestVersion: manifest.manifest_version,
         description: manifest.description,
-        enabled,
+        enabled: true,  // 能读取 manifest 说明扩展已启用
         backgroundUrl: backgroundTarget?.url,
         serviceWorkerStatus,
         permissions:
@@ -328,9 +614,14 @@ export class ExtensionHelper {
 
   /**
    * 获取扩展的所有上下文
+   * 
+   * 优化：使用 manifest 信息精确判断上下文类型
    */
   async getExtensionContexts(extensionId: string): Promise<ExtensionContext[]> {
     try {
+      // 获取 manifest 用于精确判断类型
+      const manifest = await this.getExtensionManifestQuick(extensionId);
+
       const cdp = await this.getCDPSession();
       const result = await cdp.send('Target.getTargets');
       const targets = result.targetInfos as CDPTargetInfo[];
@@ -343,7 +634,8 @@ export class ExtensionHelper {
           continue;
         }
 
-        const contextType = this.inferContextType(target);
+        // 使用 manifest 精确判断类型
+        const contextType = this.inferContextType(target, manifest || undefined);
         const isPrimary =
           target.type === 'service_worker' || target.type === 'background_page';
 
@@ -359,7 +651,7 @@ export class ExtensionHelper {
 
       return contexts;
     } catch (error) {
-      console.error(`Failed to get contexts for ${extensionId}:`, error);
+      this.logError(`Failed to get contexts for ${extensionId}:`, error);
       return [];
     }
   }
@@ -377,34 +669,33 @@ export class ExtensionHelper {
     let sessionId: string | null = null;
 
     try {
-      // Attach 到目标上下文
-      const attachResult = await cdp.send('Target.attachToTarget', {
-        targetId: contextId,
-        flatten: true,
-      });
-      sessionId = attachResult.sessionId;
-
-      // 执行代码
-      const evalResult = await cdp.send('Runtime.evaluate', {
-        expression: code,
-        returnByValue: true,
-        awaitPromise,
-      });
-
-      // Detach
-      if (sessionId) {
-        await cdp.send('Target.detachFromTarget', {sessionId});
-        sessionId = null;
+      // 方案：获取目标的 page 或 worker，直接使用 Puppeteer API
+      const targets = await this.browser.targets();
+      const target = targets.find(t => (t as any)._targetId === contextId);
+      
+      if (!target) {
+        throw new Error(`Target ${contextId} not found`);
       }
 
-      if (evalResult.exceptionDetails) {
-        throw new Error(
-          evalResult.exceptionDetails.exception?.description ||
-            'Evaluation failed',
-        );
+      // 尝试获取 worker (Service Worker)
+      const worker = await target.worker();
+      if (worker) {
+        // 使用 worker.evaluate
+        return await worker.evaluate((code) => {
+          // 使用 eval 在 worker 上下文执行
+          return eval(code);
+        }, code);
       }
 
-      return evalResult.result?.value;
+      // 如果不是 worker，尝试 page
+      const page = await target.page();
+      if (page) {
+        return await page.evaluate((code) => {
+          return eval(code);
+        }, code);
+      }
+
+      throw new Error('Cannot get page or worker for this target');
     } catch (error) {
       // 清理
       if (sessionId) {
@@ -420,9 +711,14 @@ export class ExtensionHelper {
 
   /**
    * 切换到指定的扩展上下文
+   * 
+   * @param contextId - Context ID (target ID)
+   * @returns Page 对象
+   * @throws Error 如果 context 不存在或是 Service Worker
+   * 
    * 注意：Service Worker 没有 Page 对象，应该使用 evaluateInContext
    */
-  async switchToExtensionContext(contextId: string): Promise<Page | null> {
+  async switchToExtensionContext(contextId: string): Promise<Page> {
     try {
       const cdp = await this.getCDPSession();
       const result = await cdp.send('Target.getTargets');
@@ -434,12 +730,11 @@ export class ExtensionHelper {
         throw new Error(`Context with ID ${contextId} not found`);
       }
 
-      // 对于 Service Worker，返回 null 并提示使用 evaluateInContext
+      // Service Worker 不支持 Page API，直接抛错并提示
       if (target.type === 'service_worker') {
-        console.warn(
+        throw new Error(
           'Service Worker does not have a Page object. Use evaluateInContext() instead.',
         );
-        return null;
       }
 
       // 对于常规 Page 类型，使用 Puppeteer API
@@ -453,13 +748,16 @@ export class ExtensionHelper {
       }
 
       const page = await puppeteerTarget.page();
-      if (page) {
-        await page.bringToFront();
+      
+      if (!page) {
+        throw new Error(`Failed to get Page object for context ${contextId}`);
       }
+      
+      await page.bringToFront();
 
       return page;
     } catch (error) {
-      console.error(`Failed to switch to context ${contextId}:`, error);
+      this.logError(`Failed to switch to context ${contextId}:`, error);
       throw error;
     }
   }
@@ -481,7 +779,7 @@ export class ExtensionHelper {
 
       return backgroundTarget || null;
     } catch (error) {
-      console.error(`Failed to get background target for ${extensionId}:`, error);
+      this.logError(`Failed to get background target for ${extensionId}:`, error);
       return null;
     }
   }
@@ -512,18 +810,18 @@ export class ExtensionHelper {
     suggestion?: string;
   }> {
     try {
-      console.log(`[ExtensionHelper] 尝试激活 Service Worker: ${extensionId}`);
+      this.log(`[ExtensionHelper] 尝试激活 Service Worker: ${extensionId}`);
       
       // ===== 方法 0: Helper Extension（优先级最高）=====
       await this.ensureHelperClient();
       
       if (this.helperClient && this.helperClient.isHelperAvailable()) {
-        console.log(`[ExtensionHelper] ✨ 检测到 Helper Extension，使用增强模式`);
+        this.log(`[ExtensionHelper] ✨ 检测到 Helper Extension，使用增强模式`);
         
         const helperResult = await this.helperClient.activateExtension(extensionId);
         
         if (helperResult.success) {
-          console.log(`[ExtensionHelper] ✅ Helper Extension 激活成功`);
+          this.log(`[ExtensionHelper] ✅ Helper Extension 激活成功`);
           return {
             success: true,
             method: `Helper Extension (${helperResult.method})`,
@@ -531,27 +829,27 @@ export class ExtensionHelper {
           };
         }
         
-        console.log(`[ExtensionHelper] ⚠️ Helper Extension 激活失败: ${helperResult.error}`);
+        this.log(`[ExtensionHelper] ⚠️ Helper Extension 激活失败: ${helperResult.error}`);
         // 继续尝试其他方法
       } else {
-        console.log(`[ExtensionHelper] ℹ️ 未检测到 Helper Extension，使用标准模式`);
+        this.log(`[ExtensionHelper] ℹ️ 未检测到 Helper Extension，使用标准模式`);
       }
       
       // ===== 方法 1: 直接通过 CDP 触发 Service Worker =====
-      console.log(`[ExtensionHelper] 方法 1: 直接触发 Service Worker`);
+      this.log(`[ExtensionHelper] 方法 1: 直接触发 Service Worker`);
       const directActivation = await this.tryDirectActivation(extensionId);
       if (directActivation.success) {
         return directActivation;
       }
-      console.log(`[ExtensionHelper] 方法 1 失败: ${directActivation.error}`);
+      this.log(`[ExtensionHelper] 方法 1 失败: ${directActivation.error}`);
       
       // ===== 方法 2: 通过扩展页面激活 =====
-      console.log(`[ExtensionHelper] 方法 2: 通过扩展页面激活`);
+      this.log(`[ExtensionHelper] 方法 2: 通过扩展页面激活`);
       const pageActivation = await this.tryPageActivation(extensionId);
       if (pageActivation.success) {
         return pageActivation;
       }
-      console.log(`[ExtensionHelper] 方法 2 失败: ${pageActivation.error}`);
+      this.log(`[ExtensionHelper] 方法 2 失败: ${pageActivation.error}`);
       
       // ===== 所有方法都失败 =====
       const suggestion = this.helperClient && this.helperClient.isHelperAvailable()
@@ -565,7 +863,7 @@ export class ExtensionHelper {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[ExtensionHelper] 激活失败:`, error);
+      this.logError(`[ExtensionHelper] 激活失败:`, error);
       return {
         success: false,
         error: `激活过程异常: ${errorMsg}`,
@@ -597,7 +895,7 @@ export class ExtensionHelper {
       
       // 方法 1.1: ServiceWorker.startWorker
       try {
-        console.log(`[ExtensionHelper] 尝试 ServiceWorker.startWorker...`);
+        this.log(`[ExtensionHelper] 尝试 ServiceWorker.startWorker...`);
         await cdp.send('ServiceWorker.enable' as any);
         await cdp.send('ServiceWorker.startWorker' as any, {
           scopeURL: `chrome-extension://${extensionId}/`,
@@ -605,16 +903,16 @@ export class ExtensionHelper {
         
         await new Promise(resolve => setTimeout(resolve, 500));
         if (await this.isServiceWorkerActive(extensionId)) {
-          console.log(`[ExtensionHelper] ✅ ServiceWorker.startWorker 成功`);
+          this.log(`[ExtensionHelper] ✅ ServiceWorker.startWorker 成功`);
           return {success: true, method: 'ServiceWorker.startWorker'};
         }
       } catch (e) {
-        console.log(`[ExtensionHelper] ServiceWorker.startWorker 失败:`, (e as Error).message);
+        this.log(`[ExtensionHelper] ServiceWorker.startWorker 失败: ${(e as Error).message}`);
       }
       
       // 方法 1.2: 直接执行唤醒代码
       try {
-        console.log(`[ExtensionHelper] 尝试执行唤醒代码...`);
+        this.log(`[ExtensionHelper] 尝试执行唤醒代码...`);
         
         // 尝试多个唤醒方法
         const wakeMethods = [
@@ -634,7 +932,7 @@ export class ExtensionHelper {
             
             await new Promise(resolve => setTimeout(resolve, 300));
             if (await this.isServiceWorkerActive(extensionId)) {
-              console.log(`[ExtensionHelper] ✅ 唤醒成功: ${wakeCode}`);
+              this.log(`[ExtensionHelper] ✅ 唤醒成功: ${wakeCode}`);
               return {success: true, method: `Direct CDP: ${wakeCode}`};
             }
           } catch (e) {
@@ -642,12 +940,12 @@ export class ExtensionHelper {
           }
         }
       } catch (e) {
-        console.log(`[ExtensionHelper] 唤醒代码失败:`, (e as Error).message);
+        this.log(`[ExtensionHelper] 唤醒代码失败: ${(e as Error).message}`);
       }
       
       // 方法 1.3: 强制触发事件
       try {
-        console.log(`[ExtensionHelper] 尝试触发 SW 事件...`);
+        this.log(`[ExtensionHelper] 尝试触发 SW 事件...`);
         
         // 触发各种可能激活 SW 的事件
         await this.evaluateInContext(
@@ -673,11 +971,11 @@ export class ExtensionHelper {
         
         await new Promise(resolve => setTimeout(resolve, 500));
         if (await this.isServiceWorkerActive(extensionId)) {
-          console.log(`[ExtensionHelper] ✅ 事件触发成功`);
+          this.log(`[ExtensionHelper] ✅ 事件触发成功`);
           return {success: true, method: 'Event dispatch'};
         }
       } catch (e) {
-        console.log(`[ExtensionHelper] 事件触发失败:`, (e as Error).message);
+        this.log(`[ExtensionHelper] 事件触发失败: ${(e as Error).message}`);
       }
 
       return {
@@ -732,7 +1030,7 @@ export class ExtensionHelper {
 
       if (!targetUrl) {
         const error = '扩展没有 popup 或 options 页面';
-        console.warn(`[ExtensionHelper] ${error}`);
+        this.logWarn(`[ExtensionHelper] ${error}`);
         return {
           success: false,
           error,
@@ -742,13 +1040,13 @@ export class ExtensionHelper {
         };
       }
 
-      console.log(`[ExtensionHelper] 通过 ${method} 激活: ${targetUrl}`);
+      this.log(`[ExtensionHelper] 通过 ${method} 激活: ${targetUrl}`);
       
       try {
         const page = await this.browser.newPage();
         await page.goto(targetUrl, {
           waitUntil: 'networkidle0',
-          timeout: 5000,
+          timeout: this.options.timeouts.pageLoad,
         });
         
         // 在 popup 页面中触发一个 chrome API 调用来激活 Service Worker
@@ -764,21 +1062,21 @@ export class ExtensionHelper {
         
         await page.close();
 
-        // 等待激活（增加等待时间）
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // 等待激活
+        await new Promise(resolve => setTimeout(resolve, this.options.timeouts.manifestLoad));
         
         // 验证激活
         const isActive = await this.isServiceWorkerActive(extensionId);
         
         if (isActive) {
-          console.log(`[ExtensionHelper] ✅ Service Worker 激活成功`);
+          this.log(`[ExtensionHelper] ✅ Service Worker 激活成功`);
           return {
             success: true,
             method: method || undefined,
             url: targetUrl,
           };
         } else {
-          console.warn(`[ExtensionHelper] ⚠️ 打开页面成功但 Service Worker 仍未激活`);
+          this.logWarn(`[ExtensionHelper] ⚠️ 打开页面成功但 Service Worker 仍未激活`);
           
           // 尝试备用方法：直接向 Service Worker 发送消息
           try {
@@ -793,7 +1091,7 @@ export class ExtensionHelper {
               // 再次检查
               const isActiveNow = await this.isServiceWorkerActive(extensionId);
               if (isActiveNow) {
-                console.log(`[ExtensionHelper] ✅ 通过直接访问激活成功`);
+                this.log(`[ExtensionHelper] ✅ 通过直接访问激活成功`);
                 return {
                   success: true,
                   method: `${method} + direct access`,
@@ -817,7 +1115,7 @@ export class ExtensionHelper {
         }
       } catch (pageError) {
         const error = `无法打开扩展页面: ${pageError instanceof Error ? pageError.message : String(pageError)}`;
-        console.error(`[ExtensionHelper] ${error}`);
+        this.logError(`[ExtensionHelper] ${error}`);
         return {
           success: false,
           error,
@@ -826,7 +1124,7 @@ export class ExtensionHelper {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[ExtensionHelper] 激活失败:`, error);
+      this.logError(`[ExtensionHelper] 激活失败:`, error);
       return {
         success: false,
         error: `激活过程异常: ${errorMsg}`,
@@ -872,14 +1170,15 @@ export class ExtensionHelper {
       
       // 检查是否已经生成
       if (!generator.isGenerated()) {
-        console.log('[ExtensionHelper] 生成临时 Helper Extension 以供安装...');
+        this.log('[ExtensionHelper] 生成临时 Helper Extension 以供安装...');
         helperPath = await generator.generateHelperExtension();
-        console.log(`[ExtensionHelper] Helper Extension 已生成: ${helperPath}`);
+        this.log(`[ExtensionHelper] Helper Extension 已生成: ${helperPath}`);
       } else {
         helperPath = generator.getHelperPath() || '';
       }
     } catch (error) {
-      console.warn('[ExtensionHelper] 无法生成 Helper Extension:', error);
+      this.logWarn('[ExtensionHelper] 无法生成 Helper Extension:');
+      this.logError('', error);
     }
     
     const helperInstallGuide = helperPath ? `
@@ -976,89 +1275,211 @@ ${helperInstallGuide}
 
   /**
    * 获取扩展的 Console 日志
+   * 
+   * 支持两种模式：
+   * 1. 读取历史日志（如果扩展存储了 globalThis.__logs）
+   * 2. 实时捕获日志（监听指定时间内的 console 输出）
+   * 
+   * @param extensionId - 扩展 ID
+   * @param options - 可选配置
+   * @returns 日志结果
    */
-  async getExtensionLogs(extensionId: string): Promise<{
+  async getExtensionLogs(
+    extensionId: string,
+    options?: {
+      /** 是否实时捕获日志（默认 true） */
+      capture?: boolean;
+      /** 实时捕获的时长（毫秒，默认 5000） */
+      duration?: number;
+      /** 是否包含历史日志（默认 true） */
+      includeStored?: boolean;
+    }
+  ): Promise<{
     logs: Array<{
       type: string;
       text: string;
       timestamp: number;
-      source: string;
+      source: 'stored' | 'realtime';
+      level?: string;
+      stackTrace?: string;
+      url?: string;
+      lineNumber?: number;
     }>;
     isActive: boolean;
+    captureInfo?: {
+      started: number;
+      ended: number;
+      duration: number;
+      messageCount: number;
+    };
   }> {
-    const logs: Array<{
-      type: string;
-      text: string;
-      timestamp: number;
-      source: string;
-    }> = [];
+    const {
+      capture = true,
+      duration = 5000,
+      includeStored = true,
+    } = options || {};
+
+    const logs: Array<any> = [];
+    let swSession: any = null;
 
     try {
+      // 1. 找到 Service Worker target（使用 Puppeteer Target API）
       const backgroundTarget = await this.getExtensionBackgroundTarget(extensionId);
       if (!backgroundTarget) {
         return {logs: [], isActive: false};
       }
 
-      const isActive = await this.isServiceWorkerActive(extensionId);
-      const cdp = await this.getCDPSession();
+      // 2. 通过 targetId 找到对应的 Puppeteer Target
+      const targets = await this.browser.targets();
+      const swTarget = targets.find(
+        t => (t as unknown as {_targetId: string})._targetId === backgroundTarget.targetId
+      );
 
-      // Attach 到 background target
-      const attachResult = await cdp.send('Target.attachToTarget', {
-        targetId: backgroundTarget.targetId,
-        flatten: true,
-      });
+      if (!swTarget) {
+        this.logError('[ExtensionHelper] 未找到 Service Worker 的 Puppeteer Target');
+        return {logs: [], isActive: false};
+      }
 
-      // 启用 Console domain
-      await cdp.send('Console.enable');
+      // 3. 创建独立的 CDPSession for Service Worker
+      swSession = await swTarget.createCDPSession();
+      this.log('[ExtensionHelper] 已为 Service Worker 创建独立 CDPSession');
 
-      // 获取已有的 console 消息
-      // 注意：这只能获取当前会话的消息，历史消息可能已经丢失
-      // 建议在 Service Worker 中添加持久化日志
-
-      // 执行代码获取 console 历史（如果扩展有保存）
-      const evalResult = await cdp.send('Runtime.evaluate', {
-        expression: `
-          (() => {
-            // 尝试获取扩展自己保存的日志（如果有）
-            if (typeof globalThis.__logs !== 'undefined') {
-              return globalThis.__logs;
-            }
-            return [];
-          })()
-        `,
-        returnByValue: true,
-      });
-
-      // Detach
-      await cdp.send('Target.detachFromTarget', {
-        sessionId: attachResult.sessionId,
-      });
-
-      const storedLogs = evalResult.result?.value as Array<{
-        type: string;
-        message: string;
-        timestamp: number;
-      }> || [];
-
-      storedLogs.forEach((log: {type: string; message: string; timestamp: number}) => {
-        logs.push({
-          type: log.type,
-          text: log.message,
-          timestamp: log.timestamp,
-          source: 'stored',
+      // 4. 读取历史日志（如果需要）
+      if (includeStored) {
+        const evalResult = await swSession.send('Runtime.evaluate', {
+          expression: `
+            (() => {
+              if (typeof globalThis.__logs !== 'undefined') {
+                return globalThis.__logs;
+              }
+              return [];
+            })()
+          `,
+          returnByValue: true,
         });
-      });
 
-      return {logs, isActive};
+        const storedLogs = evalResult.result?.value as Array<{
+          type: string;
+          message: string;
+          timestamp: number;
+        }> || [];
+
+        storedLogs.forEach((log) => {
+          logs.push({
+            type: log.type,
+            text: log.message,
+            timestamp: log.timestamp,
+            source: 'stored',
+          });
+        });
+
+        this.log(`[ExtensionHelper] 读取到 ${storedLogs.length} 条历史日志`);
+      }
+
+      // 5. 实时捕获日志（如果需要）
+      let captureInfo;
+      if (capture) {
+        const captureStartTime = Date.now();
+        const capturedLogs: Array<any> = [];
+
+        // 启用 Runtime domain（在 SW session 上）
+        await swSession.send('Runtime.enable');
+        this.log('[ExtensionHelper] 已在 SW session 上启用 Runtime domain');
+
+        // 监听 console API 调用（在 SW session 上）
+        const consoleHandler = (event: any) => {
+          this.log(`[ExtensionHelper] 收到 SW console 事件: ${event.type}, args: ${event.args?.length || 0}`);
+          
+          const args = event.args || [];
+          const text = args
+            .map((arg: any) => {
+              if (arg.value !== undefined) {
+                return String(arg.value);
+              }
+              if (arg.description) {
+                return arg.description;
+              }
+              return '[Object]';
+            })
+            .join(' ');
+
+          capturedLogs.push({
+            type: event.type || 'log',
+            text,
+            timestamp: event.timestamp || Date.now(),
+            source: 'realtime',
+            level: event.type,
+            stackTrace: event.stackTrace?.callFrames
+              ? event.stackTrace.callFrames
+                  .map((frame: any) => `  at ${frame.functionName || 'anonymous'} (${frame.url}:${frame.lineNumber})`)
+                  .join('\n')
+              : undefined,
+            url: event.stackTrace?.callFrames?.[0]?.url,
+            lineNumber: event.stackTrace?.callFrames?.[0]?.lineNumber,
+          });
+        };
+
+        swSession.on('Runtime.consoleAPICalled', consoleHandler);
+        this.log('[ExtensionHelper] 已开始监听 SW console 事件');
+
+        // 等待指定时长
+        this.log(`[ExtensionHelper] 捕获日志 ${duration}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, duration));
+
+        // 停止监听
+        swSession.off('Runtime.consoleAPICalled', consoleHandler);
+
+        // 禁用 Runtime domain
+        await swSession.send('Runtime.disable');
+
+        const captureEndTime = Date.now();
+
+        captureInfo = {
+          started: captureStartTime,
+          ended: captureEndTime,
+          duration: captureEndTime - captureStartTime,
+          messageCount: capturedLogs.length,
+        };
+
+        this.log(`[ExtensionHelper] 捕获完成，共 ${capturedLogs.length} 条日志`);
+
+        // 合并捕获的日志
+        logs.push(...capturedLogs);
+      }
+
+      // 6. 分离 session
+      if (swSession) {
+        await swSession.detach();
+        swSession = null;
+        this.log('[ExtensionHelper] 已分离 SW CDPSession');
+      }
+
+      // 按时间戳排序
+      logs.sort((a, b) => a.timestamp - b.timestamp);
+
+      return {
+        logs,
+        isActive: true,  // 如果找到 target 就是 active
+        captureInfo,
+      };
     } catch (error) {
-      console.error(`Failed to get logs for ${extensionId}:`, error);
+      // 清理
+      if (swSession) {
+        try {
+          await swSession.detach();
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      this.logError(`[ExtensionHelper] getExtensionLogs 失败:`, error);
       return {logs: [], isActive: false};
     }
   }
 
   /**
    * 获取扩展的 Storage 数据
-   * 自动检测并激活 Service Worker
+   * 注意：需要Service Worker处于激活状态
    */
   async getExtensionStorage(
     extensionId: string,
@@ -1073,22 +1494,18 @@ ${helperInstallGuide}
         );
       }
 
-      // 检查是否激活，如果未激活则尝试自动激活
+      // 检查Service Worker是否激活
       const isActive = await this.isServiceWorkerActive(extensionId);
       if (!isActive) {
-        console.log('[ExtensionHelper] Service Worker inactive, attempting auto-activation...');
-        const result = await this.activateServiceWorker(extensionId);
-        if (!result.success) {
-          const errorMsg = result.error || 'Unknown error';
-          const suggestion = result.suggestion || 
-            'Please manually activate by opening the extension popup or visiting chrome://extensions/ and clicking the "Service worker" link.';
-          throw new Error(
-            `Service Worker is inactive and auto-activation failed.\n` +
-            `Error: ${errorMsg}\n` +
-            `Suggestion: ${suggestion}`,
-          );
-        }
-        console.log('[ExtensionHelper] ✅ Auto-activation successful');
+        throw new Error(
+          `Service Worker is inactive for extension ${extensionId}.\n` +
+          `Please manually activate it first:\n` +
+          `1. Visit chrome://extensions/\n` +
+          `2. Find the extension (ID: ${extensionId})\n` +
+          `3. Click the "Service worker" link to open DevTools\n` +
+          `\n` +
+          `Keep the DevTools window open to keep the Service Worker active.`,
+        );
       }
 
       const cdp = await this.getCDPSession();
@@ -1180,7 +1597,7 @@ ${helperInstallGuide}
         quota: result.quota,
       };
     } catch (error) {
-      console.error(`Failed to get storage for ${extensionId}:`, error);
+      this.logError(`Failed to get storage for ${extensionId}:`, error);
       throw error;
     }
   }

@@ -104,6 +104,17 @@ const logDisclaimers = () => {
 debug, and modify any data in the browser or DevTools.
 Avoid sharing sensitive or personal information that you do not want to share with MCP clients.`,
   );
+  console.error('');
+  console.error('📌 Important: Service Worker Manual Activation');
+  console.error('━'.repeat(60));
+  console.error('If you need to debug Chrome extensions with MV3 Service Workers:');
+  console.error('1. Open chrome://extensions/ in a new tab');
+  console.error('2. Find your target extension');
+  console.error('3. Click the blue "Service worker" link');
+  console.error('4. Keep the DevTools window open while debugging');
+  console.error('');
+  console.error('This ensures chrome.* APIs are available for extension tools.');
+  console.error('━'.repeat(60));
 };
 
 const toolMutex = new Mutex();

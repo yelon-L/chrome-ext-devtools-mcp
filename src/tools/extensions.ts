@@ -279,20 +279,55 @@ like the background service worker, popup, or options page.`,
   handler: async (request, response, context) => {
     const {contextId} = request.params;
 
-    const page = await context.switchToExtensionContext(contextId);
+    try {
+      // 尝试切换上下文
+      const page = await context.switchToExtensionContext(contextId);
 
-    const url = page.url();
-    const title = await page.title();
+      const url = page.url();
+      const title = await page.title();
 
-    response.appendResponseLine('# Context Switched Successfully\n');
-    response.appendResponseLine(`**Target ID**: ${contextId}`);
-    response.appendResponseLine(`**Title**: ${title}`);
-    response.appendResponseLine(`**URL**: ${url}`);
-    response.appendResponseLine(
-      '\n**Next Steps**: You can now use evaluate_script or other debugging tools in this context.',
-    );
+      response.appendResponseLine('# Context Switched Successfully\n');
+      response.appendResponseLine(`**Target ID**: ${contextId}`);
+      response.appendResponseLine(`**Title**: ${title}`);
+      response.appendResponseLine(`**URL**: ${url}\n`);
+      response.appendResponseLine(
+        '**Next Steps**: You can now use evaluate_script or other debugging tools in this context.',
+      );
 
-    response.setIncludePages(true);
+      response.setIncludePages(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      
+      // 检查是否是 Service Worker 错误
+      if (message.includes('Service Worker') || message.includes('Page object')) {
+        response.appendResponseLine('# Cannot Switch to Service Worker\n');
+        response.appendResponseLine(`**Target ID**: ${contextId}\n`);
+        response.appendResponseLine(
+          '⚠️  Service Workers do not have a Page object and cannot be switched to using this tool.\n',
+        );
+        response.appendResponseLine('**Instead, use one of these tools:**\n');
+        response.appendResponseLine(
+          '- `evaluate_in_extension` - Execute code in the Service Worker context',
+        );
+        response.appendResponseLine(
+          '- `get_extension_logs` - Capture console logs from the Service Worker',
+        );
+        response.appendResponseLine(
+          '- `inspect_extension_storage` - Access extension storage\n',
+        );
+        response.appendResponseLine('**Example:**');
+        response.appendResponseLine('```javascript');
+        response.appendResponseLine('// Use evaluate_in_extension instead');
+        response.appendResponseLine('evaluate_in_extension({');
+        response.appendResponseLine('  extensionId: "your_extension_id",');
+        response.appendResponseLine('  code: "chrome.runtime.getManifest()"');
+        response.appendResponseLine('})');
+        response.appendResponseLine('```');
+        response.setIncludePages(true);
+      } else {
+        throw new Error(`Failed to switch context: ${message}`);
+      }
+    }
   },
 });
 
@@ -389,11 +424,11 @@ or via chrome.management.setEnabled() toggle.`,
     const {extensionId} = request.params;
 
     try {
-      // Get background target
-      const backgroundTarget =
-        await context.getExtensionBackgroundTarget(extensionId);
+      // Get extension contexts to find background
+      const contexts = await context.getExtensionContexts(extensionId);
+      const backgroundContext = contexts.find(ctx => ctx.isPrimary);
 
-      if (!backgroundTarget) {
+      if (!backgroundContext) {
         throw new Error(
           `No background context found for extension ${extensionId}. The extension may not be running.`,
         );
@@ -401,15 +436,27 @@ or via chrome.management.setEnabled() toggle.`,
 
       response.appendResponseLine(`# Reloading Extension\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
-      response.appendResponseLine(`\n⏳ Sending reload command...`);
+      response.appendResponseLine(`**Context**: ${backgroundContext.type}`);
+      response.appendResponseLine(`**URL**: ${backgroundContext.url}\n`);
+      response.appendResponseLine(`⏳ Sending reload command...\n`);
 
-      // Note: Actual reload implementation would require CDP session and evaluation
-      // For now, provide guidance
-      response.appendResponseLine(
-        `\n**Note**: Extension reload requires executing \`chrome.runtime.reload()\` in the extension's background context.`,
+      // Execute chrome.runtime.reload() in the background context
+      // Wrap in try-catch to handle chrome API availability
+      await context.evaluateInExtensionContext(
+        backgroundContext.targetId,
+        `
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+          chrome.runtime.reload();
+        } else {
+          throw new Error('chrome.runtime.reload() is not available. Service Worker may be inactive.');
+        }
+        `,
+        false, // Don't wait for promise as extension will terminate
       );
+
+      response.appendResponseLine(`✅ Reload command sent successfully`);
       response.appendResponseLine(
-        `Use \`evaluate_in_extension\` tool to execute: \`chrome.runtime.reload()\``,
+        `\n**Note**: The extension will restart in a few seconds. You may need to re-activate the Service Worker after reload.`,
       );
 
       response.setIncludePages(true);
@@ -420,102 +467,42 @@ or via chrome.management.setEnabled() toggle.`,
   },
 });
 
-export const activateServiceWorker = defineTool({
-  name: 'activate_service_worker',
-  description: `Automatically activate a Chrome extension's Service Worker.
-
-This tool attempts to activate the Service Worker by opening the extension's popup or options page.
-Useful when chrome.* APIs are not available due to the Service Worker being inactive.
-
-**When to use:**
-- Before calling inspect_extension_storage
-- Before executing code that requires chrome.* APIs
-- When you see "chrome.storage not available" errors
-
-**What it does:**
-1. Checks if Service Worker is already active
-2. If inactive, opens extension popup/options page to trigger activation
-3. Waits for activation to complete
-
-Returns whether activation was successful.`,
-  annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
-    readOnlyHint: false,
-  },
-  schema: {
-    extensionId: z
-      .string()
-      .regex(/^[a-z]{32}$/)
-      .describe('Extension ID (32 lowercase letters)'),
-  },
-  handler: async (request, response, context) => {
-    const {extensionId} = request.params;
-
-    try {
-      response.appendResponseLine(`# Activating Service Worker\n`);
-      response.appendResponseLine(`**Extension ID**: ${extensionId}`);
-
-      // 检查当前状态
-      const isActive = await context.isServiceWorkerActive(extensionId);
-      
-      if (isActive) {
-        response.appendResponseLine(`\n✅ Service Worker is already active!`);
-        response.appendResponseLine(`\nNo action needed. Chrome APIs are available.`);
-        response.setIncludePages(true);
-        return;
-      }
-
-      response.appendResponseLine(`\n⚠️  Service Worker is currently inactive`);
-      response.appendResponseLine(`\n🔄 Attempting automatic activation...`);
-
-      const result = await context.activateServiceWorker(extensionId);
-
-      if (result.success) {
-        response.appendResponseLine(`\n✅ Service Worker activated successfully!`);
-        if (result.method) {
-          response.appendResponseLine(`\n**Activation method**: ${result.method}`);
-        }
-        if (result.url) {
-          response.appendResponseLine(`**Page opened**: ${result.url}`);
-        }
-        response.appendResponseLine(`\nYou can now use chrome.* APIs.`);
-      } else {
-        response.appendResponseLine(`\n❌ Auto-activation failed`);
-        if (result.error) {
-          response.appendResponseLine(`\n**Error**: ${result.error}`);
-        }
-        if (result.suggestion) {
-          response.appendResponseLine(`\n**Suggestion**: ${result.suggestion}`);
-        }
-        response.appendResponseLine(`\n**Manual activation steps:**`);
-        response.appendResponseLine(`1. Open \`chrome://extensions/\``);
-        response.appendResponseLine(`2. Find your extension`);
-        response.appendResponseLine(`3. Click the "Service worker" link`);
-      }
-
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to activate Service Worker: ${message}`);
-    }
-  },
-});
-
 export const getExtensionLogs = defineTool({
   name: 'get_extension_logs',
   description: `Get console logs from an extension's Service Worker or background page.
 
-Retrieves console messages logged by the extension. Note that due to Service Worker lifecycle,
-only recent logs (from current session) may be available. For persistent logging, the extension
-should implement its own log storage mechanism.
+**Features:**
+- Real-time log capture (monitors console output for specified duration)
+- Historical log retrieval (if extension stores logs in globalThis.__logs)
+- Complete stack traces and source file information
+- Works with any extension (no custom implementation required)
 
-**Limitations:**
-- Service Worker logs are cleared when it goes inactive
-- Only logs from current session are available via CDP
-- For historical logs, extension must store them (e.g., in chrome.storage)
+**Default Behavior:**
+Captures logs for 5 seconds and includes any stored historical logs.
 
-**Best Practice:**
-Add this code to your extension's Service Worker for persistent logging:
+**Options:**
+- \`capture\`: Enable real-time capture (default: true)
+- \`duration\`: Capture duration in milliseconds (default: 5000)
+- \`includeStored\`: Include historical logs from globalThis.__logs (default: true)
+
+**Usage Examples:**
+1. Quick capture (5 seconds):
+   \`\`\`
+   get_extension_logs(extensionId)
+   \`\`\`
+
+2. Longer capture (30 seconds):
+   \`\`\`
+   get_extension_logs(extensionId, {duration: 30000})
+   \`\`\`
+
+3. Only historical logs (no capture):
+   \`\`\`
+   get_extension_logs(extensionId, {capture: false})
+   \`\`\`
+
+**Optional: Persistent Logging**
+For long-term log storage, add this to your extension's Service Worker:
 \`\`\`javascript
 const logs = [];
 const originalConsole = {...console};
@@ -525,7 +512,7 @@ const originalConsole = {...console};
     originalConsole[method](...args);
   };
 });
-globalThis.__logs = logs; // Expose for MCP
+globalThis.__logs = logs;
 \`\`\``,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
@@ -536,12 +523,28 @@ globalThis.__logs = logs; // Expose for MCP
       .string()
       .regex(/^[a-z]{32}$/)
       .describe('Extension ID (32 lowercase letters)'),
+    capture: z
+      .boolean()
+      .optional()
+      .describe('Enable real-time log capture (default: true)'),
+    duration: z
+      .number()
+      .optional()
+      .describe('Capture duration in milliseconds (default: 5000)'),
+    includeStored: z
+      .boolean()
+      .optional()
+      .describe('Include historical logs from globalThis.__logs (default: true)'),
   },
   handler: async (request, response, context) => {
-    const {extensionId} = request.params;
+    const {extensionId, capture, duration, includeStored} = request.params;
 
     try {
-      const result = await context.getExtensionLogs(extensionId);
+      const result = await context.getExtensionLogs(extensionId, {
+        capture,
+        duration,
+        includeStored,
+      });
 
       response.appendResponseLine(`# Extension Logs\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
@@ -549,12 +552,20 @@ globalThis.__logs = logs; // Expose for MCP
         `**Service Worker Status**: ${result.isActive ? '🟢 Active' : '🔴 Inactive'}`,
       );
 
+      // 显示捕获信息
+      if (result.captureInfo) {
+        const captureSeconds = (result.captureInfo.duration / 1000).toFixed(1);
+        response.appendResponseLine(
+          `**Capture Duration**: ${captureSeconds}s (captured ${result.captureInfo.messageCount} new logs)`,
+        );
+      }
+
       if (!result.isActive) {
         response.appendResponseLine(
-          `\n⚠️  Service Worker is inactive. Recent logs may be lost.`,
+          `\n⚠️  Service Worker is inactive. Real-time capture not available.`,
         );
         response.appendResponseLine(
-          `💡 Tip: Use \`activate_service_worker\` tool first.`,
+          `💡 Tip: Manually activate Service Worker via chrome://extensions/ first.`,
         );
       }
 
@@ -562,13 +573,32 @@ globalThis.__logs = logs; // Expose for MCP
 
       if (result.logs.length === 0) {
         response.appendResponseLine('*No logs found*');
-        response.appendResponseLine(
-          '\n**Note**: Service Worker logs are ephemeral. For persistent logging, implement storage in your extension.',
-        );
+        if (capture) {
+          response.appendResponseLine(
+            `\n**Note**: No console output detected during capture period.`,
+          );
+          response.appendResponseLine(
+            `Try triggering extension actions or increasing \`duration\` parameter.`,
+          );
+        } else {
+          response.appendResponseLine(
+            '\n**Note**: No stored logs found. Enable \`capture\` to monitor real-time output.',
+          );
+        }
       } else {
-        response.appendResponseLine(`Found ${result.logs.length} log entries:\n`);
+        const storedCount = result.logs.filter(l => l.source === 'stored').length;
+        const realtimeCount = result.logs.filter(l => l.source === 'realtime').length;
         
-        result.logs.forEach((log: {type: string; text: string; timestamp: number; source: string}, index: number) => {
+        response.appendResponseLine(`Found ${result.logs.length} log entries`);
+        if (storedCount > 0 && realtimeCount > 0) {
+          response.appendResponseLine(`(${storedCount} stored, ${realtimeCount} real-time):\n`);
+        } else if (storedCount > 0) {
+          response.appendResponseLine(`(all from stored logs):\n`);
+        } else {
+          response.appendResponseLine(`(all from real-time capture):\n`);
+        }
+        
+        result.logs.forEach((log, index) => {
           const timestamp = new Date(log.timestamp).toISOString();
           const icon =
             log.type === 'error'
@@ -578,11 +608,24 @@ globalThis.__logs = logs; // Expose for MCP
                 : log.type === 'info'
                   ? 'ℹ️ '
                   : '📝';
+          const sourceTag = log.source === 'realtime' ? '[realtime]' : '[stored]';
 
           response.appendResponseLine(
-            `${index + 1}. ${icon} **[${log.type}]** ${timestamp}`,
+            `${index + 1}. ${icon} **[${log.type}]** ${sourceTag} ${timestamp}`,
           );
           response.appendResponseLine(`   ${log.text}`);
+          
+          // 显示源文件和行号
+          if (log.url && log.lineNumber !== undefined) {
+            response.appendResponseLine(`   📍 ${log.url}:${log.lineNumber}`);
+          }
+          
+          // 显示堆栈信息
+          if (log.stackTrace) {
+            response.appendResponseLine(`   Stack trace:`);
+            response.appendResponseLine(`${log.stackTrace}`);
+          }
+          
           response.appendResponseLine('');
         });
       }
@@ -594,6 +637,29 @@ globalThis.__logs = logs; // Expose for MCP
     }
   },
 });
+
+/**
+ * Safely wrap user code for evaluation in async context
+ * Handles statements, expressions, and return statements correctly
+ */
+function wrapCodeForEvaluation(code: string): string {
+  const trimmed = code.trim();
+  
+  // Check if code contains statement keywords (not in comments)
+  const statementPattern = /^\s*(const|let|var|function|class|if|for|while|do|switch|try|throw)\s/;
+  const hasStatementKeyword = statementPattern.test(trimmed);
+  
+  // Check if code already starts with return
+  const startsWithReturn = /^\s*return\s/.test(trimmed);
+  
+  // If it's a statement or already has return, wrap as-is
+  if (hasStatementKeyword || startsWithReturn) {
+    return `(async () => { ${trimmed} })()`;
+  }
+  
+  // For expressions, add return to get the value
+  return `(async () => { return (${trimmed}); })()`;
+}
 
 export const evaluateInExtension = defineTool({
   name: 'evaluate_in_extension',
@@ -647,10 +713,8 @@ This tool allows you to execute arbitrary JavaScript code in the extension's Ser
       response.appendResponseLine(`\n## Code\n\`\`\`javascript\n${code}\n\`\`\``);
 
       // Use CDP-based evaluation (works for Service Workers)
-      // Wrap code in async IIFE for proper async/await support
-      const wrappedCode = code.trim().startsWith('return ')
-        ? `(async () => { ${code} })()`
-        : `(async () => { return ${code} })()`;
+      // Wrap code in async IIFE with proper handling for statements/expressions
+      const wrappedCode = wrapCodeForEvaluation(code);
       
       const result = await context.evaluateInExtensionContext(
         backgroundContext.targetId,

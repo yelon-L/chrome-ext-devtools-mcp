@@ -47,7 +47,7 @@ const sessions = new Map<string, {
 async function startSSEServer() {
   const version = '0.8.0';
   const args = parseArguments(version);
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = parseInt(process.env.PORT || '32122', 10);
 
   // 启动浏览器
   console.log('[SSE] 🚀 初始化浏览器...');
@@ -143,7 +143,9 @@ async function startSSEServer() {
 
       // 使用 SSEServerTransport - 它会自动发送 endpoint 事件
       const transport = new SSEServerTransport('/message', res);
-      await transport.start();
+      
+      // 注意：不要手动调用 transport.start()
+      // mcpServer.connect() 会自动调用它
 
       // 创建 MCP Server
       const mcpServer = new McpServer(

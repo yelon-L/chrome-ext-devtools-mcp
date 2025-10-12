@@ -45,7 +45,7 @@ const sessions = new Map<string, {
 async function startHTTPServer() {
   const version = '0.8.0';
   const args = parseArguments(version);
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = parseInt(process.env.PORT || '32123', 10);
 
   // 启动浏览器
   console.log('[HTTP] 🚀 初始化浏览器...');
@@ -159,7 +159,8 @@ async function startHTTPServer() {
           },
         });
         
-        await transport.start();
+        // 注意：不要手动调用 transport.start()
+        // mcpServer.connect() 会自动调用它
         
         // 创建 MCP Server
         const mcpServer = new McpServer(

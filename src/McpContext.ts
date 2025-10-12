@@ -461,13 +461,14 @@ export class McpContext implements Context {
 
   /**
    * Switch to a specific extension context
+   * 
+   * @param contextId - Context ID (target ID)
+   * @returns Page 对象
+   * @throws Error 如果 context 不存在或是 Service Worker
    */
   async switchToExtensionContext(contextId: string): Promise<Page> {
-    const page = await this.#extensionHelper.switchToExtensionContext(contextId);
-    if (!page) {
-      throw new Error(`Cannot access context ${contextId}`);
-    }
-    return page;
+    // ExtensionHelper 保证返回非 null 的 Page，或抛出错误
+    return await this.#extensionHelper.switchToExtensionContext(contextId);
   }
 
   /**
@@ -518,16 +519,33 @@ export class McpContext implements Context {
   /**
    * Get extension logs
    */
-  async getExtensionLogs(extensionId: string): Promise<{
+  async getExtensionLogs(
+    extensionId: string,
+    options?: {
+      capture?: boolean;
+      duration?: number;
+      includeStored?: boolean;
+    }
+  ): Promise<{
     logs: Array<{
       type: string;
       text: string;
       timestamp: number;
-      source: string;
+      source: 'stored' | 'realtime';
+      level?: string;
+      stackTrace?: string;
+      url?: string;
+      lineNumber?: number;
     }>;
     isActive: boolean;
+    captureInfo?: {
+      started: number;
+      ended: number;
+      duration: number;
+      messageCount: number;
+    };
   }> {
-    return this.#extensionHelper.getExtensionLogs(extensionId);
+    return this.#extensionHelper.getExtensionLogs(extensionId, options);
   }
 
   /**
