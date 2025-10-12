@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import crypto from 'node:crypto';
+
 import type {
   AuthConfig,
   AuthResult,
@@ -268,18 +270,17 @@ export class AuthManager {
   }
 
   /**
-   * 生成随机 Token
+   * 生成密码学安全的随机 Token
    * 
-   * @returns Token 字符串
+   * 使用 crypto.randomBytes 而非 Math.random() 以确保安全性
+   * 
+   * @returns Token 字符串 (格式: mcp_<base64url>)
    */
   #generateRandomToken(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const length = 32;
-    let token = '';
-    
-    for (let i = 0; i < length; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    // 生成24字节(192位)的随机数据，base64url编码后约32字符
+    // base64url 编码安全用于 URL 和 HTTP headers
+    const randomBytes = crypto.randomBytes(24);
+    const token = randomBytes.toString('base64url');
     
     return `mcp_${token}`;
   }

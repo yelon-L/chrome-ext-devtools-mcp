@@ -140,6 +140,9 @@ export class SessionManager {
   /**
    * 删除会话
    * 
+   * 采用先关闭资源再删除索引的顺序，确保资源正确清理
+   * 即使关闭失败也会删除索引，避免资源泄露
+   * 
    * @param sessionId - 会话 ID
    * @returns 是否删除成功
    */
@@ -149,28 +152,30 @@ export class SessionManager {
       return false;
     }
 
-    // 先从存储中移除，防止重复删除
-    this.#sessions.delete(sessionId);
-
-    // 更新用户会话索引
-    const userSessions = this.#userSessions.get(session.userId);
-    if (userSessions) {
-      userSessions.delete(sessionId);
-      if (userSessions.size === 0) {
-        this.#userSessions.delete(session.userId);
-      }
-    }
-
     try {
       // 解除 onclose 回调，防止循环调用
       session.transport.onclose = undefined;
-      // 关闭传输层
+      // 先关闭传输层资源
       await session.transport.close();
+      logger(`[SessionManager] 传输层已关闭: ${sessionId}`);
     } catch (error) {
-      logger(`[SessionManager] 关闭传输层失败: ${error}`);
-    }
+      logger(`[SessionManager] 关闭传输层失败: ${sessionId} - ${error}`);
+      // 继续执行清理逻辑，不抛出异常
+    } finally {
+      // 无论关闭成功与否，都要清理索引，避免内存泄露
+      this.#sessions.delete(sessionId);
 
-    logger(`[SessionManager] 会话已删除: ${sessionId}`);
+      // 更新用户会话索引
+      const userSessions = this.#userSessions.get(session.userId);
+      if (userSessions) {
+        userSessions.delete(sessionId);
+        if (userSessions.size === 0) {
+          this.#userSessions.delete(session.userId);
+        }
+      }
+
+      logger(`[SessionManager] 会话已删除: ${sessionId}`);
+    }
 
     return true;
   }
@@ -201,6 +206,8 @@ export class SessionManager {
   /**
    * 清理用户的所有会话
    * 
+   * 先复制Set避免迭代时修改导致迭代器失效
+   * 
    * @param userId - 用户 ID
    */
   async cleanupUserSessions(userId: string): Promise<void> {
@@ -209,8 +216,11 @@ export class SessionManager {
       return;
     }
 
+    // 复制Set避免在迭代时被deleteSession()修改导致迭代器失效
+    const sessionIdsCopy = Array.from(sessionIds);
+
     const deletePromises: Promise<boolean>[] = [];
-    for (const sessionId of sessionIds) {
+    for (const sessionId of sessionIdsCopy) {
       deletePromises.push(this.deleteSession(sessionId));
     }
 

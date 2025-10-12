@@ -84,8 +84,15 @@ export class BrowserConnectionPool {
     if (existingBrowserId) {
       const connection = this.#connections.get(existingBrowserId);
       if (connection && connection.status === 'connected') {
-        logger(`[BrowserConnectionPool] 复用现有连接: ${userId}`);
-        return connection.browser;
+        // 双重检查：验证浏览器实际连接状态（防止TOCTOU竞态）
+        if (connection.browser.isConnected()) {
+          logger(`[BrowserConnectionPool] 复用现有连接: ${userId}`);
+          return connection.browser;
+        } else {
+          // 状态不一致，标记为断开并创建新连接
+          logger(`[BrowserConnectionPool] 检测到连接状态不一致，重新连接: ${userId}`);
+          connection.status = 'disconnected';
+        }
       }
     }
 
@@ -113,8 +120,8 @@ export class BrowserConnectionPool {
 
       logger(`[BrowserConnectionPool] 连接成功: ${userId} (${browserId})`);
 
-      // 监听浏览器断开事件
-      browser.on('disconnected', () => {
+      // 监听浏览器断开事件（使用 once 避免重复触发）
+      browser.once('disconnected', () => {
         this.#handleDisconnect(browserId);
       });
 
@@ -144,6 +151,10 @@ export class BrowserConnectionPool {
     }
 
     try {
+      // 先移除所有事件监听器，防止 close() 触发 disconnected 事件导致重连
+      connection.browser.removeAllListeners('disconnected');
+      
+      // 再关闭浏览器
       await connection.browser.close();
     } catch (error) {
       logger(`[BrowserConnectionPool] 关闭浏览器失败: ${error}`);
@@ -358,6 +369,11 @@ export class BrowserConnectionPool {
 
     try {
       const browser = await this.#connectWithTimeout(connection.browserURL);
+      
+      // 先移除旧浏览器的监听器（如果存在）
+      if (connection.browser) {
+        connection.browser.removeAllListeners('disconnected');
+      }
 
       connection.browser = browser;
       connection.status = 'connected';
@@ -366,8 +382,8 @@ export class BrowserConnectionPool {
 
       logger(`[BrowserConnectionPool] 重连成功: ${connection.userId}`);
 
-      // 监听新浏览器的断开事件
-      browser.on('disconnected', () => {
+      // 监听新浏览器的断开事件（使用 once 避免重复）
+      browser.once('disconnected', () => {
         this.#handleDisconnect(browserId);
       });
     } catch (error) {
@@ -379,18 +395,25 @@ export class BrowserConnectionPool {
   /**
    * 带超时的连接
    * 
+   * 确保定时器被清理，避免内存泄漏
+   * 
    * @param browserURL - 浏览器 URL
    * @returns 浏览器实例
    */
   async #connectWithTimeout(browserURL: string): Promise<Browser> {
+    let timeoutId: NodeJS.Timeout;
+    
     return Promise.race([
-      puppeteer.connect({ browserURL }),
-      new Promise<Browser>((_, reject) =>
-        setTimeout(
+      puppeteer.connect({ browserURL }).finally(() => {
+        // 连接完成（成功或失败）时清理定时器
+        clearTimeout(timeoutId);
+      }),
+      new Promise<Browser>((_, reject) => {
+        timeoutId = setTimeout(
           () => reject(new Error('连接超时')),
           this.#config.connectionTimeout
-        )
-      ),
+        );
+      }),
     ]);
   }
 
