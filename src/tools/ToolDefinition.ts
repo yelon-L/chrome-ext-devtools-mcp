@@ -135,7 +135,30 @@ export type Context = Readonly<{
     extensionId: string,
     storageType: StorageType,
   ): Promise<StorageData>;
-  getExtensionBackgroundTarget(extensionId: string): Promise<Page | null>;
+  getExtensionBackgroundTarget(
+    extensionId: string,
+  ): Promise<Page | null>;
+  monitorExtensionMessages(
+    extensionId: string,
+    duration?: number,
+    messageTypes?: Array<'runtime' | 'tabs' | 'external'>,
+  ): Promise<Array<{
+    timestamp: number;
+    type: 'sent' | 'received';
+    method: string;
+    message: unknown;
+    sender?: unknown;
+    tabId?: number;
+  }>>;
+  watchExtensionStorage(
+    extensionId: string,
+    storageTypes?: Array<'local' | 'sync' | 'session' | 'managed'>,
+    duration?: number,
+  ): Promise<Array<{
+    timestamp: number;
+    storageArea: string;
+    changes: Record<string, {oldValue?: unknown; newValue?: unknown}>;
+  }>>;
 }>;
 
 export function defineTool<Schema extends z.ZodRawShape>(

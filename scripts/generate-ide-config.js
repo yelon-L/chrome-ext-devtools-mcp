@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 /**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * 生成各种 IDE 的 MCP 配置文件
  */
 
-import fs from 'fs';
-import path from 'path';
-import {fileURLToPath} from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');

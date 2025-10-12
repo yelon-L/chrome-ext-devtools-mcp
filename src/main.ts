@@ -18,16 +18,7 @@ import {logger, saveLogsToFile} from './logger.js';
 import {McpContext} from './McpContext.js';
 import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
-import * as consoleTools from './tools/console.js';
-import * as emulationTools from './tools/emulation.js';
-import * as extensionTools from './tools/extensions.js';
-import * as inputTools from './tools/input.js';
-import * as networkTools from './tools/network.js';
-import * as pagesTools from './tools/pages.js';
-import * as performanceTools from './tools/performance.js';
-import * as screenshotTools from './tools/screenshot.js';
-import * as scriptTools from './tools/script.js';
-import * as snapshotTools from './tools/snapshot.js';
+import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {readPackageJson} from './utils/common.js';
 
@@ -151,20 +142,10 @@ function registerTool(tool: ToolDefinition): void {
   );
 }
 
-const tools = [
-  ...Object.values(consoleTools),
-  ...Object.values(emulationTools),
-  ...Object.values(extensionTools),
-  ...Object.values(inputTools),
-  ...Object.values(networkTools),
-  ...Object.values(pagesTools),
-  ...Object.values(performanceTools),
-  ...Object.values(screenshotTools),
-  ...Object.values(scriptTools),
-  ...Object.values(snapshotTools),
-];
+// 从统一注册中心获取所有工具
+const tools = getAllTools();
 for (const tool of tools) {
-  registerTool(tool as unknown as ToolDefinition);
+  registerTool(tool);
 }
 
 const transport = new StdioServerTransport();

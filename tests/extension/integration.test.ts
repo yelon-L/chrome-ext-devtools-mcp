@@ -1,12 +1,21 @@
+
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /**
  * Extension 工具集成测试
  * 测试工具之间的协作和完整工作流
  */
 import assert from 'node:assert';
+import path from 'node:path';
 import {describe, it, before, after} from 'node:test';
-import puppeteer, {Browser} from 'puppeteer';
-import path from 'path';
-import {fileURLToPath} from 'url';
+import {fileURLToPath} from 'node:url';
+
+import type {Browser} from 'puppeteer';
+import puppeteer from 'puppeteer';
+
 
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 

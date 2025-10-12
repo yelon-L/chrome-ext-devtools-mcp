@@ -18,6 +18,7 @@ import type {
 import puppeteer from 'puppeteer-core';
 
 let browser: Browser | undefined;
+let isExternalBrowser = false; // 标记是否为外部浏览器（不应关闭）
 
 function makeTargetFilter(devtools: boolean) {
   const ignoredPrefixes = new Set([
@@ -58,6 +59,8 @@ export async function ensureBrowserConnected(options: {
     defaultViewport: null,
     handleDevToolsAsPage: options.devtools,
   });
+  
+  isExternalBrowser = true; // 标记为外部浏览器
   
   return browser;
 }
@@ -170,7 +173,16 @@ export async function ensureBrowserLaunched(
     return browser;
   }
   browser = await launch(options);
+  isExternalBrowser = false; // 标记为自己启动的浏览器
   return browser;
+}
+
+/**
+ * 检查是否应该关闭浏览器
+ * 外部连接的浏览器不应该被关闭
+ */
+export function shouldCloseBrowser(): boolean {
+  return !isExternalBrowser;
 }
 
 export type Channel = 'stable' | 'canary' | 'beta' | 'dev';

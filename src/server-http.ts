@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * MCP Streamable HTTP Server - 用于测试
  * 
  * 基于官方 StreamableHTTPServerTransport 实现
@@ -10,30 +16,22 @@
 
 import './polyfill.js';
 
-import http from 'node:http';
 import {randomUUID} from 'node:crypto';
-import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import http from 'node:http';
+
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
+import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 
-import {parseArguments} from './cli.js';
-import {ensureBrowserConnected, ensureBrowserLaunched} from './browser.js';
+import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser} from './browser.js';
 import type {Channel} from './browser.js';
+import {parseArguments} from './cli.js';
 import {logger} from './logger.js';
 import {McpContext} from './McpContext.js';
 import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
+import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-import * as consoleTools from './tools/console.js';
-import * as emulationTools from './tools/emulation.js';
-import * as extensionTools from './tools/extensions.js';
-import * as inputTools from './tools/input.js';
-import * as networkTools from './tools/network.js';
-import * as pagesTools from './tools/pages.js';
-import * as performanceTools from './tools/performance.js';
-import * as screenshotTools from './tools/screenshot.js';
-import * as scriptTools from './tools/script.js';
-import * as snapshotTools from './tools/snapshot.js';
 import {readPackageJson} from './utils/common.js';
 
 // 存储所有会话
@@ -179,21 +177,10 @@ async function startHTTPServer() {
         // 创建 Context
         const context = await McpContext.from(browser, logger);
         
-        // 注册工具
-        const tools = [
-          ...Object.values(consoleTools),
-          ...Object.values(emulationTools),
-          ...Object.values(extensionTools),
-          ...Object.values(inputTools),
-          ...Object.values(networkTools),
-          ...Object.values(pagesTools),
-          ...Object.values(performanceTools),
-          ...Object.values(screenshotTools),
-          ...Object.values(scriptTools),
-          ...Object.values(snapshotTools),
-        ];
+        // 从统一注册中心获取所有工具并注册
+        const tools = getAllTools();
         for (const tool of tools) {
-          registerTool(mcpServer, tool as unknown as ToolDefinition, context);
+          registerTool(mcpServer, tool, context);
         }
         
         await mcpServer.connect(transport);
@@ -270,7 +257,12 @@ async function startHTTPServer() {
     for (const [id, session] of sessions) {
       await session.transport.close();
     }
-    if (browser) await browser.close();
+    if (browser && shouldCloseBrowser()) {
+      console.log('[HTTP] 🔒 关闭浏览器...');
+      await browser.close();
+    } else if (browser) {
+      console.log('[HTTP] ✅ 保持外部浏览器运行（使用 --browserUrl 连接）');
+    }
     httpServer.close(() => process.exit(0));
   });
 }

@@ -81,24 +81,41 @@ export interface StorageData {
 }
 
 /**
- * 扩展消息
+ * 扩展消息监控数据
  */
-export interface ExtensionMessage {
+export interface ExtensionMessageEvent {
   /** 消息时间戳 */
   timestamp: number;
-  /** 发送方 */
-  sender: {
-    id?: string;
-    url?: string;
-    tab?: {id: number};
-    frameId?: number;
-  };
-  /** 接收方 */
-  receiver?: string;
+  /** 消息类型 */
+  type: 'sent' | 'received';
+  /** 调用方法 */
+  method: 'runtime.sendMessage' | 'tabs.sendMessage' | 'runtime.onMessage' | 'runtime.connect';
   /** 消息内容 */
   message: unknown;
-  /** 消息方向 */
-  direction: 'sent' | 'received';
+  /** 发送方信息 */
+  sender?: {
+    id?: string;
+    tab?: {id: number; url?: string};
+    url?: string;
+    frameId?: number;
+  };
+  /** Tab ID (for tabs.sendMessage) */
+  tabId?: number;
+}
+
+/**
+ * Storage 变化监控数据
+ */
+export interface StorageChangeEvent {
+  /** 变化时间戳 */
+  timestamp: number;
+  /** Storage 区域 */
+  storageArea: StorageType;
+  /** 变化的键值对 */
+  changes: Record<string, {
+    oldValue?: unknown;
+    newValue?: unknown;
+  }>;
 }
 
 /**

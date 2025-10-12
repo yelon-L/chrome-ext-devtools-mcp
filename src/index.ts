@@ -15,8 +15,8 @@
  * - streamable: Streamable HTTP transport
  */
 
-import {checkNodeVersion, readPackageJson} from './utils/common.js';
 import {parseArguments} from './cli.js';
+import {checkNodeVersion, readPackageJson} from './utils/common.js';
 
 checkNodeVersion();
 

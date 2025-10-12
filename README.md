@@ -213,15 +213,6 @@ If you run into any issues, checkout our [troubleshooting guide](./docs/troubles
 
 <!-- BEGIN AUTO GENERATED TOOLS -->
 
-- **Chrome Extension Debugging** (8 tools)
-  - [`list_extensions`](#list_extensions) - List all installed Chrome extensions
-  - [`get_extension_details`](#get_extension_details) - Get detailed info about a specific extension
-  - [`list_extension_contexts`](#list_extension_contexts) - List all execution contexts for an extension
-  - [`switch_extension_context`](#switch_extension_context) - Switch to a specific extension context
-  - [`inspect_extension_storage`](#inspect_extension_storage) - Inspect extension storage (local/sync/session/managed)
-  - [`reload_extension`](#reload_extension) - Reload an extension to apply code changes
-  - [`get_extension_logs`](#get_extension_logs) - Get console logs from extension Service Worker
-  - [`evaluate_in_extension`](#evaluate_in_extension) - Evaluate JavaScript in extension context
 - **Input automation** (7 tools)
   - [`click`](docs/tool-reference.md#click)
   - [`drag`](docs/tool-reference.md#drag)
@@ -254,6 +245,18 @@ If you run into any issues, checkout our [troubleshooting guide](./docs/troubles
   - [`list_console_messages`](docs/tool-reference.md#list_console_messages)
   - [`take_screenshot`](docs/tool-reference.md#take_screenshot)
   - [`take_snapshot`](docs/tool-reference.md#take_snapshot)
+- **Extension debugging** (11 tools)
+  - [`evaluate_in_extension`](docs/tool-reference.md#evaluate_in_extension)
+  - [`get_extension_details`](docs/tool-reference.md#get_extension_details)
+  - [`get_extension_logs`](docs/tool-reference.md#get_extension_logs)
+  - [`inspect_extension_storage`](docs/tool-reference.md#inspect_extension_storage)
+  - [`list_extension_contexts`](docs/tool-reference.md#list_extension_contexts)
+  - [`list_extensions`](docs/tool-reference.md#list_extensions)
+  - [`monitor_extension_messages`](docs/tool-reference.md#monitor_extension_messages)
+  - [`reload_extension`](docs/tool-reference.md#reload_extension)
+  - [`switch_extension_context`](docs/tool-reference.md#switch_extension_context)
+  - [`trace_extension_api_calls`](docs/tool-reference.md#trace_extension_api_calls)
+  - [`watch_extension_storage`](docs/tool-reference.md#watch_extension_storage)
 
 <!-- END AUTO GENERATED TOOLS -->
 
@@ -315,7 +318,6 @@ The Chrome DevTools MCP server supports the following configuration option:
 - **`--port`, `-p`**
   Port number for HTTP-based transports (SSE or Streamable).
   - **Type:** number
-  - **Default:** `32122` for SSE, `32123` for Streamable
 
 <!-- END AUTO GENERATED OPTIONS -->
 

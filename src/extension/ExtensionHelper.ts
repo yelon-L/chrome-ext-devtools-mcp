@@ -5,6 +5,9 @@
  */
 
 import type {Browser, Page, CDPSession} from 'puppeteer';
+
+import {logger} from '../logger.js';
+
 import type {
   ExtensionInfo,
   ExtensionContext,
@@ -73,23 +76,23 @@ export class ExtensionHelper {
   }
   
   /**
-   * 日志方法（可配置是否使用console）
+   * 日志方法（使用项目统一的 logger 系统）
    */
   private log(message: string): void {
     if (this.options.logging.useConsole) {
-      console.log(message);
+      logger(message);
     }
   }
-  
+
   private logWarn(message: string): void {
     if (this.options.logging.useConsole) {
-      console.warn(message);
+      logger(`⚠️ ${message}`);
     }
   }
   
   private logError(message: string, error?: unknown): void {
     if (this.options.logging.useConsole) {
-      console.error(message, error);
+      logger(`❌ ${message}`, error);
     }
   }
 
@@ -662,7 +665,7 @@ export class ExtensionHelper {
     awaitPromise = true,
   ): Promise<unknown> {
     const cdp = await this.getCDPSession();
-    let sessionId: string | null = null;
+    const sessionId: string | null = null;
 
     try {
       // 方案：获取目标的 page 或 worker，直接使用 Puppeteer API
@@ -1182,7 +1185,7 @@ export class ExtensionHelper {
       includeStored = true,
     } = options || {};
 
-    const logs: Array<any> = [];
+    const logs: any[] = [];
     let swSession: any = null;
 
     try {
@@ -1243,7 +1246,7 @@ export class ExtensionHelper {
       let captureInfo;
       if (capture) {
         const captureStartTime = Date.now();
-        const capturedLogs: Array<any> = [];
+        const capturedLogs: any[] = [];
 
         // 启用 Runtime domain（在 SW session 上）
         await swSession.send('Runtime.enable');
@@ -1342,7 +1345,7 @@ export class ExtensionHelper {
 
   /**
    * 获取扩展的 Storage 数据
-   * 注意：需要Service Worker处于激活状态
+   * 使用 Puppeteer Worker API 替代 CDP（更可靠）
    */
   async getExtensionStorage(
     extensionId: string,
@@ -1371,83 +1374,60 @@ export class ExtensionHelper {
         );
       }
 
-      const cdp = await this.getCDPSession();
-
-      // Attach 到 background target
-      const attachResult = await cdp.send('Target.attachToTarget', {
-        targetId: backgroundTarget.targetId,
-        flatten: true,
-      });
-
-      // 在扩展上下文中执行代码获取 Storage
-      const evalResult = await cdp.send('Runtime.evaluate', {
-        expression: `
-          (async () => {
-            try {
-              // 检查 chrome.storage 是否可用
-              if (typeof chrome === 'undefined' || !chrome.storage) {
-                return {
-                  error: 'chrome.storage API not available in this context',
-                  data: {},
-                };
-              }
-
-              const storage = chrome.storage['${storageType}'];
-              if (!storage) {
-                return {
-                  error: 'Storage type ${storageType} not available',
-                  data: {},
-                };
-              }
-
-              const data = await storage.get(null);
-              
-              let bytesInUse, quota;
-              try {
-                bytesInUse = await storage.getBytesInUse(null);
-                if ('${storageType}' === 'local') quota = 5 * 1024 * 1024;
-                else if ('${storageType}' === 'sync') quota = 100 * 1024;
-                else if ('${storageType}' === 'session') quota = 10 * 1024 * 1024;
-              } catch (e) {
-                // getBytesInUse may not be supported
-              }
-
-              return {data: data || {}, bytesInUse, quota};
-            } catch (error) {
-              return {
-                error: error.message,
-                data: {},
-              };
-            }
-          })()
-        `,
-        returnByValue: true,
-        awaitPromise: true,
-      });
-
-      // Detach
-      await cdp.send('Target.detachFromTarget', {
-        sessionId: attachResult.sessionId,
-      });
-
-      // 检查是否有异常
-      if (evalResult.exceptionDetails) {
-        throw new Error(
-          evalResult.exceptionDetails.exception?.description ||
-            'Failed to evaluate storage code',
-        );
+      // ✅ 使用 Puppeteer Worker API 替代 CDP（可靠地访问 chrome.* API）
+      const targets = await this.browser.targets();
+      const target = targets.find(t => (t as any)._targetId === backgroundTarget.targetId);
+      
+      if (!target) {
+        throw new Error(`Target not found for extension ${extensionId}`);
       }
 
-      const result = evalResult.result?.value as {
-        data: Record<string, unknown>;
-        bytesInUse?: number;
-        quota?: number;
-        error?: string;
-      };
-
-      if (!result) {
-        throw new Error('No result returned from storage evaluation');
+      const worker = await target.worker();
+      if (!worker) {
+        throw new Error(`Worker not available for extension ${extensionId}`);
       }
+
+      // 在 Service Worker 上下文中执行代码
+      const result = await worker.evaluate(async (storageType: string) => {
+        try {
+          // 检查 chrome.storage 是否可用
+          // @ts-expect-error - chrome API available in extension context
+          if (typeof chrome === 'undefined' || !chrome.storage) {
+            return {
+              error: 'chrome.storage API not available in this context',
+              data: {},
+            };
+          }
+
+          // @ts-expect-error - chrome API available in extension context
+          const storage = chrome.storage[storageType];
+          if (!storage) {
+            return {
+              error: `Storage type ${storageType} not available`,
+              data: {},
+            };
+          }
+
+          const data = await storage.get(null);
+          
+          let bytesInUse, quota;
+          try {
+            bytesInUse = await storage.getBytesInUse(null);
+            if (storageType === 'local') quota = 5 * 1024 * 1024;
+            else if (storageType === 'sync') quota = 100 * 1024;
+            else if (storageType === 'session') quota = 10 * 1024 * 1024;
+          } catch (e) {
+            // getBytesInUse may not be supported
+          }
+
+          return {data: data || {}, bytesInUse, quota};
+        } catch (error: any) {
+          return {
+            error: error.message,
+            data: {},
+          };
+        }
+      }, storageType);
 
       if (result.error) {
         throw new Error(`Storage access error: ${result.error}`);
@@ -1461,6 +1441,203 @@ export class ExtensionHelper {
       };
     } catch (error) {
       this.logError(`Failed to get storage for ${extensionId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 监控扩展消息传递
+   * 在 Service Worker 中注入监听器，捕获 sendMessage 和 onMessage 事件
+   */
+  async monitorExtensionMessages(
+    extensionId: string,
+    duration = 30000, // 默认监控 30 秒
+    messageTypes: Array<'runtime' | 'tabs' | 'external'> = ['runtime', 'tabs'],
+  ): Promise<Array<{
+    timestamp: number;
+    type: 'sent' | 'received';
+    method: string;
+    message: unknown;
+    sender?: unknown;
+    tabId?: number;
+  }>> {
+    try {
+      const backgroundTarget = await this.getExtensionBackgroundTarget(extensionId);
+      if (!backgroundTarget) {
+        throw new Error(`Extension ${extensionId} background not found`);
+      }
+
+      const targets = await this.browser.targets();
+      const target = targets.find(t => (t as any)._targetId === backgroundTarget.targetId);
+      if (!target) {
+        throw new Error(`Target not found for extension ${extensionId}`);
+      }
+
+      const worker = await target.worker();
+      if (!worker) {
+        throw new Error(`Worker not available for extension ${extensionId}`);
+      }
+
+      // 在 Service Worker 中注入监听代码
+      const messages = await worker.evaluate(
+        async (duration: number, types: string[]) => {
+          const messages: any[] = [];
+          
+          // @ts-expect-error - chrome API available in extension context
+          if (typeof chrome === 'undefined') {
+            return messages;
+          }
+
+          // 拦截 runtime.sendMessage
+          if (types.includes('runtime')) {
+            // @ts-expect-error - chrome API available in extension context
+            const originalSend = chrome.runtime.sendMessage;
+            // @ts-expect-error - chrome API available in extension context
+            chrome.runtime.sendMessage = function(...args: any[]) {
+              messages.push({
+                timestamp: Date.now(),
+                type: 'sent',
+                method: 'runtime.sendMessage',
+                message: args[0],
+              });
+              return originalSend.apply(this, args);
+            };
+
+            // 监听接收的消息
+            // @ts-expect-error - chrome API available in extension context
+            chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+              messages.push({
+                timestamp: Date.now(),
+                type: 'received',
+                method: 'runtime.onMessage',
+                message,
+                sender: {
+                  id: sender.id,
+                  tab: sender.tab ? {id: sender.tab.id, url: sender.tab.url} : undefined,
+                  url: sender.url,
+                  frameId: sender.frameId,
+                },
+              });
+            });
+          }
+
+          // 拦截 tabs.sendMessage
+          if (types.includes('tabs')) {
+            // @ts-expect-error - chrome API available in extension context
+            if (chrome.tabs && chrome.tabs.sendMessage) {
+              // @ts-expect-error - chrome API available in extension context
+              const originalTabsSend = chrome.tabs.sendMessage;
+              // @ts-expect-error - chrome API available in extension context
+              chrome.tabs.sendMessage = function(tabId: number, message: any, ...args: any[]) {
+                messages.push({
+                  timestamp: Date.now(),
+                  type: 'sent',
+                  method: 'tabs.sendMessage',
+                  message,
+                  tabId,
+                });
+                return originalTabsSend.apply(this, [tabId, message, ...args]);
+              };
+            }
+          }
+
+          // 等待指定时间
+          await new Promise(resolve => setTimeout(resolve, duration));
+
+          return messages;
+        },
+        duration,
+        messageTypes
+      );
+
+      return messages;
+    } catch (error) {
+      this.logError(`Failed to monitor messages for ${extensionId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 监控扩展 Storage 变化
+   * 在 Service Worker 中注入 onChanged 监听器
+   */
+  async watchExtensionStorage(
+    extensionId: string,
+    storageTypes: StorageType[] = ['local'],
+    duration = 30000, // 默认监控 30 秒
+  ): Promise<Array<{
+    timestamp: number;
+    storageArea: StorageType;
+    changes: Record<string, {oldValue?: unknown; newValue?: unknown}>;
+  }>> {
+    try {
+      const backgroundTarget = await this.getExtensionBackgroundTarget(extensionId);
+      if (!backgroundTarget) {
+        throw new Error(`Extension ${extensionId} background not found`);
+      }
+
+      const targets = await this.browser.targets();
+      const target = targets.find(t => (t as any)._targetId === backgroundTarget.targetId);
+      if (!target) {
+        throw new Error(`Target not found for extension ${extensionId}`);
+      }
+
+      const worker = await target.worker();
+      if (!worker) {
+        throw new Error(`Worker not available for extension ${extensionId}`);
+      }
+
+      // 在 Service Worker 中注入监听代码
+      const changes = await worker.evaluate(
+        async (duration: number, types: string[]) => {
+          const storageChanges: any[] = [];
+          
+          // @ts-expect-error - chrome API available in extension context
+          if (typeof chrome === 'undefined' || !chrome.storage) {
+            return storageChanges;
+          }
+
+          // 为每个 storage 类型添加监听器
+          const listeners: Array<() => void> = [];
+          
+          for (const storageType of types) {
+            // @ts-expect-error - chrome API available in extension context
+            const storage = chrome.storage[storageType];
+            if (!storage) continue;
+
+            const listener = (changes: any, areaName: string) => {
+              if (areaName === storageType) {
+                storageChanges.push({
+                  timestamp: Date.now(),
+                  storageArea: storageType,
+                  changes,
+                });
+              }
+            };
+
+            // @ts-expect-error - chrome API available in extension context
+            chrome.storage.onChanged.addListener(listener);
+            listeners.push(() => {
+              // @ts-expect-error - chrome API available in extension context
+              chrome.storage.onChanged.removeListener(listener);
+            });
+          }
+
+          // 等待指定时间
+          await new Promise(resolve => setTimeout(resolve, duration));
+
+          // 清理监听器
+          listeners.forEach(cleanup => cleanup());
+
+          return storageChanges;
+        },
+        duration,
+        storageTypes
+      );
+
+      return changes;
+    } catch (error) {
+      this.logError(`Failed to watch storage for ${extensionId}:`, error);
       throw error;
     }
   }

@@ -129,6 +129,18 @@ export class McpContext implements Context {
 
   async #init() {
     await this.createPagesSnapshot();
+    
+    // 如果浏览器没有打开任何页面，创建一个新页面
+    // 这种情况在连接到只有扩展页面的浏览器时会发生
+    if (this.#pages.length === 0) {
+      this.logger('No pages found, creating a new page');
+      const page = await this.browser.newPage();
+      this.#pages = [page];
+      // 将新页面添加到收集器中
+      this.#networkCollector.addPage(page);
+      this.#consoleCollector.addPage(page);
+    }
+    
     this.setSelectedPageIdx(0);
     await this.#networkCollector.init();
     await this.#consoleCollector.init();
@@ -255,8 +267,12 @@ export class McpContext implements Context {
   };
 
   setSelectedPageIdx(idx: number): void {
-    const oldPage = this.getSelectedPage();
-    oldPage.off('dialog', this.#dialogHandler);
+    // 移除旧页面的事件监听（如果存在）
+    const oldPage = this.#pages[this.#selectedPageIdx];
+    if (oldPage) {
+      oldPage.off('dialog', this.#dialogHandler);
+    }
+    
     this.#selectedPageIdx = idx;
     const newPage = this.getSelectedPage();
     newPage.on('dialog', this.#dialogHandler);
@@ -514,6 +530,47 @@ export class McpContext implements Context {
     suggestion?: string;
   }> {
     return this.#extensionHelper.activateServiceWorker(extensionId);
+  }
+
+  /**
+   * Monitor extension messages
+   */
+  async monitorExtensionMessages(
+    extensionId: string,
+    duration?: number,
+    messageTypes?: Array<'runtime' | 'tabs' | 'external'>,
+  ): Promise<Array<{
+    timestamp: number;
+    type: 'sent' | 'received';
+    method: string;
+    message: unknown;
+    sender?: unknown;
+    tabId?: number;
+  }>> {
+    return this.#extensionHelper.monitorExtensionMessages(
+      extensionId,
+      duration,
+      messageTypes,
+    );
+  }
+
+  /**
+   * Watch extension storage changes
+   */
+  async watchExtensionStorage(
+    extensionId: string,
+    storageTypes?: StorageType[],
+    duration?: number,
+  ): Promise<Array<{
+    timestamp: number;
+    storageArea: StorageType;
+    changes: Record<string, {oldValue?: unknown; newValue?: unknown}>;
+  }>> {
+    return this.#extensionHelper.watchExtensionStorage(
+      extensionId,
+      storageTypes,
+      duration,
+    );
   }
 
   /**
