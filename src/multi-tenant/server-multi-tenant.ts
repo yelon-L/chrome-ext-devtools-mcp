@@ -27,7 +27,8 @@ import {McpResponse} from '../McpResponse.js';
 import {Mutex} from '../Mutex.js';
 import {getAllTools} from '../tools/registry.js';
 import type {ToolDefinition} from '../tools/ToolDefinition.js';
-import {readPackageJson} from '../utils/common.js';
+import {VERSION} from '../version.js';
+import {displayMultiTenantModeInfo} from '../utils/modeMessages.js';
 
 import {SessionManager} from './core/SessionManager.js';
 import {RouterManager} from './core/RouterManager.js';
@@ -70,10 +71,25 @@ class MultiTenantMCPServer {
   // CDP 混合架构配置
   private useCdpHybrid: boolean;
   private useCdpOperations: boolean;
+  
+  // IP 白名单配置
+  private allowedIPs: Set<string> | null;
 
   constructor() {
-    this.version = readPackageJson().version ?? '0.8.1';
+    this.version = VERSION;
     this.port = parseInt(process.env.PORT || '32122', 10);
+    
+    // 从环境变量读取 IP 白名单
+    const allowedIPsEnv = process.env.ALLOWED_IPS;
+    if (allowedIPsEnv) {
+      this.allowedIPs = new Set(
+        allowedIPsEnv.split(',').map(ip => ip.trim()).filter(ip => ip.length > 0)
+      );
+      console.log(`🔒 IP 白名单已启用: ${Array.from(this.allowedIPs).join(', ')}`);
+    } else {
+      this.allowedIPs = null;
+      console.log('🌍 未设置 IP 白名单，允许所有 IP 访问');
+    }
 
     // 初始化管理器
     this.sessionManager = new SessionManager({
@@ -134,24 +150,57 @@ class MultiTenantMCPServer {
     // 启动监听
     await new Promise<void>((resolve) => {
       this.httpServer!.listen(this.port, () => {
-        console.log(`[Server] 🌐 服务器已启动`);
-        console.log(`[Server] 📡 端口: ${this.port}`);
-        console.log(`[Server] 🔗 端点:`);
-        console.log(`      - Health:   http://localhost:${this.port}/health`);
-        console.log(`      - Register: http://localhost:${this.port}/api/register`);
-        console.log(`      - SSE:      http://localhost:${this.port}/sse`);
-        console.log(`      - Message:  http://localhost:${this.port}/message`);
-        console.log(`      - Test:     http://localhost:${this.port}/test`);
         console.log('');
-        console.log(`[Server] 🔐 认证: ${this.authManager.isEnabled() ? '已启用' : '未启用'}`);
-        console.log('[Server] 传输方式: Server-Sent Events (SSE)');
-        console.log('[Server] 按 Ctrl+C 停止\n');
+        displayMultiTenantModeInfo(this.port);
+        console.log(`✅ Multi-tenant server started successfully`);
+        console.log(`   Authentication: ${this.authManager.isEnabled() ? 'Enabled' : 'Disabled'}`);
+        console.log('   Press Ctrl+C to stop\n');
         resolve();
       });
     });
 
     // 处理进程信号
     this.setupSignalHandlers();
+  }
+
+  /**
+   * 检查 IP 是否在白名单中
+   */
+  private isIPAllowed(req: http.IncomingMessage): boolean {
+    // 如果未设置白名单，允许所有 IP
+    if (!this.allowedIPs) {
+      return true;
+    }
+
+    // 获取客户端 IP
+    const clientIP = this.getClientIP(req);
+    
+    // 检查是否在白名单中
+    return this.allowedIPs.has(clientIP);
+  }
+
+  /**
+   * 获取客户端真实 IP
+   * 支持代理场景（X-Forwarded-For, X-Real-IP）
+   */
+  private getClientIP(req: http.IncomingMessage): string {
+    // 检查 X-Forwarded-For 头（代理场景）
+    const xForwardedFor = req.headers['x-forwarded-for'];
+    if (xForwardedFor) {
+      const ips = typeof xForwardedFor === 'string' 
+        ? xForwardedFor.split(',').map(ip => ip.trim())
+        : xForwardedFor[0].split(',').map(ip => ip.trim());
+      return ips[0]; // 返回最原始的 IP
+    }
+
+    // 检查 X-Real-IP 头
+    const xRealIP = req.headers['x-real-ip'];
+    if (xRealIP) {
+      return typeof xRealIP === 'string' ? xRealIP : xRealIP[0];
+    }
+
+    // 直接连接场景
+    return req.socket.remoteAddress || '0.0.0.0';
   }
 
   /**
@@ -163,6 +212,18 @@ class MultiTenantMCPServer {
   ): Promise<void> {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     
+    // IP 白名单检查（/health 端点除外）
+    if (url.pathname !== '/health' && !this.isIPAllowed(req)) {
+      const clientIP = this.getClientIP(req);
+      console.error(`⛔ IP 被拒绝: ${clientIP}`);
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: 'Access denied', 
+        message: 'Your IP address is not allowed to access this server'
+      }));
+      return;
+    }
+
     // 生成Request ID用于追踪
     const requestId = crypto.randomUUID();
     res.setHeader('X-Request-ID', requestId);
@@ -184,6 +245,8 @@ class MultiTenantMCPServer {
       // 路由分发
       if (url.pathname === '/health') {
         await this.handleHealth(req, res);
+      } else if (url.pathname === '/api/auth/token' && req.method === 'POST') {
+        await this.handleGenerateToken(req, res);
       } else if (url.pathname === '/api/register' && req.method === 'POST') {
         await this.handleRegister(req, res);
       } else if (url.pathname === '/api/users' && req.method === 'GET') {
@@ -337,13 +400,64 @@ class MultiTenantMCPServer {
   }
 
   /**
+   * 生成认证 Token
+   */
+  private async handleGenerateToken(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    // 读取请求体
+    const body = await this.readRequestBody(req);
+    
+    // 解析JSON
+    let data;
+    try {
+      data = JSON.parse(body);
+    } catch (parseError) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'INVALID_JSON',
+        message: 'Request body must be valid JSON',
+      }));
+      return;
+    }
+
+    const { userId, permissions, expiresIn } = data;
+
+    // 验证参数
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'userId is required',
+      }));
+      return;
+    }
+
+    // 生成 token
+    const token = this.authManager.generateToken(
+      userId,
+      permissions || ['*'],
+      expiresIn
+    );
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      token,
+      userId,
+      permissions: permissions || ['*'],
+      expiresIn: expiresIn || 86400,
+    }));
+  }
+
+  /**
    * 处理用户注册
    */
   private async handleRegister(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    // 认证
+    // 认证（如果启用）
     const authResult = await this.authenticate(req);
     if (!authResult.success) {
       res.writeHead(401, { 'Content-Type': 'application/json' });

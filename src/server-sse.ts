@@ -35,7 +35,8 @@ import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-import {readPackageJson} from './utils/common.js';
+import {VERSION} from './version.js';
+import {displaySSEModeInfo} from './utils/modeMessages.js';
 
 const sessions = new Map<string, {
   transport: SSEServerTransport;
@@ -44,12 +45,11 @@ const sessions = new Map<string, {
 }>();
 
 async function startSSEServer() {
-  const version = readPackageJson().version ?? '0.8.1';
-  const args = parseArguments(version);
+  const args = parseArguments(VERSION);
   const port = parseInt(process.env.PORT || '32122', 10);
 
   // 启动浏览器
-  console.log('[SSE] 🚀 初始化浏览器...');
+  console.log('[SSE] Initializing browser...');
   
   const extraArgs: string[] = (args.chromeArg ?? []).map(String);
   if (args.proxyServer) {
@@ -72,7 +72,7 @@ async function startSSEServer() {
         devtools,
       });
 
-  console.log('[SSE] ✅ 浏览器已连接');
+  console.log('[SSE] Browser connected');
 
   // 工具注册函数
   const toolMutex = new Mutex();
@@ -148,7 +148,7 @@ async function startSSEServer() {
 
       // 创建 MCP Server
       const mcpServer = new McpServer(
-        {name: 'chrome-devtools-mcp', version},
+        {name: 'chrome-devtools-mcp', version: VERSION},
         {capabilities: {tools: {}}},
       );
 
@@ -255,19 +255,10 @@ async function startSSEServer() {
   });
 
   httpServer.listen(port, () => {
-    console.log('\n╔════════════════════════════════════════════════════════╗');
-    console.log('║     Chrome DevTools MCP - SSE Server                   ║');
-    console.log('╚════════════════════════════════════════════════════════╝\n');
-    console.log(`[SSE] 🌐 服务器已启动`);
-    console.log(`[SSE] 📡 端口: ${port}`);
-    console.log(`[SSE] 🔗 端点:`);
-    console.log(`      - Health:  http://localhost:${port}/health`);
-    console.log(`      - SSE:     http://localhost:${port}/sse`);
-    console.log(`      - Message: http://localhost:${port}/message`);
-    console.log(`      - Test:    http://localhost:${port}/test`);
     console.log('');
-    console.log('传输方式: Server-Sent Events (SSE)');
-    console.log('按 Ctrl+C 停止\n');
+    displaySSEModeInfo(port);
+    console.log('✅ Server started successfully');
+    console.log('Press Ctrl+C to stop\n');
   });
 
   process.on('SIGINT', async () => {

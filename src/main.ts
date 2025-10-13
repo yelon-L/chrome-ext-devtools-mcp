@@ -20,19 +20,20 @@ import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-import {readPackageJson} from './utils/common.js';
+import {VERSION} from './version.js';
+import {displayStdioModeInfo} from './utils/modeMessages.js';
 
-const version = readPackageJson().version ?? 'unknown';
+const version = VERSION;
 
 export const args = parseArguments(version);
 
 const logFile = args.logFile ? saveLogsToFile(args.logFile) : undefined;
 
-logger(`Starting Chrome DevTools MCP Server v${version}`);
+logger(`Starting Chrome Extension Debug MCP Server v${version}`);
 const server = new McpServer(
   {
-    name: 'chrome_devtools',
-    title: 'Chrome DevTools MCP server',
+    name: 'chrome_extension_debug',
+    title: 'Chrome Extension Debug MCP server',
     version,
   },
   {capabilities: {logging: {}}},
@@ -71,24 +72,6 @@ async function getContext(): Promise<McpContext> {
   return context;
 }
 
-const logDisclaimers = () => {
-  console.error(
-    `chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
-debug, and modify any data in the browser or DevTools.
-Avoid sharing sensitive or personal information that you do not want to share with MCP clients.`,
-  );
-  console.error('');
-  console.error('📌 Important: Service Worker Manual Activation');
-  console.error('━'.repeat(60));
-  console.error('If you need to debug Chrome extensions with MV3 Service Workers:');
-  console.error('1. Open chrome://extensions/ in a new tab');
-  console.error('2. Find your target extension');
-  console.error('3. Click the blue "Service worker" link');
-  console.error('4. Keep the DevTools window open while debugging');
-  console.error('');
-  console.error('This ensures chrome.* APIs are available for extension tools.');
-  console.error('━'.repeat(60));
-};
 
 const toolMutex = new Mutex();
 
@@ -151,4 +134,4 @@ for (const tool of tools) {
 const transport = new StdioServerTransport();
 await server.connect(transport);
 logger('Chrome DevTools MCP Server connected');
-logDisclaimers();
+displayStdioModeInfo();

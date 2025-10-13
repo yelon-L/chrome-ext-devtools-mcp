@@ -7,6 +7,7 @@
 import type {Options as YargsOptions} from 'yargs';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
+import {ParameterValidator} from './utils/paramValidator.js';
 
 export const cliOptions = {
   browserUrl: {
@@ -34,7 +35,7 @@ export const cliOptions = {
   executablePath: {
     type: 'string',
     description: 'Path to custom Chrome executable.',
-    conflicts: 'browserUrl',
+    // 移除 yargs 的 conflicts，使用自定义验证器
     alias: 'e',
   },
   isolated: {
@@ -48,7 +49,7 @@ export const cliOptions = {
     description:
       'Specify a different Chrome channel that should be used. The default is the stable channel version.',
     choices: ['stable', 'canary', 'beta', 'dev'] as const,
-    conflicts: ['browserUrl', 'executablePath'],
+    // 移除 yargs 的 conflicts，使用自定义验证器
   },
   logFile: {
     type: 'string',
@@ -163,9 +164,22 @@ For more information, visit:
     .alias('h', 'help')
     .alias('v', 'version');
 
-  return yargsInstance
+  const parsed = yargsInstance
     .wrap(Math.min(120, yargsInstance.terminalWidth()))
     .help()
     .version(version)
     .parseSync();
+
+  // 参数验证
+  const validationResult = ParameterValidator.validate(parsed as any);
+  
+  if (!validationResult.valid || validationResult.warnings.length > 0) {
+    ParameterValidator.displayResults(validationResult);
+    
+    if (!validationResult.valid) {
+      process.exit(1);
+    }
+  }
+
+  return parsed;
 }

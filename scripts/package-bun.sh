@@ -54,14 +54,16 @@ declare -A targets=(
   ["windows-x64"]="bun-windows-x64"
 )
 
+binaryName="chrome-extension-debug"
+
 # 打包
 for platform in "${!targets[@]}"; do
   target="${targets[$platform]}"
   
   if [[ "$platform" == "windows-x64" ]]; then
-    outfile="dist/chrome-devtools-mcp-${platform}.exe"
+    outfile="dist/${binaryName}-${platform}.exe"
   else
-    outfile="dist/chrome-devtools-mcp-${platform}"
+    outfile="dist/${binaryName}-${platform}"
   fi
   
   echo "   📦 打包 $platform ($target)..."
@@ -86,7 +88,7 @@ echo ""
 echo "📁 输出目录: dist/"
 echo ""
 echo "📦 文件列表:"
-ls -lh dist/ | grep chrome-devtools-mcp
+ls -lh dist/ | grep ${binaryName}
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -94,12 +96,15 @@ echo "🚀 使用方法"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "stdio (default):"
-echo "  ./dist/chrome-devtools-mcp-linux-x64"
+echo "  ./dist/${binaryName}-linux-x64"
 echo ""
 echo "SSE server:"
-echo "  ./dist/chrome-devtools-mcp-linux-x64 --transport sse"
+echo "  ./dist/${binaryName}-linux-x64 --transport sse"
 echo ""
 echo "Streamable HTTP server:"
-echo "  ./dist/chrome-devtools-mcp-linux-x64 --transport streamable --port 3000"
+echo "  ./dist/${binaryName}-linux-x64 --transport streamable --port 3000"
+echo ""
+echo "Multi-tenant server:"
+echo "  ./dist/${binaryName}-linux-x64 --mode multi-tenant"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

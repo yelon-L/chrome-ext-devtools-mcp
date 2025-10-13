@@ -25,14 +25,16 @@ import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 
 import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser} from './browser.js';
 import type {Channel} from './browser.js';
+import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import {parseArguments} from './cli.js';
+import {VERSION} from './version.js';
 import {logger} from './logger.js';
 import {McpContext} from './McpContext.js';
 import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-import {readPackageJson} from './utils/common.js';
+import {displayStreamableModeInfo} from './utils/modeMessages.js';
 
 // 存储所有会话
 const sessions = new Map<string, {
@@ -42,12 +44,11 @@ const sessions = new Map<string, {
 }>();
 
 async function startHTTPServer() {
-  const version = readPackageJson().version ?? '0.8.1';
-  const args = parseArguments(version);
+  const args = parseArguments(VERSION);
   const port = parseInt(process.env.PORT || '32123', 10);
 
   // 启动浏览器
-  console.log('[HTTP] 🚀 初始化浏览器...');
+  console.log('[HTTP] Initializing browser...');
   
   const extraArgs: string[] = (args.chromeArg ?? []).map(String);
   if (args.proxyServer) {
@@ -70,7 +71,7 @@ async function startHTTPServer() {
         devtools,
       });
 
-  console.log('[HTTP] ✅ 浏览器已连接');
+  console.log('[HTTP] Browser connected');
 
   // 工具注册函数
   const toolMutex = new Mutex();
@@ -170,7 +171,7 @@ async function startHTTPServer() {
         
         // 创建 MCP Server
         const mcpServer = new McpServer(
-          {name: 'chrome-devtools-mcp', version},
+          {name: 'chrome-devtools-mcp', version: VERSION},
           {capabilities: {tools: {}}},
         );
         
@@ -238,18 +239,10 @@ async function startHTTPServer() {
   });
 
   httpServer.listen(port, () => {
-    console.log('\n╔════════════════════════════════════════════════════════╗');
-    console.log('║   Chrome DevTools MCP - Streamable HTTP Server        ║');
-    console.log('╚════════════════════════════════════════════════════════╝\n');
-    console.log(`[HTTP] 🌐 服务器已启动`);
-    console.log(`[HTTP] 📡 端口: ${port}`);
-    console.log(`[HTTP] 🔗 端点:`);
-    console.log(`       - Health: http://localhost:${port}/health`);
-    console.log(`       - MCP:    http://localhost:${port}/mcp`);
-    console.log(`       - Test:   http://localhost:${port}/test`);
     console.log('');
-    console.log('传输方式: Streamable HTTP (最新标准)');
-    console.log('按 Ctrl+C 停止\n');
+    displayStreamableModeInfo(port);
+    console.log('✅ Server started successfully');
+    console.log('Press Ctrl+C to stop\n');
   });
 
   process.on('SIGINT', async () => {
