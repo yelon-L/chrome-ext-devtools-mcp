@@ -19,21 +19,35 @@ export const listExtensionContexts = defineTool({
   name: 'list_extension_contexts',
   description: `List all execution contexts for a Chrome extension.
 
-This includes:
-- Background context (Service Worker for MV3, Background Page for MV2)
-- Popup windows
-- Options pages  
-- DevTools pages
-- Content scripts
+**Purpose**: Enumerate all running contexts (execution environments) of an extension.
 
-Use this to understand all running contexts of an extension before debugging.
-Each context has a unique Target ID that can be used with switch_extension_context.
+**Context types shown**:
+- **background**: Service Worker (MV3) or Background Page (MV2)
+- **popup**: Extension popup windows
+- **options_page**: Options/settings pages
+- **devtools_page**: DevTools extension pages
+- **content_script**: Scripts injected into web pages
 
-⚠️ **Note for MV3 extensions**:
-- If Service Worker is inactive, it won't appear in the contexts list
-- "No active contexts" may indicate SW is inactive (check with 'list_extensions')
-- Use 'activate_extension_service_worker' to activate SW if needed
-- MV3 SW is ephemeral and may become inactive after 30 seconds of inactivity`,
+**What you get**:
+- Context type and URL
+- Target ID (for switching contexts)
+- Frame information
+- Active/inactive status
+
+**When to use**:
+- Before calling evaluate_in_extension to see available contexts
+- To verify Service Worker is running (MV3)
+- To check if popup/options pages are open
+- To inspect content script injection status
+
+**⚠️ MV3 Service Worker behavior**:
+- Inactive SW won't appear in the list
+- "No active contexts" often means SW is inactive
+- SW becomes inactive after ~30 seconds of inactivity
+- Use activate_extension_service_worker to wake it up
+- Check SW status with list_extensions first
+
+**Example**: list_extension_contexts shows 1 background context (Service Worker active) and 2 content_script contexts on different tabs.`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

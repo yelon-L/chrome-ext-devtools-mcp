@@ -19,9 +19,24 @@ export const listExtensions = defineTool({
   name: 'list_extensions',
   description: `List all installed Chrome extensions with their metadata.
 
-This tool discovers extensions by scanning Chrome targets and retrieving their manifest information.
-Shows extension ID, name, version, manifest version, permissions, and enabled status.
-Useful for understanding which extensions are installed and active in the current browser session.`,
+**Purpose**: Discover and enumerate all extensions in the current Chrome instance.
+
+**What it shows**:
+- Extension ID (32-character identifier needed for other tools)
+- Name, version, and description
+- Manifest version (MV2 or MV3)
+- Enabled/disabled status
+- Service Worker status (for MV3 extensions: Active 🟢 / Inactive 🔴)
+- Permissions and host permissions
+- Background script URL
+
+**When to use**: This is typically the FIRST tool to call when working with extensions. Use it to:
+- Get the extension ID for other debugging tools
+- Check which extensions are installed
+- Verify extension is enabled and Service Worker is active (MV3)
+- Quick overview of extension permissions
+
+**Example**: list_extensions returns "MyExtension" with ID "abcd..." and shows Service Worker is 🔴 Inactive, indicating you need to activate it first.`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -40,7 +55,38 @@ Useful for understanding which extensions are installed and active in the curren
     );
 
     if (extensions.length === 0) {
-      response.appendResponseLine('No extensions found.');
+      response.appendResponseLine('# No Extensions Found\n');
+      response.appendResponseLine('No Chrome extensions were detected in this browser session.\n');
+      
+      response.appendResponseLine('## Possible Reasons:\n');
+      response.appendResponseLine('1. **No extensions installed** - This is a fresh Chrome profile');
+      response.appendResponseLine('2. **All extensions are disabled** - Try `list_extensions` with includeDisabled=true');
+      response.appendResponseLine('3. **Chrome started before extensions loaded** - Restart Chrome with remote debugging');
+      response.appendResponseLine('4. **Wrong Chrome profile** - Verify you\'re connected to the correct profile\n');
+      
+      response.appendResponseLine('## 🔍 Recommended Debugging Steps:\n');
+      response.appendResponseLine('### Option 1: Visual Inspection (Recommended)');
+      response.appendResponseLine('Navigate to chrome://extensions/ to see what Chrome actually shows:');
+      response.appendResponseLine('```');
+      response.appendResponseLine('1. navigate_to with url="chrome://extensions/"');
+      response.appendResponseLine('2. screenshot');
+      response.appendResponseLine('3. Analyze screenshot to identify installed extensions and their status');
+      response.appendResponseLine('```');
+      response.appendResponseLine('This will show all extensions, even if they weren\'t detected by the API.\n');
+      
+      response.appendResponseLine('### Option 2: Include Disabled Extensions');
+      response.appendResponseLine('```');
+      response.appendResponseLine('list_extensions with includeDisabled=true');
+      response.appendResponseLine('```\n');
+      
+      response.appendResponseLine('### Option 3: Install Test Extension');
+      response.appendResponseLine('1. Open chrome://extensions/');
+      response.appendResponseLine('2. Enable "Developer mode"');
+      response.appendResponseLine('3. Load an unpacked extension or install from Chrome Web Store');
+      response.appendResponseLine('4. Retry list_extensions\n');
+      
+      response.appendResponseLine('💡 **For AI**: Use `navigate_to` + `screenshot` to visually inspect the chrome://extensions/ page and identify any extensions');
+      
       response.setIncludePages(true);
       return;
     }
@@ -78,6 +124,16 @@ Useful for understanding which extensions are installed and active in the curren
         response.appendResponseLine(
           `- **Service Worker**: ${statusEmoji} ${statusText}`,
         );
+        
+        // Add helpful note for inactive SW
+        if (ext.serviceWorkerStatus === 'inactive') {
+          response.appendResponseLine(
+            `  - ⚠️  **Note**: Inactive SW blocks: evaluate_in_extension, inspect_extension_storage, etc.`,
+          );
+          response.appendResponseLine(
+            `  - **Quick fix**: Use \`activate_extension_service_worker\` with extensionId="${ext.id}"`,
+          );
+        }
       }
 
       if (ext.permissions && ext.permissions.length > 0) {
@@ -107,9 +163,23 @@ export const getExtensionDetails = defineTool({
   name: 'get_extension_details',
   description: `Get detailed information about a specific Chrome extension.
 
-Retrieves comprehensive metadata including manifest details, permissions, host permissions,
-background script information, and extension status. Use this after list_extensions to get
-more detailed information about a particular extension.`,
+**Purpose**: Retrieve comprehensive metadata and configuration for a single extension.
+
+**What it provides**:
+- Complete manifest information
+- All permissions (API permissions + host permissions)
+- Background script/Service Worker details
+- Content script configurations
+- Extension pages (popup, options, devtools)
+- Installation and update information
+
+**When to use**:
+- After list_extensions to get full details about one extension
+- To inspect permission requirements
+- To verify manifest configuration
+- To check background script setup
+
+**Example**: get_extension_details with extensionId="abcd..." shows all 15 permissions, 3 content scripts, and Service Worker URL.`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

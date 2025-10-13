@@ -17,18 +17,41 @@ export const getExtensionLogs = defineTool({
   name: 'get_extension_logs',
   description: `Get console logs from a Chrome extension.
 
-Captures console output from different extension contexts:
-- Background script / Service Worker logs
-- Content script logs (if running in tabs)
-- Popup and options page logs
+**Purpose**: Capture and retrieve console output from all extension contexts without opening DevTools.
 
-This is essential for debugging extension behavior without manually opening DevTools.
-Logs are color-coded by level (error, warning, info, log, debug) for easy identification.
+**Log sources**:
+- Background script / Service Worker (MV3)
+- Content scripts running in web pages
+- Popup windows
+- Options pages
+- DevTools pages
 
-⚠️ **Note for MV3 extensions**:
-- Service Worker logs are only available when SW is active
-- If SW is inactive, you may only see logs from other contexts (content scripts, popup, etc.)
-- Use 'activate_extension_service_worker' to activate SW if you need to see its logs`,
+**What it provides**:
+- Log message text
+- Log level (error, warn, info, log, debug)
+- Timestamp
+- Source context (background, content_script, etc.)
+- Stack traces for errors
+
+**Filtering options**:
+- By log level (error, warn, info, etc.)
+- By time range (since timestamp)
+- Limit number of entries
+
+**When to use**:
+- Debug extension without opening DevTools
+- Monitor extension activity in real-time
+- Capture error messages and stack traces
+- Verify console.log() statements are working
+- Diagnose issues reported by users
+
+**⚠️ MV3 Service Worker logs**:
+- SW logs only available when SW is active
+- Inactive SW = no background logs
+- Use activate_extension_service_worker to wake SW
+- Content script logs available regardless of SW status
+
+**Example**: get_extension_logs with level=["error", "warn"] returns 5 errors from Service Worker and 2 warnings from content scripts.`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -136,7 +159,36 @@ Logs are color-coded by level (error, warning, info, log, debug) for easy identi
       response.setIncludePages(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get extension logs: ${message}`);
+      
+      response.appendResponseLine(`# ❌ Failed to Get Extension Logs\n`);
+      response.appendResponseLine(`**Extension ID**: ${extensionId}\n`);
+      response.appendResponseLine(`**Error**: ${message}\n`);
+      
+      // Smart detection of Service Worker related errors
+      if (
+        message.includes('No background context') ||
+        message.includes('Service Worker') ||
+        message.includes('inactive') ||
+        message.includes('not running') ||
+        message.toLowerCase().includes('sw')
+      ) {
+        response.appendResponseLine(`## 🟡 Service Worker Inactive\n`);
+        response.appendResponseLine(`The Service Worker is not active, so **background logs are unavailable**.\n`);
+        response.appendResponseLine(`**However**: Content script logs may still be available if the extension has content scripts running.\n`);
+        response.appendResponseLine(`**To get background logs**:`);
+        response.appendResponseLine(`1. Check SW status: \`list_extensions\``);
+        response.appendResponseLine(`2. Activate SW: \`activate_extension_service_worker\` with extensionId="${extensionId}"`);
+        response.appendResponseLine(`3. Wait a moment for SW to generate logs`);
+        response.appendResponseLine(`4. Retry: \`get_extension_logs\` with extensionId="${extensionId}"\n`);
+      } else {
+        response.appendResponseLine(`**Possible causes**:`);
+        response.appendResponseLine(`- Extension is disabled or uninstalled`);
+        response.appendResponseLine(`- Extension ID is incorrect`);
+        response.appendResponseLine(`- Extension has not generated any logs yet`);
+        response.appendResponseLine(`- Chrome DevTools Protocol connection issue`);
+      }
+      
+      response.setIncludePages(true);
     }
   },
 });

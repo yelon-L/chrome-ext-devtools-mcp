@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 匹配 v1.0.0, v0.8.2 等语义化版本标签
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Build binaries
+        run: bash scripts/package-bun.sh
+      
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum chrome-extension-debug-* > checksums.txt
+          cat checksums.txt
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## Chrome Extension Debug MCP v${{ steps.get_version.outputs.VERSION }}
+            
+            ### 下载二进制文件
+            
+            选择适合您操作系统的版本：
+            
+            - **Linux x64**: `chrome-extension-debug-linux-x64`
+            - **Linux ARM64**: `chrome-extension-debug-linux-arm64`
+            - **macOS x64 (Intel)**: `chrome-extension-debug-macos-x64`
+            - **macOS ARM64 (Apple Silicon)**: `chrome-extension-debug-macos-arm64`
+            - **Windows x64**: `chrome-extension-debug-windows-x64.exe`
+            
+            ### 安装方法
+            
+            #### Linux/macOS
+            ```bash
+            # 下载
+            wget https://github.com/ChromeDevTools/chrome-devtools-mcp/releases/download/v${{ steps.get_version.outputs.VERSION }}/chrome-extension-debug-linux-x64
+            
+            # 添加执行权限
+            chmod +x chrome-extension-debug-linux-x64
+            
+            # 运行
+            ./chrome-extension-debug-linux-x64
+            ```
+            
+            #### Windows
+            直接下载 `.exe` 文件并运行。
+            
+            ### 使用方法
+            
+            **STDIO 模式（默认）:**
+            ```bash
+            ./chrome-extension-debug-linux-x64
+            ```
+            
+            **SSE 服务器:**
+            ```bash
+            ./chrome-extension-debug-linux-x64 --transport sse
+            ```
+            
+            **Multi-tenant 模式:**
+            ```bash
+            ./chrome-extension-debug-linux-x64 --mode multi-tenant
+            ```
+            
+            ### 验证下载
+            ```bash
+            sha256sum -c checksums.txt
+            ```
+            
+            查看完整文档：https://github.com/ChromeDevTools/chrome-devtools-mcp#readme
+          files: |
+            dist/chrome-extension-debug-linux-x64
+            dist/chrome-extension-debug-linux-arm64
+            dist/chrome-extension-debug-macos-x64
+            dist/chrome-extension-debug-macos-arm64
+            dist/chrome-extension-debug-windows-x64.exe
+            dist/checksums.txt
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}

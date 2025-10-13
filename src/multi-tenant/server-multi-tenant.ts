@@ -34,6 +34,8 @@ import {SessionManager} from './core/SessionManager.js';
 import {RouterManager} from './core/RouterManager.js';
 import {AuthManager} from './core/AuthManager.js';
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
+import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
+import {PersistentStore} from './storage/PersistentStore.js';
 
 /**
  * 多租户 MCP 代理服务器
@@ -48,6 +50,7 @@ class MultiTenantMCPServer {
   private routerManager: RouterManager;
   private authManager: AuthManager;
   private browserPool: BrowserConnectionPool;
+  private store: PersistentStore;
   
   // 每个会话一个Mutex，避免全局锁导致的性能瓶颈
   private sessionMutexes = new Map<string, Mutex>();
@@ -73,7 +76,7 @@ class MultiTenantMCPServer {
   private useCdpOperations: boolean;
   
   // IP 白名单配置
-  private allowedIPs: Set<string> | null;
+  private allowedIPPatterns: string[] | null;
 
   constructor() {
     this.version = VERSION;
@@ -82,14 +85,23 @@ class MultiTenantMCPServer {
     // 从环境变量读取 IP 白名单
     const allowedIPsEnv = process.env.ALLOWED_IPS;
     if (allowedIPsEnv) {
-      this.allowedIPs = new Set(
-        allowedIPsEnv.split(',').map(ip => ip.trim()).filter(ip => ip.length > 0)
-      );
-      console.log(`🔒 IP 白名单已启用: ${Array.from(this.allowedIPs).join(', ')}`);
+      this.allowedIPPatterns = parseAllowedIPs(allowedIPsEnv);
+      console.log(`🔒 IP 白名单已启用 (${this.allowedIPPatterns.length} 个规则):`);
+      for (const pattern of this.allowedIPPatterns) {
+        console.log(`   - ${getPatternDescription(pattern)}`);
+      }
     } else {
-      this.allowedIPs = null;
+      this.allowedIPPatterns = null;
       console.log('🌍 未设置 IP 白名单，允许所有 IP 访问');
     }
+
+    // 初始化持久化存储
+    this.store = new PersistentStore({
+      dataDir: process.env.DATA_DIR || './.mcp-data',
+      logFileName: 'auth-store.jsonl',
+      snapshotThreshold: 10000,
+      autoCompaction: true,
+    });
 
     // 初始化管理器
     this.sessionManager = new SessionManager({
@@ -129,9 +141,13 @@ class MultiTenantMCPServer {
    * 启动服务器
    */
   async start(): Promise<void> {
-    console.log('\n╔════════════════════════════════════════════════════════╗');
-    console.log('║   Chrome DevTools MCP - Multi-Tenant Server           ║');
-    console.log('╚════════════════════════════════════════════════════════╝\n');
+    console.log(`\n${'-'.repeat(60)}`);
+    console.log(`Chrome DevTools MCP v${this.version}`);
+    console.log(`Multi-Tenant Server`);
+    console.log(`${'-'.repeat(60)}\n`);
+
+    // 初始化存储引擎
+    await this.store.initialize();
 
     // 启动管理器
     this.sessionManager.start();
@@ -168,15 +184,22 @@ class MultiTenantMCPServer {
    */
   private isIPAllowed(req: http.IncomingMessage): boolean {
     // 如果未设置白名单，允许所有 IP
-    if (!this.allowedIPs) {
+    if (!this.allowedIPPatterns) {
       return true;
     }
 
     // 获取客户端 IP
     const clientIP = this.getClientIP(req);
     
-    // 检查是否在白名单中
-    return this.allowedIPs.has(clientIP);
+    // 使用增强的 IP 匹配器检查
+    const allowed = isIPAllowed(clientIP, this.allowedIPPatterns);
+    
+    if (!allowed) {
+      console.log(`⛔ IP 检查失败: ${clientIP}`);
+      console.log(`   配置的规则: ${this.allowedIPPatterns.join(', ')}`);
+    }
+    
+    return allowed;
   }
 
   /**
@@ -275,61 +298,117 @@ class MultiTenantMCPServer {
   }
 
   /**
-   * 分类错误类型，区分客户端错误和服务端错误
+   * Classify error type and provide user-friendly error messages
    * 
-   * @param error - 错误对象
-   * @returns 错误类型和安全消息
+   * @param error - Error object
+   * @returns Error classification with actionable message
    */
   private classifyError(error: unknown): {
     type: 'client' | 'server';
     statusCode: number;
     errorCode: string;
     safeMessage: string;
+    suggestions?: string[];
   } {
     const message = error instanceof Error ? error.message : String(error);
     
-    // 客户端错误（配置错误、参数错误）
+    // Browser connection errors
     if (
-      message.includes('Invalid browser URL') ||
-      message.includes('User not found') ||
-      message.includes('Invalid user') ||
+      message.includes('Failed to fetch browser webSocket URL') ||
       message.includes('ECONNREFUSED') ||
-      message.includes('connect ECONNREFUSED')
+      message.includes('connect ECONNREFUSED') ||
+      message.includes('fetch failed')
     ) {
       return {
         type: 'client',
         statusCode: 400,
-        errorCode: 'INVALID_BROWSER_CONFIG',
-        safeMessage: '无法连接到指定的浏览器，请检查浏览器 URL 配置',
+        errorCode: 'BROWSER_CONNECTION_FAILED',
+        safeMessage: 'Cannot connect to Chrome browser. Please verify browser is running with remote debugging enabled.',
+        suggestions: [
+          'Start Chrome with: chrome --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0',
+          'Check if the browser URL is correct and accessible',
+          'Verify firewall allows connections to the debugging port',
+          'Ensure Chrome is running on the specified host and port',
+        ],
       };
     }
     
-    // 超时错误
+    // User/configuration errors
+    if (
+      message.includes('Invalid browser URL') ||
+      message.includes('User not found') ||
+      message.includes('Invalid user')
+    ) {
+      return {
+        type: 'client',
+        statusCode: 400,
+        errorCode: 'INVALID_CONFIGURATION',
+        safeMessage: 'Invalid user configuration. Please check your registration details.',
+        suggestions: [
+          'Verify the browser URL format (e.g., http://localhost:9222)',
+          'Ensure you have registered the user before connecting',
+          'Check that the user ID matches your registration',
+        ],
+      };
+    }
+    
+    // Timeout errors
     if (message.includes('timeout') || message.includes('Timeout')) {
       return {
         type: 'server',
         statusCode: 504,
         errorCode: 'CONNECTION_TIMEOUT',
-        safeMessage: '连接超时，请稍后重试',
+        safeMessage: 'Connection timeout. The browser took too long to respond.',
+        suggestions: [
+          'Check if Chrome is responsive and not frozen',
+          'Verify network connectivity between server and browser',
+          'Try restarting Chrome with remote debugging',
+          'Increase timeout if browser is on slow network',
+        ],
       };
     }
     
-    // 认证错误
+    // Authentication errors
     if (message.includes('Unauthorized') || message.includes('Invalid token')) {
       return {
         type: 'client',
         statusCode: 401,
         errorCode: 'AUTHENTICATION_FAILED',
-        safeMessage: '认证失败，请检查 Token',
+        safeMessage: 'Authentication failed. Invalid or expired token.',
+        suggestions: [
+          'Request a new token using POST /api/auth/token',
+          'Check that the Authorization header is correctly formatted',
+          'Verify the token has not expired',
+        ],
       };
     }
     
-    // 默认为服务端错误，不泄露内部细节
+    // CDP/Puppeteer errors
+    if (message.includes('Target closed') || message.includes('Session closed')) {
+      return {
+        type: 'server',
+        statusCode: 500,
+        errorCode: 'BROWSER_SESSION_CLOSED',
+        safeMessage: 'Browser session was closed unexpectedly.',
+        suggestions: [
+          'The browser or tab may have been closed manually',
+          'Try reconnecting to establish a new session',
+          'Check browser console for crash reports',
+        ],
+      };
+    }
+    
+    // Default: Internal server error (don't leak details)
     return {
       type: 'server',
       statusCode: 500,
       errorCode: 'INTERNAL_ERROR',
-      safeMessage: '内部服务错误，请联系管理员',
+      safeMessage: 'Internal server error. Please contact administrator.',
+      suggestions: [
+        'Check server logs for detailed error information',
+        'Verify all system requirements are met',
+        'Try restarting the MCP server',
+      ],
     };
   }
 
@@ -422,7 +501,7 @@ class MultiTenantMCPServer {
       return;
     }
 
-    const { userId, permissions, expiresIn } = data;
+    const { userId, tokenName, permissions, expiresIn } = data;
 
     // 验证参数
     if (!userId) {
@@ -433,21 +512,67 @@ class MultiTenantMCPServer {
       return;
     }
 
-    // 生成 token
-    const token = this.authManager.generateToken(
-      userId,
-      permissions || ['*'],
-      expiresIn
-    );
+    try {
+      // 检查用户是否已注册
+      if (!this.store.hasUser(userId)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'USER_NOT_FOUND',
+          message: `User ${userId} not registered. Please register first.`,
+        }));
+        return;
+      }
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      token,
-      userId,
-      permissions: permissions || ['*'],
-      expiresIn: expiresIn || 86400,
-    }));
+      // 生成 token 名称（如果未提供）
+      const finalTokenName = tokenName || `${userId}-${crypto.randomBytes(4).toString('hex')}`;
+
+      // 生成 token (使用 AuthManager)
+      const token = this.authManager.generateToken(
+        userId,
+        permissions || ['*'],
+        expiresIn
+      );
+
+      // 保存到持久化存储
+      await this.store.createToken(
+        userId,
+        token,
+        finalTokenName,
+        permissions || ['*'],
+        expiresIn // undefined 表示永不过期
+      );
+
+      // 统计用户的 token 数量
+      const userTokens = this.store.getUserTokens(userId);
+
+      const response: Record<string, unknown> = {
+        success: true,
+        token,
+        tokenName: finalTokenName,
+        userId,
+        permissions: permissions || ['*'],
+        totalTokens: userTokens.length,
+        message: 'Token generated successfully',
+      };
+
+      // 只有指定了 expiresIn 才返回 expiresAt
+      if (expiresIn) {
+        response.expiresAt = new Date(Date.now() + expiresIn).toISOString();
+        response.expiresIn = expiresIn;
+      } else {
+        response.expiresAt = null;
+        response.expiresIn = null;
+        response.note = 'Token never expires';
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(response));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
   }
 
   /**
@@ -457,14 +582,8 @@ class MultiTenantMCPServer {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    // 认证（如果启用）
-    const authResult = await this.authenticate(req);
-    if (!authResult.success) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: authResult.error }));
-      return;
-    }
-
+    // 注册接口不需要认证（首次注册）
+    
     // 读取请求体
     const body = await this.readRequestBody(req);
     
@@ -493,7 +612,20 @@ class MultiTenantMCPServer {
     }
 
     try {
-      // 注册用户
+      // 检查用户名重复（使用持久化存储）
+      if (this.store.hasUser(userId)) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'USER_EXISTS',
+          message: `User ${userId} already registered`,
+        }));
+        return;
+      }
+
+      // 注册用户到持久化存储
+      await this.store.registerUser(userId, browserURL, metadata);
+      
+      // 同时注册到路由管理器（保持兼容）
       this.routerManager.registerUser(userId, browserURL, metadata);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -501,7 +633,7 @@ class MultiTenantMCPServer {
         success: true,
         userId,
         browserURL,
-        message: 'User registered successfully',
+        message: 'User registered successfully. Please request a token to connect.',
       }));
     } catch (error) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -776,10 +908,17 @@ class MultiTenantMCPServer {
       // 确保响应未发送时才写入错误
       if (!res.headersSent) {
         res.writeHead(errorInfo.statusCode, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
+        const errorResponse: Record<string, unknown> = {
           error: errorInfo.errorCode,
           message: errorInfo.safeMessage,
-        }));
+        };
+        
+        // Include suggestions if available
+        if (errorInfo.suggestions && errorInfo.suggestions.length > 0) {
+          errorResponse.suggestions = errorInfo.suggestions;
+        }
+        
+        res.end(JSON.stringify(errorResponse, null, 2));
       }
       
       throw error; // 重新抛出以便调用者知道失败
@@ -1053,6 +1192,9 @@ class MultiTenantMCPServer {
 
     // 清理所有会话
     await this.sessionManager.cleanupAll();
+    
+    // 关闭存储引擎
+    await this.store.close();
 
     // 关闭 HTTP 服务器
     if (this.httpServer) {

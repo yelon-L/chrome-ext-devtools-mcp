@@ -151,13 +151,14 @@ export class BrowserConnectionPool {
     }
 
     try {
-      // 先移除所有事件监听器，防止 close() 触发 disconnected 事件导致重连
+      // 先移除所有事件监听器，防止 disconnect() 触发 disconnected 事件导致重连
       connection.browser.removeAllListeners('disconnected');
       
-      // 再关闭浏览器
-      await connection.browser.close();
+      // 断开 CDP 连接，但不关闭用户的 Chrome 进程
+      // 注意：使用 disconnect() 而非 close()，这样服务重启不会关闭用户的浏览器
+      await connection.browser.disconnect();
     } catch (error) {
-      logger(`[BrowserConnectionPool] 关闭浏览器失败: ${error}`);
+      logger(`[BrowserConnectionPool] 断开浏览器连接失败: ${error}`);
     }
 
     this.#connections.delete(browserId);

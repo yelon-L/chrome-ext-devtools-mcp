@@ -30,6 +30,8 @@ export interface ExtensionInfo {
   permissions?: string[];
   /** Host 权限 */
   hostPermissions?: string[];
+  /** 完整的 manifest.json 数据 */
+  manifest?: ManifestV2 | ManifestV3;
 }
 
 /**

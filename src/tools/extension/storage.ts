@@ -17,20 +17,34 @@ export const inspectExtensionStorage = defineTool({
   name: 'inspect_extension_storage',
   description: `Inspect extension storage (local, sync, session, or managed).
 
-Retrieves data from the specified storage area of a Chrome extension using chrome.storage API.
-Shows storage quota, usage, and all stored key-value pairs. This is essential for debugging
-data persistence issues in extensions.
+**Purpose**: Read and inspect data stored by an extension using chrome.storage API.
 
-Storage types:
-- local: 5MB quota, persists across browser restarts
-- sync: 100KB quota, syncs across devices signed into same account
-- session: 10MB quota, cleared when browser closes (MV3 only)
-- managed: Enterprise-managed storage (read-only for extension)
+**Storage types**:
+- **local**: 5MB quota, persists across restarts, not synced
+- **sync**: 100KB quota, syncs across devices (same Google account)
+- **session**: 10MB quota, cleared on browser close (MV3 only)
+- **managed**: Enterprise policies (read-only for extension)
 
-⚠️ **Prerequisites for MV3 extensions**:
-- Service Worker MUST be active to access chrome.storage API
-- If SW is inactive, this tool may fail or return incomplete data
-- Use 'activate_extension_service_worker' first if SW status is 🔴 Inactive`,
+**What it shows**:
+- All key-value pairs in the storage area
+- Storage quota and current usage
+- Data size per key
+- Storage type and limits
+
+**When to use**:
+- Debug data persistence issues
+- Verify extension is saving/loading data correctly
+- Check storage quota usage
+- Inspect synced data across devices
+- Troubleshoot "data not persisting" bugs
+
+**⚠️ MV3 prerequisite**:
+- Service Worker MUST be active to access chrome.storage
+- Check SW status with list_extensions first
+- Use activate_extension_service_worker if SW is 🔴 Inactive
+- Inactive SW will cause this tool to fail
+
+**Example**: inspect_extension_storage with storageType="local" shows 15 keys totaling 2.3MB of 5MB quota.`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -85,7 +99,37 @@ Storage types:
       response.setIncludePages(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to inspect storage: ${message}`);
+      
+      response.appendResponseLine(`# ❌ Storage Inspection Failed\n`);
+      response.appendResponseLine(`**Extension ID**: ${extensionId}`);
+      response.appendResponseLine(`**Storage Type**: ${storageType}\n`);
+      response.appendResponseLine(`**Error**: ${message}\n`);
+      
+      // Smart detection of Service Worker related errors
+      if (
+        message.includes('No background context') ||
+        message.includes('Service Worker') ||
+        message.includes('inactive') ||
+        message.includes('not running') ||
+        message.includes('context') ||
+        message.toLowerCase().includes('sw')
+      ) {
+        response.appendResponseLine(`## 🔴 Service Worker Issue Detected\n`);
+        response.appendResponseLine(`For MV3 extensions, chrome.storage API requires an active Service Worker.\n`);
+        response.appendResponseLine(`**Solution**:`);
+        response.appendResponseLine(`1. Check SW status: \`list_extensions\` (look for 🔴 Inactive)`);
+        response.appendResponseLine(`2. Activate SW: \`activate_extension_service_worker\` with extensionId="${extensionId}"`);
+        response.appendResponseLine(`3. Retry: \`inspect_extension_storage\` with extensionId="${extensionId}"\n`);
+        response.appendResponseLine(`**Why this happens**: MV3 Service Workers become inactive after ~30 seconds of inactivity.`);
+      } else {
+        response.appendResponseLine(`**Possible causes**:`);
+        response.appendResponseLine(`- Extension is disabled or uninstalled`);
+        response.appendResponseLine(`- Extension ID is incorrect`);
+        response.appendResponseLine(`- Storage type "${storageType}" is not supported by this extension`);
+        response.appendResponseLine(`- Extension lacks storage permissions in manifest`);
+      }
+      
+      response.setIncludePages(true);
     }
   },
 });

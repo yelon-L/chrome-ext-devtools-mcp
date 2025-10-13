@@ -1,5 +1,28 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.8.2] - 2025-10-13
+
+### Added
+- **Multi-Tenant Mode**: IP whitelist support via `ALLOWED_IPS` environment variable
+- **Security**: Client IP detection with proxy support (X-Forwarded-For, X-Real-IP)
+- **Authentication**: Token generation endpoint `/api/auth/token`
+- **Documentation**: Comprehensive guides for IP whitelist and authentication
+
+### Fixed
+- **Multi-Tenant**: `--mode multi-tenant` now correctly defaults to SSE transport
+- **Configuration**: Fixed MCP SSE client configuration format in README
+- **Authentication**: Resolved circular dependency in token generation flow
+
+### Changed
+- **Startup Messages**: Improved mode-specific startup information display
+- **MCP Config Format**: Updated to flat structure (removed unnecessary `transport` wrapper)
+- **README**: Updated with correct installation and configuration examples
+
 ## [0.8.0](https://github.com/ChromeDevTools/chrome-devtools-mcp/compare/chrome-devtools-mcp-v0.7.1...chrome-devtools-mcp-v0.8.0) (2025-10-10)
 
 
