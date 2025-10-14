@@ -1503,21 +1503,33 @@ class MultiTenantMCPServer {
           await context.ensureInitialized();
           
           // 执行工具
-          const result = await this.executeTool(session, tool.name, params);
+          await tool.handler({params}, {
+            appendResponseLine: () => {},
+            setIncludePages: () => {},
+            setIncludeNetworkRequests: () => {},
+            setIncludeConsoleData: () => {},
+            setIncludeSnapshot: () => {},
+            attachImage: () => {},
+            attachNetworkRequest: () => {},
+          }, context);
           
           // 记录工具调用计数（V2 架构）
-          if (session.browserId) {
-            // 异步记录，不阻塞响应
-            this.storeV2.incrementToolCallCount(session.browserId).catch(err => {
-              logger(`[Server] ⚠️  Failed to increment tool call count: ${err}`);
-            });
+          const sessionData = this.sessionManager.getSession(sessionId);
+          if (sessionData) {
+            const allBrowsers = Array.from(this.storeV2['browsers'].values());
+            const userBrowsers = allBrowsers.filter(b => b.userId === sessionData.userId);
+            if (userBrowsers.length > 0) {
+              this.storeV2.incrementToolCallCount(userBrowsers[0].browserId).catch(err => {
+                logger(`[Server] ⚠️  Failed to increment tool call count: ${err}`);
+              });
+            }
           }
           
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(result, null, 2),
+                text: 'Tool executed successfully',
               },
             ],
           };
