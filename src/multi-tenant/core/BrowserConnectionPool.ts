@@ -364,8 +364,15 @@ export class BrowserConnectionPool {
       `[BrowserConnectionPool] 尝试重连 (${connection.reconnectAttempts}/${this.#config.maxReconnectAttempts}): ${connection.userId}`
     );
 
-    // 等待一段时间后重连
-    const delay = this.#config.reconnectDelay * connection.reconnectAttempts;
+    // 指数退避 + 随机抖动防止雷鸣群效应
+    const baseDelay = this.#config.reconnectDelay;
+    const exponentialDelay = Math.min(
+      baseDelay * Math.pow(2, connection.reconnectAttempts - 1),
+      30000  // 最大30秒
+    );
+    const jitter = Math.random() * 1000;  // 0-1000ms随机抖动
+    const delay = exponentialDelay + jitter;
+    
     await new Promise(resolve => setTimeout(resolve, delay));
 
     try {

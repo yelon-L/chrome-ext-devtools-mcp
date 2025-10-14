@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension-debug-mcp",
-  "version": "0.8.8",
+  "version": "0.8.10",
   "description": "MCP server for Chrome Extension Debugging",
   "type": "module",
   "bin": "./build/src/index.js",
@@ -47,6 +47,7 @@
     "debug": "4.4.3",
     "eventsource": "^4.0.0",
     "node-fetch": "^3.3.2",
+    "pg": "^8.16.3",
     "puppeteer-core": "^24.24.0",
     "yargs": "18.0.0",
     "zod": "^3.25.76"

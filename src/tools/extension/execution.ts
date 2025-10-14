@@ -77,11 +77,29 @@ export const reloadExtension = defineTool({
       captureErrors = true,
     } = request.params;
 
+    // 全局超时保护 - 防止无限卡住
+    const TOTAL_TIMEOUT = 20000; // 20秒总超时
+    const startTime = Date.now();
+    let timeoutCheckInterval: NodeJS.Timeout | null = null;
+    
+    const checkTimeout = () => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > TOTAL_TIMEOUT) {
+        if (timeoutCheckInterval) {
+          clearInterval(timeoutCheckInterval);
+        }
+        throw new Error(`Reload operation timeout after ${elapsed}ms (limit: ${TOTAL_TIMEOUT}ms)`);
+      }
+    };
+    
+    // 每秒检查一次超时
+    timeoutCheckInterval = setInterval(checkTimeout, 1000);
+
     try {
       response.appendResponseLine(`# Smart Extension Reload\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
       response.appendResponseLine(`**Preserve Storage**: ${preserveStorage ? '✅ Yes' : '❌ No'}`);
-      response.appendResponseLine(`**Wait for Ready**: ${waitForReady ? '✅ Yes' : '❌ No'}\n`);
+      response.appendResponseLine(`**Wait for Ready**: ${waitForReady ? '✅ Yes' : '❌ No'}`);
 
       // 1. 获取扩展信息
       const extensions = await context.getExtensions();
@@ -205,16 +223,17 @@ export const reloadExtension = defineTool({
         }
       }
 
-      // 8. 捕获启动错误
+      // 8. 捕获启动错误（优化：减少等待时间）
       if (captureErrors) {
         response.appendResponseLine(`## Step ${preserveStorage ? (waitForReady ? '6' : '5') : (waitForReady ? '4' : '3')}: Error Check\n`);
         
         try {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // 减少等待时间，避免卡住
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           const logsResult = await context.getExtensionLogs(extensionId, {
             capture: true,
-            duration: 3000,
+            duration: 1000,  // 从3000ms减少到1000ms
             includeStored: true,
           });
           
@@ -232,7 +251,7 @@ export const reloadExtension = defineTool({
             response.appendResponseLine('\n💡 Use `diagnose_extension_errors` for detailed analysis\n');
           }
         } catch (e) {
-          response.appendResponseLine('ℹ️ Error check skipped\n');
+          response.appendResponseLine('ℹ️ Error check skipped (completed quickly to avoid blocking)\n');
         }
       }
 
@@ -255,8 +274,32 @@ export const reloadExtension = defineTool({
       response.appendResponseLine('- Reload pages to re-inject content scripts');
 
       response.setIncludePages(true);
+      
+      // 清理超时检查
+      if (timeoutCheckInterval) {
+        clearInterval(timeoutCheckInterval);
+      }
     } catch (error) {
+      // 清理超时检查
+      if (timeoutCheckInterval) {
+        clearInterval(timeoutCheckInterval);
+      }
+      
       const message = error instanceof Error ? error.message : String(error);
+      
+      // 添加超时相关的提示
+      if (message.includes('timeout')) {
+        response.appendResponseLine(`\n⏱️  **Timeout Error**: ${message}\n`);
+        response.appendResponseLine('**Possible causes**:');
+        response.appendResponseLine('- Extension is taking too long to restart');
+        response.appendResponseLine('- Extension crashed during reload');
+        response.appendResponseLine('- Service Worker failed to activate\n');
+        response.appendResponseLine('**Suggestions**:');
+        response.appendResponseLine('- Try again with `waitForReady=false` and `captureErrors=false`');
+        response.appendResponseLine('- Check if extension can be manually reloaded in chrome://extensions/');
+        response.appendResponseLine('- Use `diagnose_extension_errors` to check for startup errors');
+      }
+      
       throw new Error(`Failed to reload extension: ${message}`);
     }
   },

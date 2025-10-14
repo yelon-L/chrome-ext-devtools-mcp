@@ -35,7 +35,7 @@ export async function handleRegisterUserV2(
     }
     
     // 检查邮箱是否已注册
-    if (this.storeV2.hasEmail(email)) {
+    if (await this.getUnifiedStorage().hasEmailAsync(email)) {
       res.writeHead(409, {'Content-Type': 'application/json'});
       res.end(JSON.stringify({
         error: 'EMAIL_EXISTS',
@@ -45,7 +45,7 @@ export async function handleRegisterUserV2(
     }
     
     // 注册用户
-    const user = await this.storeV2.registerUserByEmail(email, username);
+    const user = await this.getUnifiedStorage().registerUserByEmail(email, username);
     
     res.writeHead(201, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -79,14 +79,14 @@ export async function handleGetUserV2(
     return;
   }
   
-  const user = this.storeV2.getUserById(userId);
+  const user = await this.getUnifiedStorage().getUserByIdAsync(userId);
   if (!user) {
     res.writeHead(404, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({error: 'User not found'}));
     return;
   }
   
-  const browsers = this.storeV2.listUserBrowsers(userId);
+  const browsers = await this.getUnifiedStorage().getUserBrowsersAsync(userId);
   
   res.writeHead(200, {'Content-Type': 'application/json'});
   res.end(JSON.stringify({
@@ -134,9 +134,9 @@ export async function handleUpdateUsernameV2(
       return;
     }
     
-    await this.storeV2.updateUsername(userId, username);
+    await this.getUnifiedStorage().updateUsername(userId, username);
     
-    const user = this.storeV2.getUserById(userId)!;
+    const user = await this.getUnifiedStorage().getUserByIdAsync(userId);
     
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -170,7 +170,7 @@ export async function handleDeleteUserV2(
   }
   
   try {
-    const deletedBrowsers = await this.storeV2.deleteUser(userId);
+    const deletedBrowsers = await this.getUnifiedStorage().deleteUser(userId);
     
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -195,10 +195,10 @@ export async function handleListUsersV2(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
-  const users = this.storeV2.getAllUsers();
+  const users = await this.getUnifiedStorage().getAllUsersAsync();
   
-  const usersWithBrowserCount = users.map((user: UserRecordV2) => {
-    const browsers = this.storeV2.listUserBrowsers(user.userId);
+  const usersWithBrowserCount = await Promise.all(users.map(async (user: UserRecordV2) => {
+    const browsers = await this.getUnifiedStorage().getUserBrowsersAsync(user.userId);
     return {
       userId: user.userId,
       email: user.email,
@@ -206,7 +206,7 @@ export async function handleListUsersV2(
       browserCount: browsers.length,
       createdAt: new Date(user.registeredAt).toISOString(),
     };
-  });
+  }));
   
   res.writeHead(200, {'Content-Type': 'application/json'});
   res.end(JSON.stringify({
@@ -267,11 +267,11 @@ export async function handleBindBrowserV2(
     const finalTokenName = tokenName || `browser-${Date.now()}`;
     
     // 绑定浏览器（浏览器已验证可达）
-    const browser = await this.storeV2.bindBrowser(userId, browserURL, finalTokenName, description);
+    const browser = await this.getUnifiedStorage().bindBrowser(userId, browserURL, finalTokenName, description);
     
     // 更新浏览器信息
     if (browserDetection.browserInfo) {
-      await this.storeV2.updateBrowser(browser.browserId, {
+      await this.getUnifiedStorage().updateBrowser(browser.browserId, {
         description: description || `Chrome ${browserDetection.browserInfo.browser}`,
       });
     }
@@ -309,16 +309,19 @@ export async function handleListBrowsersV2(
   res: http.ServerResponse,
   url: URL
 ): Promise<void> {
-  const pathParts = url.pathname.split('/');
-  const userId = pathParts[pathParts.length - 2];
-  
+  const userId = url.pathname.split('/')[4];
   if (!userId) {
     res.writeHead(400, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({error: 'Invalid userId'}));
     return;
   }
   
-  const browsers = this.storeV2.listUserBrowsers(userId);
+  const browsers = await this.getUnifiedStorage().getUserBrowsersAsync(userId);
+  if (!browsers) {
+    res.writeHead(404, {'Content-Type': 'application/json'});
+    res.end(JSON.stringify({error: 'User not found'}));
+    return;
+  }
   
   res.writeHead(200, {'Content-Type': 'application/json'});
   res.end(JSON.stringify({
@@ -356,7 +359,8 @@ export async function handleGetBrowserV2(
     return;
   }
   
-  const browser = this.storeV2.getBrowserById(browserId);
+  // 使用异步方法以支持 PostgreSQL 模式
+  const browser = await this.getUnifiedStorage().getBrowserAsync(browserId);
   if (!browser) {
     res.writeHead(404, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({error: 'Browser not found'}));
@@ -404,7 +408,7 @@ export async function handleUpdateBrowserV2(
     const data = JSON.parse(body);
     const {browserURL, description} = data;
     
-    const browser = this.storeV2.getBrowserById(browserId);
+    const browser = await this.getUnifiedStorage().getBrowserAsync(browserId);
     if (!browser) {
       res.writeHead(404, {'Content-Type': 'application/json'});
       res.end(JSON.stringify({error: 'Browser not found'}));
@@ -432,12 +436,12 @@ export async function handleUpdateBrowserV2(
     }
     
     // 更新浏览器信息
-    await this.storeV2.updateBrowser(browser.browserId, {
+    await this.getUnifiedStorage().updateBrowser(browser.browserId, {
       browserURL,
       description,
     });
     
-    const updatedBrowser = this.storeV2.getBrowserById(browser.browserId)!;
+    const updatedBrowser = await this.getUnifiedStorage().getBrowserAsync(browser.browserId);
     
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -476,14 +480,14 @@ export async function handleUnbindBrowserV2(
   }
   
   try {
-    const browser = this.storeV2.getBrowserById(browserId);
+    const browser = await this.getUnifiedStorage().getBrowserAsync(browserId);
     if (!browser) {
       res.writeHead(404, {'Content-Type': 'application/json'});
       res.end(JSON.stringify({error: 'Browser not found'}));
       return;
     }
     
-    await this.storeV2.unbindBrowser(browser.browserId);
+    await this.getUnifiedStorage().unbindBrowser(browser.browserId);
     
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({

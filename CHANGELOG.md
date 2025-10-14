@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.10] - 2025-10-14
+
+### 🚨 Breaking Changes
+- **Legacy API Removed**: All Legacy API endpoints have been completely removed
+  - Removed `/api/register` - Use `POST /api/v2/users` instead
+  - Removed `/api/auth/token` - Tokens now generated when binding browsers
+  - Removed `/api/users/:id/browser` - Use `POST /api/v2/users/:id/browsers` instead
+  - Removed `/sse` - Use `GET /api/v2/sse` instead
+  - Removed `/sse-v2` compatibility path - Use `GET /api/v2/sse` instead
+
+### ⚠️ Migration Required
+- **Users must migrate to V2 API** - See `docs/guides/V2_API_MIGRATION_GUIDE.md`
+- **Legacy data not automatically migrated** - Manual migration needed
+- **All existing tokens invalidated** - Users must re-register and re-bind browsers
+
+### Removed
+- **Legacy Components**:
+  - `PersistentStore` (replaced by `PersistentStoreV2`)
+  - `AuthManager` (token management now in `PersistentStoreV2`)
+  - `RouterManager` (user routing now in `PersistentStoreV2`)
+- **Legacy Types**:
+  - `auth.types.ts`
+  - `router.types.ts`
+- **Legacy Tests**:
+  - `AuthManager.test.ts`
+  - `RouterManager.test.ts`
+- **Legacy Test Scripts**:
+  - `setup-and-test-bob.sh`
+- **Total code reduction**: 800+ lines removed
+
+### Added
+- **Performance Monitoring**:
+  - `PerformanceMonitor` class for API performance tracking
+  - `SimpleCache` class for response caching (30s TTL)
+  - `GET /metrics` endpoint for performance metrics
+    - Request count, error rate, response times
+    - Top endpoints, slowest endpoints, high error rate endpoints
+    - Cache statistics
+- **Enhanced Health Endpoint**:
+  - Added cache and performance statistics
+  - More detailed system metrics
+- **Documentation**:
+  - `V2_API_TEST_REPORT.md` - Complete test report for all V2 endpoints
+  - `PHASE_2_REFACTORING_COMPLETE.md` - Phase 2 refactoring summary
+  - `PHASE_3_COMPLETE.md` - Phase 3 testing and validation summary
+  - `docs/guides/V2_API_MIGRATION_GUIDE.md` - Migration guide from Legacy to V2
+  - `test-v2-api-complete.sh` - Comprehensive V2 API test script
+
+### Changed
+- **API Design**:
+  - All V2 handlers now use `browserId` instead of `tokenName` in URL paths
+  - More consistent RESTful design
+  - Flattened response structure (removed nested `.user` and `.browser` objects)
+- **Web UI**:
+  - Updated to use V2 API endpoints
+  - Updated API documentation display
+  - Fixed browser unbinding to use `browserId`
+- **Performance**:
+  - Added request tracking with performance monitoring
+  - Automatic cache cleanup for expired entries
+  - Request-level performance metrics
+
+### Fixed
+- **API Consistency**:
+  - `handleGetBrowserV2`, `handleUpdateBrowserV2`, `handleUnbindBrowserV2` now use `browserId`
+  - Response format standardized across all V2 endpoints
+- **Web UI**:
+  - Browser unbind now works correctly with `browserId`
+  - API endpoint documentation updated to reflect V2 paths
+
+### Testing
+- **100% V2 API Coverage**:
+  - 11 endpoints tested and verified
+  - All tests passing
+  - Performance benchmarks established
+  - Response times: < 3s for browser binding, < 100ms for other operations
+
+### Technical Debt Resolved
+- Removed Legacy API complexity
+- Unified authentication mechanism
+- Simplified codebase architecture
+- Better separation of concerns
+
 ## [0.8.7] - 2025-10-13
 
 ### Fixed

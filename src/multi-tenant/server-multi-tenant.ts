@@ -35,9 +35,13 @@ import {VERSION} from '../version.js';
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
 import {SessionManager} from './core/SessionManager.js';
 import {PersistentStoreV2, type UserRecordV2, type BrowserRecordV2} from './storage/PersistentStoreV2.js';
+import {StorageAdapterFactory, type StorageAdapter} from './storage/StorageAdapter.js';
+import {UnifiedStorage} from './storage/UnifiedStorageAdapter.js';
 import * as v2Handlers from './handlers-v2.js';
 import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
 import {detectBrowser} from './utils/browser-detector.js';
+import {PerformanceMonitor} from './utils/performance-monitor.js';
+import {SimpleCache} from './utils/simple-cache.js';
 
 /**
  * 多租户 MCP 代理服务器
@@ -50,7 +54,9 @@ class MultiTenantMCPServer {
   // 核心管理器
   private sessionManager: SessionManager;
   private browserPool: BrowserConnectionPool;
-  private storeV2: PersistentStoreV2;  // V2 存储（基于邮箱）
+  private storeV2: PersistentStoreV2 | null = null;  // V2 存储（JSONL）
+  private storage: StorageAdapter | null = null;  // 统一存储接口
+  private unifiedStorage: UnifiedStorage | null = null;  // 统一存储访问层
   
   // 每个会话一个Mutex，避免全局锁导致的性能瓶颈
   private sessionMutexes = new Map<string, Mutex>();
@@ -61,6 +67,12 @@ class MultiTenantMCPServer {
     totalRequests: 0,
     totalErrors: 0,
   };
+  
+  // 性能监控器
+  private performanceMonitor: PerformanceMonitor;
+  
+  // 简单缓存（用于API响应）
+  private apiCache: SimpleCache;
   
   // 循环缓冲区：保存最近100次连接时间，避免 shift() 的 O(n) 开销
   private static readonly CONNECTION_TIMES_BUFFER_SIZE = 100;
@@ -103,6 +115,10 @@ class MultiTenantMCPServer {
     this.version = VERSION;
     this.port = parseInt(process.env.PORT || '32122', 10);
     
+    // 初始化性能监控和缓存
+    this.performanceMonitor = new PerformanceMonitor(1000);
+    this.apiCache = new SimpleCache(30000, 500); // 30秒TTL，最多500个条目
+    
     // 从环境变量读取 IP 白名单
     const allowedIPsEnv = process.env.ALLOWED_IPS;
     if (allowedIPsEnv) {
@@ -116,13 +132,23 @@ class MultiTenantMCPServer {
       console.log('🌍 No IP whitelist set, allowing all IP access');
     }
 
-    // Initialize V2 storage (email-based)
-    this.storeV2 = new PersistentStoreV2({
-      dataDir: process.env.DATA_DIR || './.mcp-data',
-      logFileName: 'store-v2.jsonl',
-      snapshotThreshold: 10000,
-      autoCompaction: true,
-    });
+    // Initialize storage based on STORAGE_TYPE env var
+    const storageType = (process.env.STORAGE_TYPE || 'jsonl') as 'jsonl' | 'postgresql';
+    console.log(`💾 Storage type: ${storageType}`);
+    
+    if (storageType === 'jsonl') {
+      // Legacy: Direct PersistentStoreV2
+      this.storeV2 = new PersistentStoreV2({
+        dataDir: process.env.DATA_DIR || './.mcp-data',
+        logFileName: 'store-v2.jsonl',
+        snapshotThreshold: 10000,
+        autoCompaction: true,
+      });
+      console.log('   Using JSONL file storage');
+    } else {
+      // PostgreSQL or other storage
+      console.log(`   Using ${storageType} storage (will initialize async)`);
+    }
 
     // Initialize managers
     this.sessionManager = new SessionManager({
@@ -161,6 +187,16 @@ class MultiTenantMCPServer {
   }
 
   /**
+   * 获取统一存储接口（支持JSONL和PostgreSQL）
+   */
+  private getUnifiedStorage(): UnifiedStorage {
+    if (this.unifiedStorage) {
+      return this.unifiedStorage;
+    }
+    throw new Error('Storage not initialized');
+  }
+
+  /**
    * 启动服务器
    */
   async start(): Promise<void> {
@@ -170,7 +206,35 @@ class MultiTenantMCPServer {
     console.log(`${'-'.repeat(60)}\n`);
 
     // Initialize storage engine
-    await this.storeV2.initialize();
+    const storageType = (process.env.STORAGE_TYPE || 'jsonl') as 'jsonl' | 'postgresql';
+    
+    if (storageType === 'postgresql') {
+      // Initialize PostgreSQL storage
+      console.log('🐘 Initializing PostgreSQL storage...');
+      try {
+        this.storage = await StorageAdapterFactory.create('postgresql', {
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '5432'),
+          database: process.env.DB_NAME || 'mcp_devtools',
+          user: process.env.DB_USER || 'admin',
+          password: process.env.DB_PASSWORD || 'admin',
+        });
+        await this.storage.initialize();
+        this.unifiedStorage = new UnifiedStorage(this.storage);
+        console.log('   ✅ PostgreSQL storage initialized');
+      } catch (error) {
+        console.error('   ❌ Failed to initialize PostgreSQL:', error);
+        throw error;
+      }
+    } else {
+      // Use JSONL storage
+      if (!this.storeV2) {
+        throw new Error('JSONL storage not initialized');
+      }
+      await this.storeV2.initialize();
+      this.unifiedStorage = new UnifiedStorage(this.storeV2);
+      console.log('   ✅ JSONL storage initialized');
+    }
 
     // Start managers
     this.sessionManager.start();
@@ -255,6 +319,7 @@ class MultiTenantMCPServer {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
+    const startTime = Date.now();
     const url = new URL(req.url!, `http://${req.headers.host}`);
     
     // IP 白名单检查（/health 端点除外）
@@ -285,11 +350,15 @@ class MultiTenantMCPServer {
       res.end();
       return;
     }
+    
+    let isError = false;
 
     try {
       // 路由分发
       if (url.pathname === '/health') {
         await this.handleHealth(req, res);
+      } else if (url.pathname === '/metrics') {
+        await this.handleMetrics(req, res);
       }
       // V2 API: 用户管理
       else if (url.pathname === '/api/v2/users' && req.method === 'POST') {
@@ -335,12 +404,20 @@ class MultiTenantMCPServer {
         res.end('Not found');
       }
     } catch (error) {
+      isError = true;
       logger(`[Server] Request processing error: ${error}`);
       res.writeHead(500);
       res.end(JSON.stringify({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : String(error),
       }));
+    } finally {
+      // 记录性能数据（除了SSE连接）
+      if (!url.pathname.includes('/sse')) {
+        const duration = Date.now() - startTime;
+        this.performanceMonitor.record(url.pathname, req.method || 'GET', duration, isError);
+        this.stats.totalRequests++;
+      }
     }
   }
 
@@ -508,10 +585,7 @@ class MultiTenantMCPServer {
       version: this.version,
       sessions: this.sessionManager.getStats(),
       browsers: this.browserPool.getStats(),
-      users: {
-        total: this.storeV2.getStats().users,
-        totalBrowsers: this.storeV2.getStats().browsers,
-      },
+      users: await this.getUnifiedStorage().getStatsAsync(),
       performance: {
         totalConnections: this.stats.totalConnections,
         totalRequests: this.stats.totalRequests,
@@ -526,6 +600,31 @@ class MultiTenantMCPServer {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats, null, 2));
+  }
+
+  /**
+   * 处理性能指标查询
+   */
+  private async handleMetrics(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    const summary = this.performanceMonitor.getSummary();
+    const topEndpoints = this.performanceMonitor.getTopEndpoints(10);
+    const slowestEndpoints = this.performanceMonitor.getSlowestEndpoints(10);
+    const highErrorRateEndpoints = this.performanceMonitor.getHighErrorRateEndpoints(10);
+    const cacheStats = this.apiCache.getStats();
+
+    const metrics = {
+      summary,
+      cache: cacheStats,
+      topEndpoints,
+      slowestEndpoints,
+      highErrorRateEndpoints,
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(metrics, null, 2));
   }
 
   /**
@@ -560,7 +659,7 @@ class MultiTenantMCPServer {
     }
     
     // 从 token 获取浏览器记录
-    const browser = this.storeV2.getBrowserByToken(token);
+    const browser = await this.getUnifiedStorage().getBrowserByTokenAsync(token);
     if (!browser) {
       this.stats.totalErrors++;
       logger(`[Server] ❌ invalid token: ${token.substring(0, 16)}...`);
@@ -578,7 +677,7 @@ class MultiTenantMCPServer {
     logger(`[Server] 📡 SSE V2 connection request: ${userId}/${browser.tokenName}`);
     
     // 更新最后连接时间
-    await this.storeV2.updateLastConnected(browser.browserId);
+    await this.getUnifiedStorage().updateLastConnected(browser.browserId);
     
     // 并发连接控制：使用 browserId 作为键，避免同一浏览器的重复连接
     const connectionKey = browser.browserId;
@@ -1097,13 +1196,17 @@ class MultiTenantMCPServer {
           
           // 记录工具调用计数（V2 架构）
           const sessionData = this.sessionManager.getSession(sessionId);
-          if (sessionData) {
-            const allBrowsers = Array.from(this.storeV2['browsers'].values());
-            const userBrowsers = allBrowsers.filter(b => b.userId === sessionData.userId);
-            if (userBrowsers.length > 0) {
-              this.storeV2.incrementToolCallCount(userBrowsers[0].browserId).catch(err => {
-                logger(`[Server] ⚠️  Failed to increment tool call count: ${err}`);
-              });
+          if (sessionData?.userId) {
+            try {
+              const userBrowsers = await this.getUnifiedStorage().getUserBrowsersAsync(sessionData.userId);
+              if (userBrowsers.length > 0 && userBrowsers[0].browserId) {
+                // Increment tool call count (fire-and-forget)
+                this.getUnifiedStorage().incrementToolCallCount(userBrowsers[0].browserId).catch(err => {
+                  logger(`[Server] ⚠️  Failed to increment tool call count: ${err}`);
+                });
+              }
+            } catch (err) {
+              // Ignore errors in tool call counting
             }
           }
           
@@ -1214,7 +1317,9 @@ class MultiTenantMCPServer {
     await this.sessionManager.cleanupAll();
     
     // 关闭存储引擎
-    await this.storeV2.close();
+    if (this.unifiedStorage) {
+      await this.unifiedStorage.close();
+    }
 
     // 关闭 HTTP 服务器
     if (this.httpServer) {

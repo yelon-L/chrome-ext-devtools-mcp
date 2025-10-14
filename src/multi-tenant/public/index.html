@@ -442,11 +442,12 @@
 
                     <h3 style="margin: 20px 0 10px; color: #2d3748;">🚀 API 端点</h3>
                     <div class="token-display" style="margin: 10px 0;">
-POST   /api/users                      - 注册用户<br>
-GET    /api/users                      - 列出所有用户<br>
-POST   /api/users/:id/browsers         - 绑定浏览器<br>
-GET    /api/users/:id/browsers         - 列出浏览器<br>
-GET    /sse-v2                         - SSE V2 连接
+POST   /api/v2/users                      - 注册用户<br>
+GET    /api/v2/users                      - 列出所有用户<br>
+POST   /api/v2/users/:id/browsers         - 绑定浏览器<br>
+GET    /api/v2/users/:id/browsers         - 列出浏览器<br>
+GET    /api/v2/sse                        - SSE V2 连接<br>
+GET    /metrics                           - 性能指标
                     </div>
 
                     <h3 style="margin: 20px 0 10px; color: #2d3748;">📚 文档</h3>
@@ -746,7 +747,7 @@ GET    /sse-v2                         - SSE V2 连接
                                         <td>${new Date(browser.createdAt).toLocaleString('zh-CN')}</td>
                                         <td>
                                             <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.85em;" 
-                                                    onclick="unbindBrowser('${userId}', '${browser.tokenName}')">
+                                                    onclick="unbindBrowser('${userId}', '${browser.browserId}')">
                                                 🗑️ 解绑
                                             </button>
                                         </td>
@@ -823,13 +824,13 @@ GET    /sse-v2                         - SSE V2 连接
         }
 
         // 解绑浏览器
-        async function unbindBrowser(userId, tokenName) {
-            if (!confirm(`确定要解绑浏览器 "${tokenName}" 吗？`)) {
+        async function unbindBrowser(userId, browserId) {
+            if (!confirm(`确定要解绑该浏览器吗？`)) {
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/users/${userId}/browsers/${tokenName}`, {
+                const response = await fetch(`${API_BASE}/users/${userId}/browsers/${browserId}`, {
                     method: 'DELETE'
                 });
 
