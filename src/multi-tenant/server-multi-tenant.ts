@@ -27,15 +27,18 @@ import {McpResponse} from '../McpResponse.js';
 import {Mutex} from '../Mutex.js';
 import {getAllTools} from '../tools/registry.js';
 import type {ToolDefinition} from '../tools/ToolDefinition.js';
-import {VERSION} from '../version.js';
 import {displayMultiTenantModeInfo} from '../utils/modeMessages.js';
+import {VERSION} from '../version.js';
 
-import {SessionManager} from './core/SessionManager.js';
-import {RouterManager} from './core/RouterManager.js';
 import {AuthManager} from './core/AuthManager.js';
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
-import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
+import {RouterManager} from './core/RouterManager.js';
+import {SessionManager} from './core/SessionManager.js';
 import {PersistentStore} from './storage/PersistentStore.js';
+import {PersistentStoreV2, type UserRecordV2, type BrowserRecordV2} from './storage/PersistentStoreV2.js';
+import * as v2Handlers from './handlers-v2.js';
+import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
+import {detectBrowser} from './utils/browser-detector.js';
 
 /**
  * 多租户 MCP 代理服务器
@@ -50,7 +53,8 @@ class MultiTenantMCPServer {
   private routerManager: RouterManager;
   private authManager: AuthManager;
   private browserPool: BrowserConnectionPool;
-  private store: PersistentStore;
+  private store: PersistentStore;  // 旧的存储（向后兼容）
+  private storeV2: PersistentStoreV2;  // 新的存储（基于邮箱）
   
   // 每个会话一个Mutex，避免全局锁导致的性能瓶颈
   private sessionMutexes = new Map<string, Mutex>();
@@ -77,6 +81,27 @@ class MultiTenantMCPServer {
   
   // IP 白名单配置
   private allowedIPPatterns: string[] | null;
+  
+  // 配置常量
+  private static readonly SESSION_TIMEOUT = 3600000;          // 1 hour
+  private static readonly CLEANUP_INTERVAL = 60000;           // 1 minute
+  private static readonly CONNECTION_TIMEOUT = 30000;         // 30 seconds
+  private static readonly BROWSER_HEALTH_CHECK = 30000;       // 30 seconds
+  private static readonly MAX_RECONNECT_ATTEMPTS = 3;
+  private static readonly RECONNECT_DELAY = 5000;             // 5 seconds
+  private static readonly BROWSER_DETECTION_TIMEOUT = 3000;   // 3 seconds
+  
+  // V2 API 处理方法（将在构造函数中绑定）
+  private handleRegisterUserV2!: typeof v2Handlers.handleRegisterUserV2;
+  private handleGetUserV2!: typeof v2Handlers.handleGetUserV2;
+  private handleUpdateUsernameV2!: typeof v2Handlers.handleUpdateUsernameV2;
+  private handleDeleteUserV2!: typeof v2Handlers.handleDeleteUserV2;
+  private handleListUsersV2!: typeof v2Handlers.handleListUsersV2;
+  private handleBindBrowserV2!: typeof v2Handlers.handleBindBrowserV2;
+  private handleListBrowsersV2!: typeof v2Handlers.handleListBrowsersV2;
+  private handleGetBrowserV2!: typeof v2Handlers.handleGetBrowserV2;
+  private handleUpdateBrowserV2!: typeof v2Handlers.handleUpdateBrowserV2;
+  private handleUnbindBrowserV2!: typeof v2Handlers.handleUnbindBrowserV2;
 
   constructor() {
     this.version = VERSION;
@@ -86,27 +111,35 @@ class MultiTenantMCPServer {
     const allowedIPsEnv = process.env.ALLOWED_IPS;
     if (allowedIPsEnv) {
       this.allowedIPPatterns = parseAllowedIPs(allowedIPsEnv);
-      console.log(`🔒 IP 白名单已启用 (${this.allowedIPPatterns.length} 个规则):`);
+      console.log(`🔒 IP whitelist enabled (${this.allowedIPPatterns.length} rules):`);
       for (const pattern of this.allowedIPPatterns) {
         console.log(`   - ${getPatternDescription(pattern)}`);
       }
     } else {
       this.allowedIPPatterns = null;
-      console.log('🌍 未设置 IP 白名单，允许所有 IP 访问');
+      console.log('🌍 No IP whitelist set, allowing all IP access');
     }
 
-    // 初始化持久化存储
+    // Initialize persistent storage (legacy)
     this.store = new PersistentStore({
       dataDir: process.env.DATA_DIR || './.mcp-data',
       logFileName: 'auth-store.jsonl',
       snapshotThreshold: 10000,
       autoCompaction: true,
     });
+    
+    // Initialize V2 storage (email-based)
+    this.storeV2 = new PersistentStoreV2({
+      dataDir: process.env.DATA_DIR || './.mcp-data',
+      logFileName: 'store-v2.jsonl',
+      snapshotThreshold: 10000,
+      autoCompaction: true,
+    });
 
-    // 初始化管理器
+    // Initialize managers
     this.sessionManager = new SessionManager({
-      timeout: 3600000, // 1 小时
-      cleanupInterval: 60000, // 1 分钟
+      timeout: MultiTenantMCPServer.SESSION_TIMEOUT,
+      cleanupInterval: MultiTenantMCPServer.CLEANUP_INTERVAL,
     });
 
     this.routerManager = new RouterManager();
@@ -120,9 +153,9 @@ class MultiTenantMCPServer {
     });
 
     this.browserPool = new BrowserConnectionPool({
-      healthCheckInterval: 30000, // 30 秒
-      maxReconnectAttempts: 3,
-      reconnectDelay: 5000, // 5 秒
+      healthCheckInterval: MultiTenantMCPServer.BROWSER_HEALTH_CHECK,
+      maxReconnectAttempts: MultiTenantMCPServer.MAX_RECONNECT_ATTEMPTS,
+      reconnectDelay: MultiTenantMCPServer.RECONNECT_DELAY,
     });
     
     // CDP 混合架构：从环境变量读取配置
@@ -130,11 +163,23 @@ class MultiTenantMCPServer {
     this.useCdpOperations = process.env.USE_CDP_OPERATIONS === 'true';
     
     if (this.useCdpHybrid) {
-      console.log('🚀 CDP 混合架构已启用 - Target 管理（实验性）');
+      console.log('🚀 CDP hybrid architecture enabled - Target management (experimental)');
     }
     if (this.useCdpOperations) {
-      console.log('⚡ CDP 高频操作已启用 - navigate/evaluate（实验性）');
+      console.log('⚡ CDP high-frequency operations enabled - navigate/evaluate (experimental)');
     }
+    
+    // 绑定 V2 API 处理方法
+    this.handleRegisterUserV2 = v2Handlers.handleRegisterUserV2.bind(this);
+    this.handleGetUserV2 = v2Handlers.handleGetUserV2.bind(this);
+    this.handleUpdateUsernameV2 = v2Handlers.handleUpdateUsernameV2.bind(this);
+    this.handleDeleteUserV2 = v2Handlers.handleDeleteUserV2.bind(this);
+    this.handleListUsersV2 = v2Handlers.handleListUsersV2.bind(this);
+    this.handleBindBrowserV2 = v2Handlers.handleBindBrowserV2.bind(this);
+    this.handleListBrowsersV2 = v2Handlers.handleListBrowsersV2.bind(this);
+    this.handleGetBrowserV2 = v2Handlers.handleGetBrowserV2.bind(this);
+    this.handleUpdateBrowserV2 = v2Handlers.handleUpdateBrowserV2.bind(this);
+    this.handleUnbindBrowserV2 = v2Handlers.handleUnbindBrowserV2.bind(this);
   }
 
   /**
@@ -146,10 +191,15 @@ class MultiTenantMCPServer {
     console.log(`Multi-Tenant Server`);
     console.log(`${'-'.repeat(60)}\n`);
 
-    // 初始化存储引擎
+    // Initialize storage engine
     await this.store.initialize();
+    await this.storeV2.initialize();
+    
+    // Initialize managers with stored data
+    await this.authManager.initialize(this.store);
+    await this.routerManager.initialize(this.store);
 
-    // 启动管理器
+    // Start managers
     this.sessionManager.start();
     this.browserPool.start();
 
@@ -195,8 +245,8 @@ class MultiTenantMCPServer {
     const allowed = isIPAllowed(clientIP, this.allowedIPPatterns);
     
     if (!allowed) {
-      console.log(`⛔ IP 检查失败: ${clientIP}`);
-      console.log(`   配置的规则: ${this.allowedIPPatterns.join(', ')}`);
+      console.log(`⛔ IP check failed: ${clientIP}`);
+      console.log(`   Configured rules: ${this.allowedIPPatterns.join(', ')}`);
     }
     
     return allowed;
@@ -238,7 +288,7 @@ class MultiTenantMCPServer {
     // IP 白名单检查（/health 端点除外）
     if (url.pathname !== '/health' && !this.isIPAllowed(req)) {
       const clientIP = this.getClientIP(req);
-      console.error(`⛔ IP 被拒绝: ${clientIP}`);
+      console.error(`⛔ IP rejected: ${clientIP}`);
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
         error: 'Access denied', 
@@ -268,18 +318,51 @@ class MultiTenantMCPServer {
       // 路由分发
       if (url.pathname === '/health') {
         await this.handleHealth(req, res);
-      } else if (url.pathname === '/api/auth/token' && req.method === 'POST') {
+      }
+      // V2 API: 用户管理
+      else if (url.pathname === '/api/users' && req.method === 'POST') {
+        await this.handleRegisterUserV2(req, res);
+      } else if (url.pathname === '/api/users' && req.method === 'GET') {
+        await this.handleListUsersV2(req, res);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'GET') {
+        await this.handleGetUserV2(req, res, url);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'PATCH') {
+        await this.handleUpdateUsernameV2(req, res, url);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'DELETE') {
+        await this.handleDeleteUserV2(req, res, url);
+      }
+      // V2 API: 浏览器管理
+      else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers$/) && req.method === 'POST') {
+        await this.handleBindBrowserV2(req, res, url);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers$/) && req.method === 'GET') {
+        await this.handleListBrowsersV2(req, res, url);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'GET') {
+        await this.handleGetBrowserV2(req, res, url);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'PATCH') {
+        await this.handleUpdateBrowserV2(req, res, url);
+      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'DELETE') {
+        await this.handleUnbindBrowserV2(req, res, url);
+      }
+      // Legacy API
+      else if (url.pathname === '/api/auth/token' && req.method === 'POST') {
         await this.handleGenerateToken(req, res);
       } else if (url.pathname === '/api/register' && req.method === 'POST') {
         await this.handleRegister(req, res);
-      } else if (url.pathname === '/api/users' && req.method === 'GET') {
-        await this.handleListUsers(req, res);
-      } else if (url.pathname.startsWith('/api/users/') && req.method === 'GET') {
-        await this.handleUserStatus(req, res, url);
-      } else if (url.pathname === '/sse' && req.method === 'GET') {
-        logger(`[Server] ➡️  路由到 handleSSE`);
+      } else if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/browser') && req.method === 'PUT') {
+        await this.handleUpdateBrowser(req, res, url);
+      }
+      // SSE连接
+      else if (url.pathname === '/sse' && req.method === 'GET') {
+        logger(`[Server] ➡️  Routing to handleSSE`);
         await this.handleSSE(req, res);
-      } else if (url.pathname === '/message' && req.method === 'POST') {
+      }
+      // SSE V2 连接（基于 token）
+      else if (url.pathname === '/sse-v2' && req.method === 'GET') {
+        logger(`[Server] ➡️  Routing to handleSSEV2`);
+        await this.handleSSEV2(req, res);
+      }
+      // 其他
+      else if (url.pathname === '/message' && req.method === 'POST') {
         await this.handleMessage(req, res, url);
       } else if (url.pathname === '/test' || url.pathname === '/') {
         this.handleTestPage(res);
@@ -288,7 +371,7 @@ class MultiTenantMCPServer {
         res.end('Not found');
       }
     } catch (error) {
-      logger(`[Server] 请求处理错误: ${error}`);
+      logger(`[Server] Request processing error: ${error}`);
       res.writeHead(500);
       res.end(JSON.stringify({
         error: 'Internal server error',
@@ -575,6 +658,7 @@ class MultiTenantMCPServer {
     }
   }
 
+
   /**
    * 处理用户注册
    */
@@ -622,18 +706,47 @@ class MultiTenantMCPServer {
         return;
       }
 
+      // 检测浏览器连接
+      const browserDetection = await detectBrowser(
+        browserURL,
+        MultiTenantMCPServer.BROWSER_DETECTION_TIMEOUT
+      );
+
+      // 如果浏览器检测失败，拒绝注册
+      if (!browserDetection.connected) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'BROWSER_NOT_ACCESSIBLE',
+          message: 'Cannot connect to the specified browser. Please ensure Chrome is running with remote debugging enabled.',
+          browserURL,
+          details: browserDetection.error,
+          suggestions: [
+            `Start Chrome with: chrome --remote-debugging-port=${new URL(browserURL).port} --remote-debugging-address=0.0.0.0`,
+            'Verify the browser URL is correct and accessible',
+            'Check firewall settings allow connections to the debugging port',
+            'Ensure Chrome is running on the specified host and port',
+          ],
+        }));
+        return;
+      }
+
       // 注册用户到持久化存储
       await this.store.registerUser(userId, browserURL, metadata);
       
       // 同时注册到路由管理器（保持兼容）
       this.routerManager.registerUser(userId, browserURL, metadata);
 
+      // 返回注册结果，包含浏览器信息
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
         userId,
         browserURL,
-        message: 'User registered successfully. Please request a token to connect.',
+        browser: {
+          connected: true,
+          info: browserDetection.browserInfo,
+        },
+        message: 'User registered successfully. Browser connected.',
       }));
     } catch (error) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -643,36 +756,11 @@ class MultiTenantMCPServer {
     }
   }
 
-  /**
-   * 处理用户列表查询
-   */
-  private async handleListUsers(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    // 认证
-    const authResult = await this.authenticate(req);
-    if (!authResult.success) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: authResult.error }));
-      return;
-    }
-
-    const users = this.routerManager.getAllMappings().map(mapping => ({
-      userId: mapping.userId,
-      browserURL: mapping.browserURL,
-      registeredAt: mapping.registeredAt,
-      metadata: mapping.metadata,
-    }));
-
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ users }, null, 2));
-  }
 
   /**
-   * 处理用户状态查询
+   * 处理浏览器更新（检测并更新浏览器信息）
    */
-  private async handleUserStatus(
+  private async handleUpdateBrowser(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     url: URL
@@ -685,7 +773,10 @@ class MultiTenantMCPServer {
       return;
     }
 
-    const userId = url.pathname.split('/').pop();
+    // 从路径提取 userId: /api/users/{userId}/browser
+    const pathParts = url.pathname.split('/');
+    const userId = pathParts[pathParts.length - 2];
+    
     if (!userId) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Invalid userId' }));
@@ -699,17 +790,73 @@ class MultiTenantMCPServer {
       return;
     }
 
-    const connection = this.browserPool.getConnection(userId);
-    const sessions = this.sessionManager.getUserSessions(userId);
+    try {
+      // 读取请求体（可选：允许更新 browserURL）
+      const body = await this.readRequestBody(req);
+      let newBrowserURL = mapping.browserURL;
+      
+      if (body) {
+        try {
+          const data = JSON.parse(body);
+          if (data.browserURL) {
+            newBrowserURL = data.browserURL;
+          }
+        } catch (e) {
+          // 忽略解析错误，使用现有 URL
+        }
+      }
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      userId,
-      browserURL: mapping.browserURL,
-      browserStatus: connection?.status ?? 'not_connected',
-      activeSessions: sessions.length,
-      registeredAt: mapping.registeredAt,
-    }, null, 2));
+      // 检测浏览器连接
+      const browserDetection = await detectBrowser(
+        newBrowserURL,
+        MultiTenantMCPServer.BROWSER_DETECTION_TIMEOUT
+      );
+
+      // 如果浏览器检测失败，返回错误
+      if (!browserDetection.connected) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'BROWSER_NOT_ACCESSIBLE',
+          message: 'Cannot connect to the specified browser. Browser URL not updated.',
+          browserURL: newBrowserURL,
+          currentBrowserURL: mapping.browserURL,
+          details: browserDetection.error,
+          detectedAt: new Date().toISOString(),
+          suggestions: [
+            `Start Chrome with: chrome --remote-debugging-port=${new URL(newBrowserURL).port} --remote-debugging-address=0.0.0.0`,
+            'Check firewall settings',
+            'Verify the browser URL is correct',
+            'Ensure the browser is accessible from the server',
+          ],
+        }, null, 2));
+        return;
+      }
+
+      // 如果 URL 改变了，更新存储
+      if (newBrowserURL !== mapping.browserURL) {
+        await this.store.updateBrowserURL(userId, newBrowserURL);
+        this.routerManager.updateBrowserURL(userId, newBrowserURL);
+      }
+
+      // 返回检测结果和浏览器信息
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        userId,
+        browserURL: newBrowserURL,
+        browser: {
+          connected: true,
+          info: browserDetection.browserInfo,
+          detectedAt: new Date().toISOString(),
+        },
+        message: 'Browser detected and updated successfully',
+      }, null, 2));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
   }
 
   /**
@@ -746,11 +893,11 @@ class MultiTenantMCPServer {
       return;
     }
 
-    // 检查用户是否已注册
+    // Check if user is registered
     const browserURL = this.routerManager.getUserBrowserURL(userId);
     if (!browserURL) {
       this.stats.totalErrors++;
-      logger(`[Server] ❌ 用户未注册: ${userId}`);
+      logger(`[Server] ❌ user not registered: ${userId}`);
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'User not registered',
@@ -759,17 +906,17 @@ class MultiTenantMCPServer {
       return;
     }
 
-    logger(`[Server] 📡 SSE 连接请求: ${userId}`);
+    logger(`[Server] 📡 SSE connection request: ${userId}`);
 
     // 并发连接控制：检查该用户是否有正在建立的连接
     const existingConnection = this.activeConnections.get(userId);
     if (existingConnection) {
-      logger(`[Server] ⚠️  用户 ${userId} 已有连接正在建立，拒绝重复连接`);
+      logger(`[Server] ⚠️  user ${userId} already has a connection being established, rejecting duplicate connection`);
       this.stats.totalErrors++;
       res.writeHead(409, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'CONCURRENT_CONNECTION',
-        message: '该用户已有连接正在建立中，请稍后重试',
+        message: 'user already has a connection being established, please try again later',
       }));
       return;
     }
@@ -787,7 +934,229 @@ class MultiTenantMCPServer {
       await connectionPromise;
     } catch (error) {
       // 错误已在 establishConnection 中处理和记录
-      logger(`[Server] ❌ 连接建立失败: ${userId}`);
+      logger(`[Server] ❌ connection failed: ${userId}`);
+    }
+  }
+
+  /**
+   * 处理 SSE V2 连接（基于 token）
+   */
+  private async handleSSEV2(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    const startTime = Date.now();
+    this.stats.totalConnections++;
+    
+    // 从 Authorization header 或 query 参数获取 token
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    const authHeader = req.headers['authorization'];
+    let token = url.searchParams.get('token');
+    
+    // 优先使用 Authorization header
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    if (!token) {
+      this.stats.totalErrors++;
+      logger(`[Server] ❌ 缺少 token`);
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: 'token is required',
+        hint: 'Provide Authorization: Bearer <token> header or token query parameter'
+      }));
+      return;
+    }
+    
+    // 从 token 获取浏览器记录
+    const browser = this.storeV2.getBrowserByToken(token);
+    if (!browser) {
+      this.stats.totalErrors++;
+      logger(`[Server] ❌ invalid token: ${token.substring(0, 16)}...`);
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Invalid token',
+        message: 'Token not found or has been revoked',
+      }));
+      return;
+    }
+    
+    const userId = browser.userId;
+    const browserURL = browser.browserURL;
+    
+    logger(`[Server] 📡 SSE V2 connection request: ${userId}/${browser.tokenName}`);
+    
+    // 更新最后连接时间
+    await this.storeV2.updateLastConnected(browser.browserId);
+    
+    // 并发连接控制：使用 browserId 作为键，避免同一浏览器的重复连接
+    const connectionKey = browser.browserId;
+    const existingConnection = this.activeConnections.get(connectionKey);
+    if (existingConnection) {
+      logger(`[Server] ⚠️  browser ${browser.tokenName} already has a connection being established, rejecting duplicate connection`);
+      this.stats.totalErrors++;
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'CONCURRENT_CONNECTION',
+        message: 'This browser already has a connection being established, please try again later',
+      }));
+      return;
+    }
+    
+    // 创建连接承诺并记录
+    const connectionPromise = this.establishConnectionV2(browser, browserURL, res, startTime)
+      .finally(() => {
+        // 连接完成（成功或失败）后移除记录
+        this.activeConnections.delete(connectionKey);
+      });
+    
+    this.activeConnections.set(connectionKey, connectionPromise);
+    
+    try {
+      await connectionPromise;
+    } catch (error) {
+      // 错误已在 establishConnectionV2 中处理和记录
+      logger(`[Server] ❌ connection failed: ${userId}/${browser.tokenName}`);
+    }
+  }
+  
+  /**
+   * 建立 SSE V2 连接（基于浏览器记录）
+   */
+  private async establishConnectionV2(
+    browserRecord: BrowserRecordV2,
+    browserURL: string,
+    res: http.ServerResponse,
+    startTime: number
+  ): Promise<void> {
+    const userId = browserRecord.userId;
+    const browserId = browserRecord.browserId;
+    const tokenName = browserRecord.tokenName;
+    
+    // 设置整体超时
+    const timeout = setTimeout(() => {
+      this.stats.totalErrors++;
+      logger(`[Server] ⏰ connection timeout: ${userId}/${tokenName}`);
+      if (!res.headersSent) {
+        res.writeHead(504, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Connection timeout',
+          message: `Failed to establish connection within ${MultiTenantMCPServer.CONNECTION_TIMEOUT / 1000} seconds`,
+        }));
+      }
+    }, MultiTenantMCPServer.CONNECTION_TIMEOUT);
+    
+    try {
+      logger(`[Server] 🔌 connecting to browser: ${userId}/${tokenName}`);
+      // 使用 browserId 作为连接标识，避免与旧系统冲突
+      const browser = await this.browserPool.connect(browserId, browserURL);
+      logger(`[Server] ✓ browser connected: ${userId}/${tokenName}`);
+      
+      // Create SSE transport
+      logger(`[Server] 📡 creating SSE transport: ${userId}/${tokenName}`);
+      const transport = new SSEServerTransport('/message', res);
+      logger(`[Server] ✓ SSE transport created: ${userId}/${tokenName}`);
+      
+      // Create MCP server
+      logger(`[Server] 🔧 creating MCP server: ${userId}/${tokenName}`);
+      const mcpServer = new McpServer(
+        { name: 'chrome-devtools-mcp-multi-tenant', version: this.version },
+        { capabilities: { tools: {} } }
+      );
+      
+      // Create MCP context
+      logger(`[Server] 📦 creating MCP context: ${userId}/${tokenName}`);
+      const context = await McpContext.fromMinimal(browser, logger, {
+        useCdpForTargets: this.useCdpHybrid,
+        useCdpForOperations: this.useCdpOperations,
+      });
+      
+      const modes: string[] = [];
+      if (this.useCdpHybrid) modes.push('CDP-Target');
+      if (this.useCdpOperations) modes.push('CDP-Ops');
+      const mode = modes.length > 0 ? modes.join('+') : 'lazy mode';
+      logger(`[Server] ✓ MCP context created (${mode}): ${userId}/${tokenName}`);
+      
+      const sessionId = transport.sessionId;
+      
+      // 创建会话（使用 browserId 作为用户标识）
+      logger(`[Server] 📝 creating session (before connection): ${sessionId.slice(0, 8)}...`);
+      this.sessionManager.createSession(
+        sessionId,
+        browserId,  // 使用 browserId 作为用户标识
+        transport,
+        mcpServer,
+        context,
+        browser
+      );
+      logger(`[Server] ✓ session created: ${sessionId.slice(0, 8)}...`);
+      
+      // Register tools
+      logger(`[Server] 🛠️  registering tools: ${userId}/${tokenName}`);
+      const tools = getAllTools();
+      for (const tool of tools) {
+        this.registerTool(mcpServer, tool, context, sessionId);
+      }
+      logger(`[Server] ✓ registered ${tools.length} tools: ${userId}/${tokenName}`);
+      
+      // Connect to MCP server
+      logger(`[Server] 🔗 connecting to MCP server: ${userId}/${tokenName}`);
+      await mcpServer.connect(transport);
+      logger(`[Server] ✓ MCP server connected: ${userId}/${tokenName}`);
+      
+      const elapsed = Date.now() - startTime;
+      
+      // Record connection time statistics
+      this.#recordConnectionTime(elapsed);
+      
+      logger(`[Server] ✅ session established: ${sessionId.slice(0, 8)}... (user: ${userId}/${tokenName}, elapsed: ${elapsed}ms)`);
+      
+      // Handle close event
+      transport.onclose = async () => {
+        logger(`[Server] 📴 session closed: ${sessionId.slice(0, 8)}... (user: ${userId}/${tokenName})`);
+        await this.sessionManager.deleteSession(sessionId);
+        // 清理会话级Mutex
+        this.cleanupSessionMutex(sessionId);
+      };
+      
+      // Handle error event
+      transport.onerror = async (error) => {
+        this.stats.totalErrors++;
+        logger(`[Server] ⚠️  transport error: ${sessionId.slice(0, 8)}... - ${error}`);
+      };
+      
+      // Clear timeout
+      clearTimeout(timeout);
+    } catch (error) {
+      clearTimeout(timeout);
+      this.stats.totalErrors++;
+      const elapsed = Date.now() - startTime;
+      
+      // 分类错误
+      const errorInfo = this.classifyError(error);
+      
+      // 记录详细错误
+      logger(
+        `[Server] ❌ SSE V2 connection failed: ${userId}/${tokenName} (${errorInfo.type} error, elapsed: ${elapsed}ms) - ${error}`
+      );
+      
+      // 返回友好的错误消息
+      if (!res.headersSent) {
+        res.writeHead(errorInfo.statusCode, { 'Content-Type': 'application/json' });
+        const errorResponse: Record<string, unknown> = {
+          error: errorInfo.errorCode,
+          message: errorInfo.safeMessage,
+        };
+        
+        if (errorInfo.suggestions && errorInfo.suggestions.length > 0) {
+          errorResponse.suggestions = errorInfo.suggestions;
+        }
+        
+        res.end(JSON.stringify(errorResponse, null, 2));
+      }
+      
+      throw error;
     }
   }
 
@@ -800,39 +1169,39 @@ class MultiTenantMCPServer {
     res: http.ServerResponse,
     startTime: number
   ): Promise<void> {
-    // 设置整体超时 30 秒
+    // 设置整体超时
     const timeout = setTimeout(() => {
       this.stats.totalErrors++;
-      logger(`[Server] ⏰ 连接超时: ${userId}`);
+      logger(`[Server] ⏰ connection timeout: ${userId}`);
       if (!res.headersSent) {
         res.writeHead(504, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           error: 'Connection timeout',
-          message: 'Failed to establish connection within 30 seconds',
+          message: `Failed to establish connection within ${MultiTenantMCPServer.CONNECTION_TIMEOUT / 1000} seconds`,
         }));
       }
-    }, 30000);
+    }, MultiTenantMCPServer.CONNECTION_TIMEOUT);
 
     try {
-      logger(`[Server] 🔌 开始连接浏览器: ${userId}`);
-      // 连接到用户的浏览器
+      logger(`[Server] 🔌 connecting to browser: ${userId}`);  
+      // Connect to the user's browser
       const browser = await this.browserPool.connect(userId, browserURL);
-      logger(`[Server] ✓ 浏览器连接成功: ${userId}`);
+      logger(`[Server] ✓ browser connected: ${userId}`);
 
-      // 创建 SSE 传输层
-      logger(`[Server] 📡 创建SSE传输: ${userId}`);
+      // Create SSE transport
+      logger(`[Server] 📡 creating SSE transport: ${userId}`);
       const transport = new SSEServerTransport('/message', res);
-      logger(`[Server] ✓ SSE传输已创建: ${userId}`);
+      logger(`[Server] ✓ SSE transport created: ${userId}`);
 
-      // 创建 MCP 服务器
-      logger(`[Server] 🔧 创建MCP服务器: ${userId}`);
+      // Create MCP server
+      logger(`[Server] 🔧 creating MCP server: ${userId}`);
       const mcpServer = new McpServer(
         { name: 'chrome-devtools-mcp-multi-tenant', version: this.version },
         { capabilities: { tools: {} } }
       );
 
-      // 创建 MCP 上下文（使用最小化模式 - 延迟初始化）
-      logger(`[Server] 📦 创建MCP上下文: ${userId}`);
+      // Create MCP context (using minimal mode - lazy initialization)
+      logger(`[Server] 📦 creating MCP context: ${userId}`);
       const context = await McpContext.fromMinimal(browser, logger, {
         useCdpForTargets: this.useCdpHybrid,
         useCdpForOperations: this.useCdpOperations,
@@ -841,25 +1210,14 @@ class MultiTenantMCPServer {
       const modes: string[] = [];
       if (this.useCdpHybrid) modes.push('CDP-Target');
       if (this.useCdpOperations) modes.push('CDP-Ops');
-      const mode = modes.length > 0 ? modes.join('+') : '延迟模式';
-      logger(`[Server] ✓ MCP上下文已创建（${mode}）: ${userId}`);
-
-      // 连接 MCP 服务器
-      logger(`[Server] 🔗 连接MCP服务器: ${userId}`);
-      await mcpServer.connect(transport);
-      logger(`[Server] ✓ MCP服务器已连接: ${userId}`);
+      const mode = modes.length > 0 ? modes.join('+') : 'lazy mode';
+      logger(`[Server] ✓ MCP context created (${mode}): ${userId}`);
 
       const sessionId = transport.sessionId;
       
-      // 注册所有工具（在获取sessionId后）
-      logger(`[Server] 🛠️  注册工具: ${userId}`);
-      const tools = getAllTools();
-      for (const tool of tools) {
-        this.registerTool(mcpServer, tool, context, sessionId);
-      }
-      logger(`[Server] ✓ 已注册${tools.length}个工具: ${userId}`);
-
-      // 创建会话
+      // 🔴 CRITICAL FIX: 在连接前先创建会话，避免竞态条件
+      // Session must exist before SSE endpoint message is sent
+      logger(`[Server] 📝 creating session (before connection): ${sessionId.slice(0, 8)}...`);
       this.sessionManager.createSession(
         sessionId,
         userId,
@@ -868,29 +1226,43 @@ class MultiTenantMCPServer {
         context,
         browser
       );
+      logger(`[Server] ✓ session created: ${sessionId.slice(0, 8)}...`);
+      
+      // Register tools
+      logger(`[Server] 🛠️  registering tools: ${userId}`);
+      const tools = getAllTools();
+      for (const tool of tools) {
+        this.registerTool(mcpServer, tool, context, sessionId);
+      }
+      logger(`[Server] ✓ registered ${tools.length} tools: ${userId}`);
+
+      // Connect to MCP server (now send SSE endpoint message, session exists)
+      logger(`[Server] 🔗 connecting to MCP server: ${userId}`);
+      await mcpServer.connect(transport);
+      logger(`[Server] ✓ MCP server connected: ${userId}`);
 
       const elapsed = Date.now() - startTime;
       
-      // 记录连接时间统计（使用循环缓冲区，O(1) 时间复杂度）
+      // Record connection time statistics (using circular buffer, O(1) time complexity)
       this.#recordConnectionTime(elapsed);
       
-      logger(`[Server] ✅ 会话建立: ${sessionId.slice(0, 8)}... (用户: ${userId}, 耗时: ${elapsed}ms)`);
+      logger(`[Server] ✅ session established: ${sessionId.slice(0, 8)}... (user: ${userId}, elapsed: ${elapsed}ms)`);
 
-      // 处理关闭事件
+      // Handle close event
       transport.onclose = async () => {
-        logger(`[Server] 📴 会话关闭: ${sessionId.slice(0, 8)}... (用户: ${userId})`);
+        logger(`[Server] 📴 session closed: ${sessionId.slice(0, 8)}... (user: ${userId})`);
         await this.sessionManager.deleteSession(sessionId);
         // 清理会话级Mutex
         this.cleanupSessionMutex(sessionId);
       };
       
-      // 处理错误事件
+      // Handle error event
       transport.onerror = async (error) => {
         this.stats.totalErrors++;
-        logger(`[Server] ⚠️  传输错误: ${sessionId.slice(0, 8)}... - ${error}`);
+        logger(`[Server] ⚠️  transport error: ${sessionId.slice(0, 8)}... - ${error}`);
       };
       
-      // 清除超时
+      // Clear timeout
       clearTimeout(timeout);
     } catch (error) {
       clearTimeout(timeout);
@@ -900,12 +1272,12 @@ class MultiTenantMCPServer {
       // 分类错误，区分客户端/服务端错误
       const errorInfo = this.classifyError(error);
       
-      // 记录详细错误（仅服务端日志）
+      // Record detailed error (only server logs)
       logger(
-        `[Server] ❌ SSE 连接失败: ${userId} (${errorInfo.type} error, 耗时: ${elapsed}ms) - ${error}`
+        `[Server] ❌ SSE connection failed: ${userId} (${errorInfo.type} error, elapsed: ${elapsed}ms) - ${error}`
       );
       
-      // 确保响应未发送时才写入错误
+      // Ensure response is not sent before writing error
       if (!res.headersSent) {
         res.writeHead(errorInfo.statusCode, { 'Content-Type': 'application/json' });
         const errorResponse: Record<string, unknown> = {
@@ -947,7 +1319,7 @@ class MultiTenantMCPServer {
     const session = this.sessionManager.getSession(sessionId);
     if (!session) {
       this.stats.totalErrors++;
-      logger(`[Server] ⚠️  会话未找到: ${sessionId.slice(0, 8)}...`);
+      logger(`[Server] ⚠️  session not found: ${sessionId.slice(0, 8)}...`);
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Session not found' }));
       return;
@@ -976,7 +1348,7 @@ class MultiTenantMCPServer {
       await session.transport.handlePostMessage(req, res, message);
     } catch (error) {
       this.stats.totalErrors++;
-      logger(`[Server] ❗ 消息处理错误: ${sessionId} - ${error}`);
+      logger(`[Server] ❗ message processing error: ${sessionId} - ${error}`);
       
       if (!res.headersSent) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1013,12 +1385,12 @@ class MultiTenantMCPServer {
       // 开发模式：允许所有源
       res.setHeader('Access-Control-Allow-Origin', '*');
     } else if (origin && allowedOrigins.includes(origin)) {
-      // 生产模式：只允许白名单中的源
+      // Production mode: only allow origins in the whitelist
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     } else {
-      // 不在白名单中，不设置Access-Control-Allow-Origin
-      logger(`[Server] ⚠️  拒绝跨域请求来源: ${origin}`);
+      // Origin not in whitelist, do not set Access-Control-Allow-Origin
+      logger(`[Server] ⚠️  cross-origin request origin not in whitelist: ${origin}`);
     }
   }
   
@@ -1145,22 +1517,22 @@ class MultiTenantMCPServer {
    * 处理服务器错误
    */
   private handleServerError(error: NodeJS.ErrnoException): void {
-    console.error('\n[Server] ❌ 服务器启动失败');
+    console.error('\n[Server] ❌ server startup failed');
     console.error('');
 
     if (error.code === 'EADDRINUSE') {
-      console.error(`❌ 端口 ${this.port} 已被占用`);
+      console.error(`❌ port ${this.port} is already in use`);
       console.error('');
-      console.error('解决方案：');
-      console.error(`  1. 使用其他端口: PORT=${this.port + 1} npm run start`);
-      console.error(`  2. 查找占用端口的进程:`);
+      console.error('solutions:');
+      console.error(`  1. use another port: PORT=${this.port + 1} npm run start`);
+      console.error(`  2. find process using port:`);
       console.error(`     Windows: netstat -ano | findstr ${this.port}`);
       console.error(`     Linux/Mac: lsof -i :${this.port}`);
-      console.error(`  3. 关闭占用端口的程序`);
+      console.error(`  3. close the process using the port`);
     } else if (error.code === 'EACCES') {
-      console.error(`❌ 权限不足，无法绑定端口 ${this.port}`);
+      console.error(`❌ permission denied, cannot bind port ${this.port}`);
     } else {
-      console.error(`❌ 错误: ${error.message}`);
+      console.error(`❌ error: ${error.message}`);
     }
 
     console.error('');
@@ -1181,16 +1553,16 @@ class MultiTenantMCPServer {
   }
 
   /**
-   * 优雅关闭
+   * Graceful shutdown
    */
   private async shutdown(): Promise<void> {
-    console.log('\n[Server] 🛑 正在关闭...');
+    console.log('\n[Server] 🛑 shutting down...');
 
-    // 停止管理器
+    // Stop manager
     this.sessionManager.stop();
     await this.browserPool.stop();
 
-    // 清理所有会话
+    // Clean up all sessions
     await this.sessionManager.cleanupAll();
     
     // 关闭存储引擎
@@ -1199,7 +1571,7 @@ class MultiTenantMCPServer {
     // 关闭 HTTP 服务器
     if (this.httpServer) {
       this.httpServer.close(() => {
-        console.log('[Server] ✅ 服务器已关闭');
+        console.log('[Server] ✅ server closed');
         process.exit(0);
       });
     } else {
@@ -1215,7 +1587,7 @@ class MultiTenantMCPServer {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MCP 多租户测试</title>
+  <title>MCP Multi-Tenant Test</title>
   <style>
     body { font-family: monospace; padding: 20px; max-width: 1200px; margin: 0 auto; }
     h1 { color: #333; }
@@ -1231,31 +1603,31 @@ class MultiTenantMCPServer {
   </style>
 </head>
 <body>
-  <h1>🧪 MCP 多租户代理 - 测试页面</h1>
+  <h1>🧪 MCP Multi-Tenant Test Page</h1>
   
   <div class="section">
-    <h2>1. 注册用户</h2>
-    <input id="userId" placeholder="用户 ID (如: user-a)" />
-    <input id="browserURL" placeholder="浏览器 URL (如: http://localhost:9222)" />
-    <button class="primary" onclick="registerUser()">注册</button>
+    <h2>1. Register User</h2>
+    <input id="userId" placeholder="User ID (e.g: user-a)" />
+    <input id="browserURL" placeholder="Browser URL (e.g: http://localhost:9222)" />
+    <button class="primary" onclick="registerUser()">Register</button>
   </div>
 
   <div class="section">
-    <h2>2. 连接 SSE</h2>
-    <input id="sseUserId" placeholder="用户 ID" />
-    <button class="primary" onclick="connectSSE()">连接</button>
-    <p>会话ID: <span id="sessionId">未连接</span></p>
+    <h2>2. Connect SSE</h2>
+    <input id="sseUserId" placeholder="User ID" />
+    <button class="primary" onclick="connectSSE()">Connect</button>
+    <p>Session ID: <span id="sessionId">Not connected</span></p>
   </div>
 
   <div class="section">
-    <h2>3. 测试工具</h2>
-    <button class="primary" onclick="initialize()">初始化</button>
+    <h2>3. Test Tools</h2>
+    <button class="primary" onclick="initialize()">Initialize</button>
     <button class="primary" onclick="listExtensions()">list_extensions</button>
   </div>
 
   <div class="section">
-    <h2>日志</h2>
-    <button onclick="clearLog()">清空日志</button>
+    <h2>4. Log</h2>
+    <button onclick="clearLog()">Clear log</button>
     <pre id="log" class="log"></pre>
   </div>
 
@@ -1283,13 +1655,13 @@ class MultiTenantMCPServer {
       });
 
       const data = await res.json();
-      log(res.ok ? '✅ 注册成功: ' + userId : '❌ 注册失败: ' + data.error);
+      log(res.ok ? '✅ register success: ' + userId : '❌ register failed: ' + data.error);
     }
 
     function connectSSE() {
       const userId = document.getElementById('sseUserId').value;
       if (!userId) {
-        alert('请输入用户 ID');
+        alert('Enter User ID');
         return;
       }
 
@@ -1301,7 +1673,7 @@ class MultiTenantMCPServer {
         const data = JSON.parse(e.data);
         sessionId = new URL(data.uri, location.href).searchParams.get('sessionId');
         document.getElementById('sessionId').textContent = sessionId;
-        log('✅ SSE 连接成功, 会话: ' + sessionId);
+        log('✅ SSE connection success, session: ' + sessionId);
       });
 
       eventSource.addEventListener('message', (e) => {
@@ -1315,7 +1687,7 @@ class MultiTenantMCPServer {
 
     async function sendRequest(method, params = {}) {
       if (!sessionId) {
-        alert('请先连接 SSE');
+        alert('Please connect SSE first');
         return null;
       }
 
@@ -1334,34 +1706,34 @@ class MultiTenantMCPServer {
           if (pending.has(id)) {
             pending.delete(id);
             resolve(null);
-            log('⏰ 请求超时');
+            log('⏰ Request timeout');
           }
         }, 10000);
       });
     }
 
     async function initialize() {
-      log('发送初始化请求...');
+      log('Send initialize request...');
       const result = await sendRequest('initialize', {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: { name: 'web-test', version: '1.0.0' },
       });
-      log(result ? '✅ 初始化成功' : '❌ 初始化失败');
+      log(result ? '✅ Initialize success' : '❌ Initialize failed');
     }
 
     async function listExtensions() {
-      log('调用 list_extensions...');
+      log('Call list_extensions...');
       const result = await sendRequest('tools/call', {
         name: 'list_extensions',
         arguments: {},
       });
       if (result) {
         const text = result.content[0]?.text || '';
-        log('✅ list_extensions 完成');
+        log('✅ list_extensions completed');
         log(text.substring(0, 500));
       } else {
-        log('❌ list_extensions 失败');
+        log('❌ list_extensions failed');
       }
     }
 
@@ -1374,9 +1746,9 @@ class MultiTenantMCPServer {
   }
 }
 
-// 启动服务器
+// Start server
 const server = new MultiTenantMCPServer();
 server.start().catch((error) => {
-  console.error('[Server] ❌ 启动失败:', error);
+  console.error('[Server] ❌ startup failed:', error);
   process.exit(1);
 });

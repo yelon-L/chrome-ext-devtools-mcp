@@ -22,12 +22,11 @@ import http from 'node:http';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
-
-import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser} from './browser.js';
-import type {Channel} from './browser.js';
 import type {Tool} from '@modelcontextprotocol/sdk/types.js';
+
+import type {Channel} from './browser.js';
+import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser} from './browser.js';
 import {parseArguments} from './cli.js';
-import {VERSION} from './version.js';
 import {logger} from './logger.js';
 import {McpContext} from './McpContext.js';
 import {McpResponse} from './McpResponse.js';
@@ -35,6 +34,7 @@ import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {displayStreamableModeInfo} from './utils/modeMessages.js';
+import {VERSION} from './version.js';
 
 // 存储所有会话
 const sessions = new Map<string, {

@@ -414,7 +414,138 @@ export class ExtensionHelper {
   }
 
   /**
-   * 获取所有扩展信息（优化版：优先使用 chrome.management API）
+   * 通过视觉检测获取扩展列表
+   * 导航到 chrome://extensions/ 并解析 DOM
+   * 这是最可靠的方法，可以检测所有扩展（包括禁用和失活的）
+   */
+  private async getExtensionsViaVisualInspection(
+    allTargets: CDPTargetInfo[]
+  ): Promise<ExtensionInfo[]> {
+    try {
+      this.log('[ExtensionHelper] 🔍 尝试视觉检测（导航到 chrome://extensions/）');
+      
+      // 创建新页面用于检测
+      const page = await this.browser.newPage();
+      
+      try {
+        // 导航到扩展页面
+        await page.goto('chrome://extensions/', {
+          waitUntil: 'networkidle0',
+          timeout: 5000,
+        });
+        
+        // 启用开发者模式（显示扩展 ID）
+        await page.evaluate(() => {
+          const manager = document.querySelector('extensions-manager');
+          if (manager?.shadowRoot) {
+            const devModeToggle = manager.shadowRoot.querySelector('#devMode') as any;
+            if (devModeToggle && !devModeToggle.checked) {
+              devModeToggle.click();
+            }
+          }
+        });
+        
+        // 等待 UI 更新
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // 从 DOM 提取扩展信息
+        const rawExtensions = await page.evaluate(() => {
+          const manager = document.querySelector('extensions-manager');
+          if (!manager?.shadowRoot) return [];
+          
+          const itemsHost = manager.shadowRoot.querySelector('extensions-item-list');
+          if (!itemsHost?.shadowRoot) return [];
+          
+          const items = itemsHost.shadowRoot.querySelectorAll('extensions-item');
+          const results: any[] = [];
+          
+          items.forEach((item: any) => {
+            if (!item.shadowRoot) return;
+            
+            // 提取基本信息
+            const id = item.id || '';
+            const nameEl = item.shadowRoot.querySelector('#name');
+            const versionEl = item.shadowRoot.querySelector('#version');
+            const descEl = item.shadowRoot.querySelector('#description');
+            const toggleEl = item.shadowRoot.querySelector('cr-toggle');
+            
+            if (id && nameEl) {
+              results.push({
+                id,
+                name: nameEl.textContent?.trim() || '',
+                version: versionEl?.textContent?.trim()?.replace(/^版本\s*/, '').replace(/^Version\s*/i, '') || '',
+                description: descEl?.textContent?.trim() || '',
+                enabled: toggleEl ? (toggleEl as any).checked : false,
+              });
+            }
+          });
+          
+          return results;
+        });
+        
+        this.log(`[ExtensionHelper] 📋 视觉检测发现 ${rawExtensions.length} 个扩展`);
+        
+        // 关闭页面
+        await page.close();
+        
+        // 丰富扩展信息（获取 manifest）
+        const extensions: ExtensionInfo[] = [];
+        
+        for (const ext of rawExtensions) {
+          // 获取 manifest
+          const manifest = await this.getExtensionManifestQuick(ext.id);
+          
+          // 查找 background target
+          const backgroundTarget = allTargets.find(
+            t =>
+              (t.type === 'service_worker' || t.type === 'background_page') &&
+              t.url?.includes(ext.id),
+          ) || null;
+          
+          // 确定 Service Worker 状态
+          const serviceWorkerStatus = manifest
+            ? this.determineServiceWorkerStatus(manifest, backgroundTarget)
+            : undefined;
+          
+          const manifestVersion = manifest?.manifest_version || 2;
+          
+          extensions.push({
+            id: ext.id,
+            name: ext.name || manifest?.name || 'Unknown',
+            version: ext.version || manifest?.version || 'unknown',
+            manifestVersion,
+            description: ext.description || manifest?.description || '',
+            enabled: ext.enabled,
+            backgroundUrl: backgroundTarget?.url,
+            serviceWorkerStatus,
+            permissions:
+              manifestVersion === 3
+                ? (manifest as ManifestV3)?.permissions || []
+                : (manifest as ManifestV2)?.permissions || [],
+            hostPermissions:
+              manifestVersion === 3
+                ? (manifest as ManifestV3)?.host_permissions
+                : undefined,
+          });
+        }
+        
+        this.log(`[ExtensionHelper] ✅ 视觉检测成功，处理 ${extensions.length} 个扩展`);
+        return extensions;
+        
+      } finally {
+        // 确保页面被关闭
+        if (!page.isClosed()) {
+          await page.close().catch(() => {});
+        }
+      }
+    } catch (error) {
+      this.logError('[ExtensionHelper] 视觉检测失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取所有扩展信息（优化版：三层回退策略）
    */
   async getExtensions(includeDisabled = false): Promise<ExtensionInfo[]> {
     try {
@@ -425,7 +556,7 @@ export class ExtensionHelper {
       const {targetInfos} = await cdp.send('Target.getTargets');
       const allTargets = targetInfos as CDPTargetInfo[];
       
-      // 🚀 优化：尝试使用 chrome.management.getAll() API
+      // 策略 1: 🚀 尝试使用 chrome.management.getAll() API（最快、最完整）
       const managementExtensions = await this.getExtensionsViaManagementAPI(allTargets);
       
       if (managementExtensions.length > 0) {
@@ -433,7 +564,7 @@ export class ExtensionHelper {
         return includeDisabled ? managementExtensions : managementExtensions.filter(ext => ext.enabled);
       }
       
-      this.log('[ExtensionHelper] ⚠️  chrome.management API 不可用，回退到 targets 扫描');
+      this.log('[ExtensionHelper] ⚠️  chrome.management API 不可用，尝试 targets 扫描');
       
       // 回退方案：从所有 chrome-extension:// URLs 中提取唯一的扩展 ID
       const extensionIds = new Set<string>();
@@ -524,7 +655,20 @@ export class ExtensionHelper {
         });
       }
       
-      this.log(`[ExtensionHelper] 成功处理 ${extensions.length} 个扩展`);
+      this.log(`[ExtensionHelper] 通过 targets 扫描处理了 ${extensions.length} 个扩展`);
+      
+      // 策略 3: 🔍 如果仍然没有找到扩展，使用视觉检测（最可靠但最慢）
+      if (extensions.length === 0) {
+        this.log('[ExtensionHelper] ⚠️  targets 扫描未找到扩展，回退到视觉检测');
+        const visualExtensions = await this.getExtensionsViaVisualInspection(allTargets);
+        
+        if (visualExtensions.length > 0) {
+          this.log(`[ExtensionHelper] ✅ 视觉检测找到 ${visualExtensions.length} 个扩展`);
+          return includeDisabled ? visualExtensions : visualExtensions.filter(ext => ext.enabled);
+        }
+      }
+      
+      this.log(`[ExtensionHelper] 最终结果: ${extensions.length} 个扩展`);
       return includeDisabled ? extensions : extensions.filter(ext => ext.enabled);
     } catch (error) {
       this.logError('[ExtensionHelper] 获取扩展列表失败:', error);

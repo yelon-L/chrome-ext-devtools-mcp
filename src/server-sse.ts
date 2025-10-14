@@ -35,8 +35,8 @@ import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-import {VERSION} from './version.js';
 import {displaySSEModeInfo} from './utils/modeMessages.js';
+import {VERSION} from './version.js';
 
 const sessions = new Map<string, {
   transport: SSEServerTransport;

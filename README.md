@@ -4,45 +4,53 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.19-green.svg)](https://nodejs.org/)
 
-**专业的 Chrome 扩展调试 MCP 服务器，支持 Multi-tenant 架构和企业级部署。**
+[中文](README.zh-CN.md) | **English**
 
-基于 Google 的 [chrome-devtools-mcp](https://github.com/google/chrome-devtools-mcp)，增强了扩展调试能力、Multi-tenant 支持和生产就绪特性。
+**Professional Chrome Extension Debug MCP Server with Multi-tenant Architecture and Enterprise Deployment Support.**
 
----
+Enhanced from Google's [chrome-devtools-mcp](https://github.com/google/chrome-devtools-mcp) with improved extension debugging capabilities, multi-tenant support, and production-ready features.
 
-## ✨ 核心特性
-
-### 🔌 扩展调试（12 个专业工具）
-- **Service Worker 激活** - MV3 扩展调试必备
-- **Storage 检查** - 支持 local/sync/session/managed
-- **上下文切换** - Background/Popup/Content Script
-- **消息监控** - 追踪 runtime.sendMessage
-- **API 追踪** - chrome.* API 调用记录
-- **日志收集** - 统一收集所有上下文日志
-
-### 🚀 Multi-Tenant 模式（企业级）
-- **10-100 并发用户** - 独立会话隔离
-- **Token 认证** - crypto.randomBytes 生成
-- **IP 白名单** - ALLOWED_IPS 安全控制
-- **CORS 配置** - 精细化源控制
-- **零内存泄漏** - 专业资源管理
-- **性能追踪** - 请求 ID 关联
-
-### 🛠️ 浏览器自动化（26 个工具）
-- **页面管理** - 导航、刷新、关闭
-- **输入交互** - 点击、输入、选择
-- **性能分析** - Lighthouse insights
-- **网络监控** - 请求拦截、修改
-- **截图快照** - 全页面、元素、PDF
-- **脚本执行** - 安全的代码注入
+> **🎉 What's New in v0.8.5**
+> - **Critical Fix:** Resolved session management race condition (100% → 0% error rate)
+> - **Enhanced Help:** Complete Multi-Tenant mode documentation in `--help`
+> - **Internationalization:** English logging for better accessibility
+> - [Full Changelog](CHANGELOG.md#085---2025-10-13)
 
 ---
 
-## 📦 快速安装
+## ✨ Core Features
 
-### 二进制文件（推荐 ⭐）
+### 🔌 Extension Debugging (12 Professional Tools)
+- **Service Worker Activation** - Essential for MV3 extension debugging
+- **Storage Inspection** - Supports local/sync/session/managed
+- **Context Switching** - Background/Popup/Content Script
+- **Message Monitoring** - Track runtime.sendMessage
+- **API Tracing** - Chrome.* API call logging
+- **Log Collection** - Unified logs from all contexts
 
-无需 Node.js，直接下载运行：
+### 🚀 Multi-Tenant Mode (Enterprise-Grade)
+- **10-100 Concurrent Users** - Isolated sessions
+- **Token Authentication** - crypto.randomBytes generation
+- **IP Whitelist** - ALLOWED_IPS security control
+- **CORS Configuration** - Fine-grained origin control
+- **Zero Memory Leaks** - Professional resource management
+- **Performance Tracking** - Request ID correlation
+
+### 🛠️ Browser Automation (26 Tools)
+- **Page Management** - Navigate, refresh, close
+- **Input Interaction** - Click, type, select
+- **Performance Analysis** - Lighthouse insights
+- **Network Monitoring** - Request interception and modification
+- **Screenshot & Snapshot** - Full page, element, PDF
+- **Script Execution** - Safe code injection
+
+---
+
+## 📦 Quick Installation
+
+### Binary Files (Recommended ⭐)
+
+No Node.js required, just download and run:
 
 ```bash
 # Linux x64
@@ -56,20 +64,20 @@ chmod +x chrome-extension-debug-macos-arm64
 ./chrome-extension-debug-macos-arm64
 
 # Windows
-# 直接下载 chrome-extension-debug-windows-x64.exe 运行
+# Download chrome-extension-debug-windows-x64.exe and run
 ```
 
-### npm 包
+### npm Package
 
 ```bash
-# 全局安装
+# Global installation
 npm install -g chrome-extension-debug-mcp
 
-# 或使用 npx
+# Or use npx
 npx chrome-extension-debug-mcp@latest
 ```
 
-### 从源码构建
+### Build from Source
 
 ```bash
 git clone https://github.com/ChromeDevTools/chrome-devtools-mcp.git
@@ -80,13 +88,13 @@ node build/src/index.js
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. stdio 模式（单用户）
+### 1. stdio Mode (Single User)
 
-适合个人开发，IDE 直接集成：
+Suitable for personal development, IDE integration:
 
-**配置 Claude Desktop / Cline / Cursor:**
+**Configure Claude Desktop / Cline / Cursor:**
 
 ```json
 {
@@ -98,7 +106,7 @@ node build/src/index.js
 }
 ```
 
-**或使用 npm:**
+**Or use npm:**
 
 ```json
 {
@@ -111,24 +119,23 @@ node build/src/index.js
 }
 ```
 
-### 2. Multi-tenant 模式（团队）
+### 2. Multi-tenant Mode (Team)
 
-适合团队开发、CI/CD、SaaS 场景：
+Suitable for team development, CI/CD, SaaS scenarios:
 
-**启动服务器:**
+**Start Server:**
 
 ```bash
-# 基础启动
+# Basic start
 npm run server:multi-tenant
 
-# 启用认证和 IP 白名单
+# Enable authentication and IP whitelist, CIDR format, default port is 32122
 AUTH_ENABLED=true \
 ALLOWED_IPS=192.168.1.100,192.168.1.101 \
-PORT=32122 \
-npm run server:multi-tenant
+/path/to/chrome-extension-debug-linux-x64
 ```
 
-**客户端配置:**
+**Client Configuration:**
 
 ```json
 {
@@ -143,131 +150,127 @@ npm run server:multi-tenant
 }
 ```
 
-📚 **完整指南:** [Multi-Tenant 快速开始](MULTI_TENANT_QUICK_START.md)
+📚 **Complete Guide:** [Multi-Tenant Quick Start](docs/guides/MULTI_TENANT_QUICK_START.md)
 
-### 3. HTTP 服务器模式
+### 3. HTTP Server Mode
 
-适合远程调试、局域网共享：
+Suitable for remote debugging, LAN sharing:
 
 ```bash
 bash scripts/start-http-mcp.sh
 
-# 远程 Chrome
+# Remote Chrome
 BROWSER_URL=http://192.168.1.100:9222 \
 bash scripts/start-http-mcp.sh
 ```
 
 ---
 
-## 📖 工具列表（41 个）
+## 📖 Tool List (41 Tools)
 
-### 🔌 扩展调试（12 个）
+### 🔌 Extension Debugging (12 Tools)
 
-| 工具 | 说明 |
-|------|------|
-| `list_extensions` | 列出所有扩展 |
-| `get_extension_details` | 获取扩展详情 |
-| `list_extension_contexts` | 列出扩展上下文 |
-| `switch_extension_context` | 切换上下文 |
-| `activate_service_worker` | 激活 Service Worker ⭐ |
-| `inspect_extension_storage` | 检查 Storage |
-| `watch_extension_storage` | 监控 Storage 变化 |
-| `get_extension_logs` | 收集日志 |
-| `evaluate_in_extension` | 执行代码 |
-| `reload_extension` | 智能热重载（增强版）⭐⭐⭐⭐⭐ |
-| `diagnose_extension_errors` | 错误诊断器（新增）⭐⭐⭐⭐⭐ |
-| `inspect_extension_manifest` | Manifest 深度检查（新增）⭐⭐⭐⭐ |
-| `check_content_script_injection` | Content Script 检查（新增）⭐⭐⭐⭐ |
-| `monitor_extension_messages` | 监控消息 |
-| `trace_extension_api_calls` | 追踪 API 调用 |
+| Tool | Description |
+|------|-------------|
+| `list_extensions` | List all extensions |
+| `get_extension_details` | Get extension details |
+| `list_extension_contexts` | List extension contexts |
+| `switch_extension_context` | Switch context |
+| `activate_service_worker` | Activate Service Worker ⭐ |
+| `inspect_extension_storage` | Inspect Storage |
+| `watch_extension_storage` | Watch Storage changes |
+| `get_extension_logs` | Collect logs |
+| `evaluate_in_extension` | Execute code |
+| `reload_extension` | Smart Hot Reload (Enhanced) ⭐⭐⭐⭐⭐ |
+| `diagnose_extension_errors` | Error Diagnostics (New) ⭐⭐⭐⭐⭐ |
+| `inspect_extension_manifest` | Deep Manifest Check (New) ⭐⭐⭐⭐ |
+| `check_content_script_injection` | Content Script Check (New) ⭐⭐⭐⭐ |
+| `monitor_extension_messages` | Monitor messages |
+| `trace_extension_api_calls` | Trace API calls |
 
-### 🌐 浏览器自动化（26 个）
+### 🌐 Browser Automation (26 Tools)
 
 <details>
-<summary>点击展开完整列表</summary>
+<summary>Click to expand full list</summary>
 
-**页面管理（8 个）**
+**Page Management (8 tools)**
 - `list_pages`, `new_page`, `close_page`
 - `navigate_to_url`, `navigate_forward`, `navigate_back`
 - `reload_page`, `get_current_url`
 
-**输入交互（6 个）**
+**Input Interaction (6 tools)**
 - `click_element`, `fill_element`, `select_option`
 - `upload_file`, `press_key`, `handle_dialog`
 
-**性能分析（3 个）**
+**Performance Analysis (3 tools)**
 - `performance_start_trace`, `performance_stop_trace`
 - `performance_analyze_insight`
 
-**网络监控（2 个）**
+**Network Monitoring (2 tools)**
 - `list_network_requests`, `emulate_network`
 
-**截图快照（2 个）**
+**Screenshot & Snapshot (2 tools)**
 - `take_screenshot`, `take_snapshot`
 
-**调试工具（3 个）**
+**Debugging Tools (3 tools)**
 - `list_console_messages`, `evaluate_script`
 - `emulate_device`
 
-**其他（2 个）**
+**Others (2 tools)**
 - `wait_for`, `accessibility_snapshot`
 
 </details>
 
-📚 **完整文档:** [工具分析和路线图](TOOLS_ANALYSIS_AND_ROADMAP.md)
-
 ---
 
-## ⚙️ 配置选项
+## ⚙️ Configuration Options
 
-### 环境变量
+### Environment Variables
 
-#### stdio 模式
+#### stdio Mode
 ```bash
-DEBUG=mcp:*                # 启用调试日志
-NODE_ENV=production        # 生产模式
+DEBUG=mcp:*                # Enable debug logs
+NODE_ENV=production        # Production mode
 ```
 
-#### Multi-tenant 模式
+#### Multi-tenant Mode
 ```bash
-# 服务器配置
-PORT=32122                                      # 服务端口
-AUTH_ENABLED=true                               # 启用认证
-ALLOWED_ORIGINS=https://app.example.com         # CORS 白名单
-ALLOWED_IPS=192.168.1.100,192.168.1.101        # IP 白名单
+# Server Configuration
+PORT=32122                                      # Server port
+AUTH_ENABLED=true                               # Enable authentication
+ALLOWED_ORIGINS=https://app.example.com         # CORS whitelist
+ALLOWED_IPS=192.168.1.100,192.168.1.101        # IP whitelist
 
-# CDP 配置
-USE_CDP_HYBRID=true                             # CDP 混合模式
-USE_CDP_OPERATIONS=true                         # CDP 操作模式
+# CDP Configuration
+USE_CDP_HYBRID=true                             # CDP hybrid mode
+USE_CDP_OPERATIONS=true                         # CDP operations mode
 
-# 会话管理
-MAX_SESSIONS=100                                # 最大会话数
-SESSION_TIMEOUT=1800000                         # 会话超时（30分钟）
+# Session Management
+MAX_SESSIONS=100                                # Max sessions
+SESSION_TIMEOUT=1800000                         # Session timeout (30 min)
 ```
 
-### 命令行参数
+### Command Line Arguments
 
 ```bash
-# stdio 模式（默认）
+# stdio mode (default)
 ./chrome-extension-debug-linux-x64
 
-# SSE 模式
+# SSE mode
 ./chrome-extension-debug-linux-x64 --transport sse --port 32122
 
-# Streamable HTTP 模式
+# Streamable HTTP mode
 ./chrome-extension-debug-linux-x64 --transport streamable --port 32123
 
-# Multi-tenant 模式
+# Multi-tenant mode
 ./chrome-extension-debug-linux-x64 --mode multi-tenant
 ```
 
-📚 **详细配置:** [配置兼容性指南](CONFIG_COMPATIBILITY_SUMMARY.md)
-
 ---
 
-## 🏗️ 架构特点
+## 🏗️ Architecture
 
-### Multi-Tenant 设计
+### Multi-Tenant Design
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -275,11 +278,11 @@ SESSION_TIMEOUT=1800000                         # 会话超时（30分钟）
 ├─────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐            │
 │  │ SessionMgr   │  │ BrowserPool  │            │
-│  │ (会话管理)    │  │ (连接池)      │            │
+│  │ (Session)    │  │ (Pool)       │            │
 │  └──────────────┘  └──────────────┘            │
 │  ┌──────────────┐  ┌──────────────┐            │
 │  │ AuthManager  │  │ RouterMgr    │            │
-│  │ (认证)        │  │ (路由)        │            │
+│  │ (Auth)       │  │ (Router)     │            │
 │  └──────────────┘  └──────────────┘            │
 └─────────────────────────────────────────────────┘
            │                │                │
@@ -291,159 +294,149 @@ SESSION_TIMEOUT=1800000                         # 会话超时（30分钟）
     └──────────┘    └──────────┘    └──────────┘
 ```
 
-**关键特性:**
-- ✅ **会话隔离** - 每个用户独立会话
-- ✅ **连接池** - 自动健康检查和重连
-- ✅ **并发控制** - Session-level mutex
-- ✅ **资源管理** - 零内存泄漏
-- ✅ **性能追踪** - Request ID 关联
+**Key Features:**
+- ✅ **Session Isolation** - Independent session per user
+- ✅ **Connection Pool** - Auto health check and reconnect
+- ✅ **Concurrency Control** - Session-level mutex
+- ✅ **Resource Management** - Zero memory leaks
+- ✅ **Performance Tracking** - Request ID correlation
 
-📚 **架构文档:** [Multi-Tenant 架构分析](MULTI_TENANT_ARCHITECTURE_ANALYSIS.md)
+📚 **Architecture Docs:** [Multi-Tenant Architecture](docs/guides/MULTI_TENANT_ARCHITECTURE_ANALYSIS.md)
 
-### CDP 混合模式
+### CDP Hybrid Mode
 
-结合 Puppeteer 和 CDP 的优势：
+Combining the strengths of Puppeteer and CDP:
 
-- **Puppeteer** - 高级 API、稳定性
-- **CDP** - 底层控制、性能
+- **Puppeteer** - High-level API, stability
+- **CDP** - Low-level control, performance
 
 ```bash
-# 启用 CDP 混合模式
+# Enable CDP hybrid mode
 USE_CDP_HYBRID=true \
 USE_CDP_OPERATIONS=true \
 npm run server:multi-tenant
 ```
 
-📚 **CDP 指南:** [CDP 混合模式使用指南](CDP_HYBRID_GUIDE.md)
+📚 **CDP Guide:** [CDP Hybrid Mode](docs/guides/CDP_HYBRID_GUIDE.md)
 
 ---
 
-## 📚 文档导航
+## 📚 Documentation
 
-### 用户指南
-- [Multi-Tenant 快速开始](MULTI_TENANT_QUICK_START.md) - 5 分钟上手
-- [IP 白名单和配置格式](IP_WHITELIST_AND_CONFIG_FORMAT.md) - 安全配置
-- [认证功能使用](AUTH_ENABLED_FIX.md) - Token 生成和验证
-- [局域网部署最佳实践](MULTI_TENANT_LAN_BEST_PRACTICES.md) - 团队部署
+### User Guides
+- [Multi-Tenant Quick Start](docs/guides/MULTI_TENANT_QUICK_START.md) - Get started in 5 minutes
+- [Multi-Tenant Architecture](docs/guides/MULTI_TENANT_ARCHITECTURE.md) - System design
+- [LAN Deployment Best Practices](docs/guides/MULTI_TENANT_LAN_BEST_PRACTICES.md) - Team deployment
+- [Testing Instructions](docs/guides/TEST_INSTRUCTIONS.md) - How to test
 
-### 开发者文档
-- [工具分析和路线图](TOOLS_ANALYSIS_AND_ROADMAP.md) - 功能规划
-- [Scripts 文档](SCRIPTS_DOCUMENTATION.md) - 脚本使用指南
-- [实施指南](IMPLEMENTATION_GUIDE.md) - 功能实现细节
-- [贡献指南](CONTRIBUTING.md) - 如何贡献
+### Developer Docs
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute
+- [Release Guide](RELEASE.md) - Version release steps
+- [Scripts Documentation](scripts/README.md) - Build scripts guide
+- [Documentation Index](docs/README.md) - Full documentation index
 
-### 部署文档
-- [发布流程](RELEASE.md) - 版本发布步骤
-- [GitHub 设置](GITHUB_SETUP.md) - 项目规范化
-- [部署清单](DEPLOYMENT_CHECKLIST.md) - 生产部署
-
-### 技术分析
-- [架构对比](ARCHITECTURE_COMPARISON.md) - 架构设计分析
-- [性能优化报告](ARCHITECTURE_OPTIMIZATION_REPORT.md) - 性能改进
-- [测试报告](FINAL_TEST_SUMMARY.md) - 完整测试结果
-
-📚 **完整索引:** [文档索引](DOCUMENTATION_INDEX.md)
+### Deployment Docs
+- [Deployment Checklist](docs/guides/DEPLOYMENT_CHECKLIST.md) - Production deployment
+- [Security Best Practices](#-security-best-practices) - Security configuration
 
 ---
 
-## 🔧 开发
+## 🔧 Development
 
-### 环境搭建
+### Environment Setup
 
 ```bash
-# 克隆项目
+# Clone repository
 git clone https://github.com/ChromeDevTools/chrome-devtools-mcp.git
 cd chrome-devtools-mcp
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 构建
+# Build
 npm run build
 
-# 运行测试
+# Run tests
 npm test
 
-# 启动开发服务器
+# Start development server
 bash scripts/start-http-mcp.sh
 ```
 
-### 添加新工具
+### Adding New Tools
 
 ```bash
-# 1. 创建工具文件
+# 1. Create tool file
 touch src/tools/my-new-tool.ts
 
-# 2. 实现工具（参考现有工具）
+# 2. Implement tool (refer to existing tools)
 
-# 3. 注册工具
-# 编辑 src/tools/registry.ts
+# 3. Register tool
+# Edit src/tools/registry.ts
 
-# 4. 构建和测试
+# 4. Build and test
 npm run build
 npm test
 
-# 5. 生成文档
+# 5. Generate docs
 npm run docs
 ```
 
-### 打包二进制文件
+### Package Binaries
 
 ```bash
-# 需要 Bun
+# Requires Bun
 curl -fsSL https://bun.sh/install | bash
 
-# 打包所有平台
+# Package all platforms
 bash scripts/package-bun.sh
 
-# 输出在 dist/ 目录
+# Output in dist/ directory
 ls -lh dist/
 ```
 
 ---
 
-## 📊 性能指标
+## 📊 Performance Metrics
 
-### Multi-Tenant 模式
+### Multi-Tenant Mode
 
-| 指标 | 数值 |
-|------|------|
-| **并发用户** | 10-100 |
-| **P50 延迟** | < 50ms |
-| **P99 延迟** | < 500ms |
-| **内存稳定性** | 零泄漏 |
-| **CPU 利用率** | ~100%（多核） |
-| **吞吐量提升** | 10-100x vs stdio |
+| Metric | Value |
+|--------|-------|
+| **Concurrent Users** | 10-100 |
+| **P50 Latency** | < 50ms |
+| **P99 Latency** | < 500ms |
+| **Memory Stability** | Zero leaks |
+| **CPU Utilization** | ~100% (multi-core) |
+| **Throughput Boost** | 10-100x vs stdio |
 
-### 启动性能
+### Startup Performance
 
-| 模式 | 冷启动 | 热启动 |
-|------|--------|--------|
+| Mode | Cold Start | Hot Start |
+|------|-----------|-----------|
 | stdio | ~500ms | ~200ms |
 | Multi-tenant | ~2s | ~1s |
-| 二进制文件 | ~300ms | ~100ms |
-
-📚 **详细报告:** [性能优化报告](ARCHITECTURE_OPTIMIZATION_REPORT.md)
+| Binary | ~300ms | ~100ms |
 
 ---
 
-## 🔒 安全最佳实践
+## 🔒 Security Best Practices
 
-### 生产环境清单
+### Production Checklist
 
-- ✅ 启用认证: `AUTH_ENABLED=true`
-- ✅ 设置 IP 白名单: `ALLOWED_IPS=...`
-- ✅ 配置 CORS: `ALLOWED_ORIGINS=https://your-domain.com`
-- ✅ 使用 HTTPS（通过 Nginx/Caddy 反向代理）
-- ✅ 限制会话数: `MAX_SESSIONS=50`
-- ✅ 设置会话超时: `SESSION_TIMEOUT=1800000`
-- ✅ 监控日志和错误
-- ✅ 定期更新依赖
+- ✅ Enable authentication: `AUTH_ENABLED=true`
+- ✅ Set IP whitelist: `ALLOWED_IPS=...`
+- ✅ Configure CORS: `ALLOWED_ORIGINS=https://your-domain.com`
+- ✅ Use HTTPS (via Nginx/Caddy reverse proxy)
+- ✅ Limit sessions: `MAX_SESSIONS=50`
+- ✅ Set session timeout: `SESSION_TIMEOUT=1800000`
+- ✅ Monitor logs and errors
+- ✅ Regularly update dependencies
 
-### 推荐配置
+### Recommended Configuration
 
 ```bash
-# 生产环境完整配置
+# Production environment full configuration
 AUTH_ENABLED=true \
 ALLOWED_ORIGINS=https://app.company.com \
 ALLOWED_IPS=203.0.113.1,198.51.100.1 \
@@ -453,79 +446,75 @@ USE_CDP_HYBRID=true \
 npm run server:multi-tenant
 ```
 
-📚 **安全指南:** [IP 白名单和配置](IP_WHITELIST_AND_CONFIG_FORMAT.md)
-
 ---
 
-## 🤝 贡献
+## 🤝 Contributing
 
-我们欢迎所有形式的贡献！
+We welcome all forms of contributions!
 
-### 贡献方式
+### How to Contribute
 
-- 🐛 [报告 Bug](https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/new?template=bug_report.md)
-- 💡 [功能建议](https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/new?template=feature_request.md)
-- 📝 改进文档
-- 🔧 提交代码
+- 🐛 [Report Bugs](https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/new?template=bug_report.md)
+- 💡 [Feature Requests](https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/new?template=feature_request.md)
+- 📝 Improve documentation
+- 🔧 Submit code
 
-### 开发流程
+### Development Workflow
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 打开 Pull Request
+1. Fork the project
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-📚 **详细指南:** [贡献指南](CONTRIBUTING.md)
+📚 **Detailed Guide:** [Contributing Guide](CONTRIBUTING.md)
 
 ---
 
 ## 📜 License
 
-Apache 2.0 - 详见 [LICENSE](LICENSE) 文件
+Apache 2.0 - See [LICENSE](LICENSE) file
 
 ---
 
-## 🙏 致谢
+## 🙏 Acknowledgments
 
-基于 Google 的 [chrome-devtools-mcp](https://github.com/google/chrome-devtools-mcp) 项目。
+Based on Google's [chrome-devtools-mcp](https://github.com/google/chrome-devtools-mcp) project.
 
-感谢所有贡献者和社区的支持！
+Thanks to all contributors and community support!
 
 ---
 
-## 📞 联系方式
+## 📞 Contact
 
 - **Issues**: https://github.com/ChromeDevTools/chrome-devtools-mcp/issues
 - **Discussions**: https://github.com/ChromeDevTools/chrome-devtools-mcp/discussions
-- **Documentation**: [文档索引](DOCUMENTATION_INDEX.md)
+- **Documentation**: [docs/README.md](docs/README.md)
 
 ---
 
-## 🗺️ 路线图
+## 🗺️ Roadmap
 
-### v0.9.0（已完成 Phase 1）✅
-- [x] `inspect_extension_manifest` - Manifest 深度检查 ✅
-- [x] `diagnose_extension_errors` - 错误诊断器 ✅
-- [x] 增强 `reload_extension` - 智能热重载 ✅
-- [x] `check_content_script_injection` - Content Script 检查 ✅
+### v0.9.0 (Phase 1 Completed) ✅
+- [x] `inspect_extension_manifest` - Deep manifest check ✅
+- [x] `diagnose_extension_errors` - Error diagnostics ✅
+- [x] Enhanced `reload_extension` - Smart hot reload ✅
+- [x] `check_content_script_injection` - Content script check ✅
 
-### v1.0.0（计划中）
-- [ ] `analyze_extension_permissions` - 权限分析
-- [ ] `analyze_api_usage` - API 使用统计
-- [ ] 性能监控面板
-- [ ] WebSocket 支持
-
-📚 **完整路线图:** [工具分析和路线图](TOOLS_ANALYSIS_AND_ROADMAP.md)
+### v1.0.0 (Planned)
+- [ ] `analyze_extension_permissions` - Permission analysis
+- [ ] `analyze_api_usage` - API usage statistics
+- [ ] Performance monitoring dashboard
+- [ ] WebSocket support
 
 ---
 
 <div align="center">
 
-**⭐ 如果这个项目对你有帮助，请给它一个 Star！⭐**
+**⭐ If this project helps you, please give it a Star! ⭐**
 
 Made with ❤️ by the Chrome DevTools MCP community
 
-[文档索引](DOCUMENTATION_INDEX.md) • [更新日志](CHANGELOG.md) • [贡献指南](CONTRIBUTING.md)
+[Documentation](docs/README.md) • [Changelog](CHANGELOG.md) • [Contributing](CONTRIBUTING.md)
 
 </div>

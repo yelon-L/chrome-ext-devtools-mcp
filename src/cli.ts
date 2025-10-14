@@ -7,6 +7,7 @@
 import type {Options as YargsOptions} from 'yargs';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
+
 import {ParameterValidator} from './utils/paramValidator.js';
 
 export const cliOptions = {
@@ -106,6 +107,13 @@ export const cliOptions = {
       'Port number for HTTP-based transports (SSE or Streamable).',
     alias: 'p',
   },
+  mode: {
+    type: 'string',
+    description:
+      'Server mode (multi-tenant for enterprise deployment).',
+    choices: ['multi-tenant'] as const,
+    alias: 'm',
+  },
 } satisfies Record<string, YargsOptions>;
 
 export function parseArguments(version: string, argv = process.argv) {
@@ -124,6 +132,23 @@ Transport Modes:
   stdio      - Standard I/O (default, for MCP clients)
   sse        - Server-Sent Events (HTTP streaming, port 32122 or --port)
   streamable - Streamable HTTP (latest standard, port 32123 or --port)
+
+Multi-Tenant Mode:
+  --mode multi-tenant    Enterprise-grade server for multiple users
+  
+  Environment Variables for Multi-Tenant:
+    PORT=32122                   Server port (default: 32122)
+    AUTH_ENABLED=true            Enable token authentication
+    ALLOWED_IPS=ip1,ip2          IP whitelist (comma-separated), CIDR
+    ALLOWED_ORIGINS=url1,url2    CORS origins (comma-separated)
+    MAX_SESSIONS=100             Maximum concurrent sessions
+    SESSION_TIMEOUT=1800000      Session timeout in ms (30 min)
+    USE_CDP_HYBRID=true          Enable CDP hybrid mode
+    USE_CDP_OPERATIONS=true      Use CDP for operations
+  
+  Multi-Tenant Example:
+    $0 --mode multi-tenant
+    AUTH_ENABLED=true PORT=32122 $0 --mode multi-tenant
 
 For more information, visit:
   https://github.com/GoogleChromeLabs/chrome-devtools-mcp`)
@@ -159,6 +184,10 @@ For more information, visit:
       [
         '$0 --viewport 1280x720',
         'Launch with viewport size 1280x720px',
+      ],
+      [
+        '$0 --mode multi-tenant',
+        'Start multi-tenant server for teams',
       ],
     ])
     .alias('h', 'help')

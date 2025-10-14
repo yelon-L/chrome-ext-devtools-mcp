@@ -7,13 +7,13 @@
 import puppeteer from 'puppeteer-core';
 import type {Browser} from 'puppeteer-core';
 
+import {logger} from '../../logger.js';
 import type {
   BrowserConnection,
   BrowserConnectionStatus,
   BrowserPoolConfig,
   BrowserPoolStats,
 } from '../types/browser-pool.types.js';
-import {logger} from '../../logger.js';
 
 /**
  * 浏览器连接池
@@ -252,7 +252,7 @@ export class BrowserConnectionPool {
    * 对所有连接进行健康检查
    */
   async healthCheckAll(): Promise<void> {
-    const checkPromises: Promise<boolean>[] = [];
+    const checkPromises: Array<Promise<boolean>> = [];
 
     for (const userId of this.#userConnections.keys()) {
       checkPromises.push(this.healthCheck(userId));
@@ -267,7 +267,7 @@ export class BrowserConnectionPool {
   async disconnectAll(): Promise<void> {
     logger('[BrowserConnectionPool] 断开所有连接');
 
-    const disconnectPromises: Promise<boolean>[] = [];
+    const disconnectPromises: Array<Promise<boolean>> = [];
     
     for (const userId of this.#userConnections.keys()) {
       disconnectPromises.push(this.disconnect(userId));

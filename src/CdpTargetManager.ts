@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Browser, CDPSession, Page} from 'puppeteer-core';
 import type {Debugger} from 'debug';
+import type {Browser, CDPSession, Page} from 'puppeteer-core';
 
 /**
  * CDP Target 管理器

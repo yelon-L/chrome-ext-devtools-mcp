@@ -16,12 +16,46 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+
 import {logger} from '../../logger.js';
 
 /**
- * 用户记录
+ * 用户记录（新架构）
  */
 export interface UserRecord {
+  userId: string;           // 从 email 提取的 ID
+  email: string;            // 唯一的邮箱地址
+  username: string;         // 可修改的显示名称
+  registeredAt: number;
+  updatedAt?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 浏览器记录
+ */
+export interface BrowserRecord {
+  browserId: string;        // UUID
+  userId: string;           // 所属用户
+  browserURL: string;
+  tokenName: string;        // 人类可读的名称
+  token: string;            // 访问令牌
+  createdAt: number;
+  lastConnectedAt?: number;
+  metadata?: {
+    description?: string;
+    browserInfo?: {
+      version?: string;
+      userAgent?: string;
+    };
+  };
+}
+
+/**
+ * 旧的用户记录（向后兼容）
+ * @deprecated 使用新的 UserRecord + BrowserRecord
+ */
+export interface LegacyUserRecord {
   userId: string;
   browserURL: string;
   registeredAt: number;
@@ -29,7 +63,8 @@ export interface UserRecord {
 }
 
 /**
- * Token 记录
+ * Token 记录（已废弃，token 信息现在存储在 BrowserRecord 中）
+ * @deprecated Token 现在直接关联到 Browser
  */
 export interface TokenRecord {
   token: string;
@@ -37,18 +72,30 @@ export interface TokenRecord {
   userId: string;
   permissions: string[];
   createdAt: number;
-  expiresAt: number | null; // null 表示永不过期
+  expiresAt: number | null;
   isRevoked: boolean;
 }
 
 /**
- * 日志操作类型
+ * 日志操作类型（新架构）
  */
 type LogOperation = 
-  | { op: 'register_user'; timestamp: number; data: UserRecord }
+  // 用户操作
+  | { op: 'register_user_v2'; timestamp: number; data: UserRecord }
+  | { op: 'update_username'; timestamp: number; data: { userId: string; username: string } }
+  | { op: 'delete_user'; timestamp: number; userId: string }
+  // 浏览器操作
+  | { op: 'bind_browser'; timestamp: number; data: BrowserRecord }
+  | { op: 'update_browser'; timestamp: number; data: { browserId: string; browserURL?: string; description?: string } }
+  | { op: 'unbind_browser'; timestamp: number; browserId: string }
+  // 快照
+  | { op: 'snapshot_v2'; timestamp: number; users: UserRecord[]; browsers: BrowserRecord[] }
+  // 向后兼容（旧操作）
+  | { op: 'register_user'; timestamp: number; data: LegacyUserRecord }
   | { op: 'create_token'; timestamp: number; data: TokenRecord }
+  | { op: 'update_browser_url'; timestamp: number; data: { userId: string; browserURL: string } }
   | { op: 'revoke_token'; timestamp: number; token: string }
-  | { op: 'snapshot'; timestamp: number; users: UserRecord[]; tokens: TokenRecord[] };
+  | { op: 'snapshot'; timestamp: number; users: LegacyUserRecord[]; tokens: TokenRecord[] };
 
 /**
  * 存储配置
@@ -73,10 +120,16 @@ export class PersistentStore {
   private snapshotThreshold: number;
   private autoCompaction: boolean;
   
-  // 内存索引
-  private users = new Map<string, UserRecord>();
-  private tokens = new Map<string, TokenRecord>();
-  private userTokens = new Map<string, Set<string>>(); // userId -> token[]
+  // 内存索引（新架构）
+  private users = new Map<string, UserRecord>();                    // userId -> User
+  private usersByEmail = new Map<string, string>();                 // email -> userId
+  private browsers = new Map<string, BrowserRecord>();              // browserId -> Browser
+  private browsersByToken = new Map<string, string>();              // token -> browserId
+  private browsersByUser = new Map<string, Set<string>>();          // userId -> Set<browserId>
+  
+  // 向后兼容：旧的 Token 系统
+  private legacyTokens = new Map<string, TokenRecord>();
+  private legacyUserTokens = new Map<string, Set<string>>();
   
   // 写入流
   private logStream: fs.WriteStream | null = null;
@@ -112,7 +165,7 @@ export class PersistentStore {
     
     logger(`[PersistentStore] 初始化完成`);
     logger(`[PersistentStore] - 用户数: ${this.users.size}`);
-    logger(`[PersistentStore] - Token数: ${this.tokens.size}`);
+    logger(`[PersistentStore] - Token数: ${this.legacyTokens.size}`);
     logger(`[PersistentStore] - 日志行数: ${this.logLineCount}`);
   }
   
@@ -151,46 +204,65 @@ export class PersistentStore {
   private applyOperation(op: LogOperation): void {
     switch (op.op) {
       case 'register_user':
-        this.users.set(op.data.userId, op.data);
-        if (!this.userTokens.has(op.data.userId)) {
-          this.userTokens.set(op.data.userId, new Set());
+        // 向后兼容：将 LegacyUserRecord 存储为用户
+        const legacyUser = op.data as LegacyUserRecord;
+        this.users.set(legacyUser.userId, {
+          userId: legacyUser.userId,
+          email: `${legacyUser.userId}@legacy.local`,
+          username: legacyUser.userId,
+          registeredAt: legacyUser.registeredAt,
+          metadata: legacyUser.metadata,
+        });
+        if (!this.legacyUserTokens.has(legacyUser.userId)) {
+          this.legacyUserTokens.set(legacyUser.userId, new Set());
         }
         break;
         
       case 'create_token':
-        this.tokens.set(op.data.token, op.data);
-        if (!this.userTokens.has(op.data.userId)) {
-          this.userTokens.set(op.data.userId, new Set());
+        this.legacyTokens.set(op.data.token, op.data);
+        if (!this.legacyUserTokens.has(op.data.userId)) {
+          this.legacyUserTokens.set(op.data.userId, new Set());
         }
-        this.userTokens.get(op.data.userId)!.add(op.data.token);
+        this.legacyUserTokens.get(op.data.userId)!.add(op.data.token);
+        break;
+      
+      case 'update_browser_url':
+        // 向后兼容：忽略 browserURL 更新（新架构不支持）
         break;
         
       case 'revoke_token':
-        const token = this.tokens.get(op.token);
+        const token = this.legacyTokens.get(op.token);
         if (token) {
           token.isRevoked = true;
-          this.userTokens.get(token.userId)?.delete(op.token);
+          this.legacyUserTokens.get(token.userId)?.delete(op.token);
         }
         break;
         
       case 'snapshot':
         // 快照：清空并重建状态
         this.users.clear();
-        this.tokens.clear();
-        this.userTokens.clear();
+        this.legacyTokens.clear();
+        this.legacyUserTokens.clear();
         
-        for (const user of op.users) {
-          this.users.set(user.userId, user);
-          this.userTokens.set(user.userId, new Set());
+        for (const legacyUser of op.users) {
+          // 转换 LegacyUserRecord 到 UserRecord
+          this.users.set(legacyUser.userId, {
+            userId: legacyUser.userId,
+            email: `${legacyUser.userId}@legacy.local`,
+            username: legacyUser.userId,
+            registeredAt: legacyUser.registeredAt,
+            metadata: legacyUser.metadata,
+          });
+          this.legacyUserTokens.set(legacyUser.userId, new Set());
         }
         
         for (const token of op.tokens) {
-          this.tokens.set(token.token, token);
-          if (!this.userTokens.has(token.userId)) {
-            this.userTokens.set(token.userId, new Set());
+          this.legacyTokens.set(token.token, token);
+          if (!this.legacyUserTokens.has(token.userId)) {
+            this.legacyUserTokens.set(token.userId, new Set());
           }
           if (!token.isRevoked) {
-            this.userTokens.get(token.userId)!.add(token.token);
+            this.legacyUserTokens.get(token.userId)!.add(token.token);
           }
         }
         break;
@@ -229,7 +301,7 @@ export class PersistentStore {
       throw new Error(`User ${userId} already exists`);
     }
     
-    const user: UserRecord = {
+    const legacyUser: LegacyUserRecord = {
       userId,
       browserURL,
       registeredAt: Date.now(),
@@ -239,7 +311,7 @@ export class PersistentStore {
     const operation: LogOperation = {
       op: 'register_user',
       timestamp: Date.now(),
-      data: user,
+      data: legacyUser,
     };
     
     // 先写日志（持久化）
@@ -304,7 +376,7 @@ export class PersistentStore {
    * 撤销 Token
    */
   async revokeToken(token: string): Promise<void> {
-    if (!this.tokens.has(token)) {
+    if (!this.legacyTokens.has(token)) {
       throw new Error('Token not found');
     }
     
@@ -321,6 +393,32 @@ export class PersistentStore {
     this.applyOperation(operation);
     
     logger(`[PersistentStore] 撤销Token: ${token.substring(0, 16)}...`);
+  }
+  
+  /**
+   * 更新浏览器 URL
+   */
+  async updateBrowserURL(userId: string, browserURL: string): Promise<void> {
+    if (!this.users.has(userId)) {
+      throw new Error(`User ${userId} not found`);
+    }
+    
+    const operation: LogOperation = {
+      op: 'update_browser_url',
+      timestamp: Date.now(),
+      data: { userId, browserURL },
+    };
+    
+    // 先写日志（持久化）
+    await this.writeLog(operation);
+    
+    // 再更新内存
+    this.applyOperation(operation);
+    
+    logger(`[PersistentStore] 更新浏览器URL: ${userId} -> ${browserURL}`);
+    
+    // 检查是否需要压缩
+    await this.maybeCompact();
   }
   
   /**
@@ -348,20 +446,27 @@ export class PersistentStore {
    * 获取 Token 信息
    */
   getToken(token: string): TokenRecord | undefined {
-    return this.tokens.get(token);
+    return this.legacyTokens.get(token);
+  }
+  
+  /**
+   * 获取所有 Token（包括已撤销的）
+   */
+  getAllTokens(): TokenRecord[] {
+    return Array.from(this.legacyTokens.values());
   }
   
   /**
    * 获取用户的所有有效 Token
    */
   getUserTokens(userId: string): TokenRecord[] {
-    const tokenSet = this.userTokens.get(userId);
+    const tokenSet = this.legacyUserTokens.get(userId);
     if (!tokenSet) {
       return [];
     }
     
     return Array.from(tokenSet)
-      .map(token => this.tokens.get(token))
+      .map(token => this.legacyTokens.get(token))
       .filter((t): t is TokenRecord => t !== undefined && !t.isRevoked);
   }
   
@@ -375,7 +480,7 @@ export class PersistentStore {
     logLines: number;
   } {
     let activeTokens = 0;
-    for (const token of this.tokens.values()) {
+    for (const token of this.legacyTokens.values()) {
       // 未撤销 且 (永不过期 或 未过期)
       if (!token.isRevoked && (token.expiresAt === null || token.expiresAt > Date.now())) {
         activeTokens++;
@@ -384,7 +489,7 @@ export class PersistentStore {
     
     return {
       users: this.users.size,
-      tokens: this.tokens.size,
+      tokens: this.legacyTokens.size,
       activeTokens,
       logLines: this.logLineCount,
     };
@@ -425,11 +530,19 @@ export class PersistentStore {
     }
     
     // 创建新日志文件，写入快照
+    // 转换 UserRecord 回 LegacyUserRecord
+    const legacyUsers: LegacyUserRecord[] = Array.from(this.users.values()).map(u => ({
+      userId: u.userId,
+      browserURL: '',
+      registeredAt: u.registeredAt,
+      metadata: u.metadata,
+    }));
+    
     const snapshot: LogOperation = {
       op: 'snapshot',
       timestamp: Date.now(),
-      users: Array.from(this.users.values()),
-      tokens: Array.from(this.tokens.values()),
+      users: legacyUsers,
+      tokens: Array.from(this.legacyTokens.values()),
     };
     
     fs.writeFileSync(this.logFilePath, JSON.stringify(snapshot) + '\n', 'utf8');

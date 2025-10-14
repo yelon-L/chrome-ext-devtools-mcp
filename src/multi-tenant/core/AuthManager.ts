@@ -6,13 +6,14 @@
 
 import crypto from 'node:crypto';
 
+import {logger} from '../../logger.js';
 import type {
   AuthConfig,
   AuthResult,
   AuthToken,
   User,
 } from '../types/auth.types.js';
-import {logger} from '../../logger.js';
+import type {PersistentStore} from '../storage/PersistentStore.js';
 
 /**
  * 认证管理器
@@ -28,6 +29,9 @@ export class AuthManager {
   
   /** 被撤销的 Token 集合 */
   #revokedTokens = new Set<string>();
+  
+  /** 持久化存储引用 */
+  #store?: PersistentStore;
 
   constructor(config?: Partial<AuthConfig>) {
     this.#config = {
@@ -48,6 +52,59 @@ export class AuthManager {
         });
       }
       logger(`[AuthManager] 加载 ${this.#config.tokens.size} 个预定义 Token`);
+    }
+  }
+
+  /**
+   * 从持久化存储初始化 Token
+   * 
+   * @param store - 持久化存储实例
+   */
+  async initialize(store: PersistentStore): Promise<void> {
+    this.#store = store;
+    
+    // 从存储加载所有 Token
+    const tokens = store.getAllTokens();
+    let loadedCount = 0;
+    let revokedCount = 0;
+    let expiredCount = 0;
+    const now = new Date();
+    
+    for (const tokenRecord of tokens) {
+      // 处理已撤销的 Token
+      if (tokenRecord.isRevoked) {
+        this.#revokedTokens.add(tokenRecord.token);
+        revokedCount++;
+        continue;
+      }
+      
+      // 检查是否过期
+      const expiresAt = tokenRecord.expiresAt 
+        ? new Date(tokenRecord.expiresAt) 
+        : null;
+      
+      if (expiresAt && expiresAt < now) {
+        expiredCount++;
+        continue;
+      }
+      
+      // 加载有效 Token
+      this.#tokens.set(tokenRecord.token, {
+        token: tokenRecord.token,
+        userId: tokenRecord.userId,
+        permissions: tokenRecord.permissions,
+        expiresAt: expiresAt || new Date(Date.now() + this.#config.tokenExpiration * 1000),
+      });
+      loadedCount++;
+    }
+    
+    logger(`[AuthManager] 从持久化存储加载 Token:`);
+    logger(`[AuthManager]   - 有效: ${loadedCount} 个`);
+    if (revokedCount > 0) {
+      logger(`[AuthManager]   - 已撤销: ${revokedCount} 个`);
+    }
+    if (expiredCount > 0) {
+      logger(`[AuthManager]   - 已过期: ${expiredCount} 个`);
     }
   }
 

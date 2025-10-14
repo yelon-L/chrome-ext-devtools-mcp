@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import {logger} from '../../logger.js';
 import type {
   UserBrowserMapping,
   UserMetadata,
   RouterStats,
 } from '../types/router.types.js';
-import {logger} from '../../logger.js';
+import type {PersistentStore} from '../storage/PersistentStore.js';
 
 /**
  * 路由管理器
@@ -19,6 +20,30 @@ import {logger} from '../../logger.js';
 export class RouterManager {
   /** 用户浏览器映射 */
   #userMappings = new Map<string, UserBrowserMapping>();
+
+  /**
+   * 从持久化存储初始化用户映射
+   * 
+   * @param store - 持久化存储实例
+   */
+  async initialize(store: PersistentStore): Promise<void> {
+    const users = store.getAllUsers();
+    let loadedCount = 0;
+    
+    for (const userRecord of users) {
+      const mapping: UserBrowserMapping = {
+        userId: userRecord.userId,
+        browserURL: userRecord.browserURL,
+        registeredAt: new Date(userRecord.registeredAt),
+        metadata: userRecord.metadata,
+      };
+      
+      this.#userMappings.set(userRecord.userId, mapping);
+      loadedCount++;
+    }
+    
+    logger(`[RouterManager] 从持久化存储加载 ${loadedCount} 个用户`);
+  }
 
   /**
    * 注册用户
@@ -143,6 +168,30 @@ export class RouterManager {
     };
 
     logger(`[RouterManager] 用户元数据已更新: ${userId}`);
+
+    return true;
+  }
+
+  /**
+   * 更新用户的浏览器 URL
+   * 
+   * @param userId - 用户 ID
+   * @param browserURL - 新的浏览器 URL
+   * @returns 是否更新成功
+   */
+  updateBrowserURL(userId: string, browserURL: string): boolean {
+    const mapping = this.#userMappings.get(userId);
+    if (!mapping) {
+      return false;
+    }
+
+    // 验证 browserURL 格式
+    if (!this.#isValidBrowserURL(browserURL)) {
+      throw new Error(`无效的浏览器 URL: ${browserURL}`);
+    }
+
+    mapping.browserURL = browserURL;
+    logger(`[RouterManager] 浏览器URL已更新: ${userId} -> ${browserURL}`);
 
     return true;
   }

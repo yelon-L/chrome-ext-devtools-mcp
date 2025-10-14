@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.7] - 2025-10-13
+
+### Fixed
+- **Critical**: Multi-Tenant Token and User data not persisting across server restarts
+  - `AuthManager` now loads tokens from `PersistentStore` on initialization
+  - `RouterManager` now loads user mappings from `PersistentStore` on initialization
+  - Previously all tokens became invalid after server restart (100% token loss rate)
+  - Previously all user registrations were lost after server restart
+- **Extension Detection**: Visual inspection fallback for disabled/inactive extensions
+  - Added `getExtensionsViaVisualInspection()` method in `ExtensionHelper`
+  - Automatically navigates to `chrome://extensions/` and parses Shadow DOM
+  - Successfully detects disabled extensions that chrome.management API cannot find
+  - Three-tier fallback: API → Target scan → Visual inspection
+
+### Added
+- **Multi-Tenant**: `AuthManager.initialize(store)` method
+  - Loads all valid tokens from persistent storage
+  - Filters out revoked and expired tokens
+  - Provides detailed loading statistics
+- **Multi-Tenant**: `RouterManager.initialize(store)` method
+  - Loads all registered users from persistent storage
+  - Restores user-to-browser mappings
+- **PersistentStore**: `getAllTokens()` method for token retrieval
+- **Documentation**: 
+  - `TOKEN_AUTH_FLOW.md` - Complete token authentication analysis
+  - `MCP_PROTOCOL_EXPLAINED.md` - Detailed MCP protocol flow explanation
+  - `MULTI_TENANT_COMPLETE.md` - Unified multi-tenant documentation
+  - `DOCUMENTATION_MIGRATION.md` - Documentation consolidation guide
+
+### Changed
+- **Multi-Tenant**: Server initialization order
+  - Now: `store.initialize()` → `authManager.initialize(store)` → `routerManager.initialize(store)`
+  - Ensures all data is loaded before server accepts connections
+- **Documentation**: Consolidated 6 scattered multi-tenant docs into single source
+
+## [0.8.5] - 2025-10-13
+
+### Fixed
+- **Critical**: Session management race condition in Multi-Tenant mode
+  - Session now created before SSE endpoint message is sent
+  - Prevents "Session not found" errors (previously 100% error rate)
+  - Ensures session exists when client receives session ID
+- **Multi-Tenant**: Session creation order in `handleSSE()` method
+  - Moved `sessionManager.createSession()` before `mcpServer.connect()`
+  - Added detailed logging for session lifecycle debugging
+
+### Added
+- **CLI**: `--mode` parameter with `multi-tenant` option
+- **Documentation**: Complete Multi-Tenant mode help information
+  - Environment variables documentation in `--help` output
+  - Configuration examples for Multi-Tenant mode
+  - Usage examples for all server modes
+- **Internationalization**: English logging for Multi-Tenant server
+  - Converted Chinese log messages to English
+  - Improved accessibility for international users
+  - Enhanced test page UI with English labels
+
+### Changed
+- **Help Output**: Enhanced `--help` with comprehensive Multi-Tenant documentation
+  - Added environment variables: `PORT`, `AUTH_ENABLED`, `ALLOWED_IPS`, `ALLOWED_ORIGINS`
+  - Added session configuration: `MAX_SESSIONS`, `SESSION_TIMEOUT`
+  - Added CDP options: `USE_CDP_HYBRID`, `USE_CDP_OPERATIONS`
+- **Logging**: All server-side logs now in English for better compatibility
+
 ## [0.8.2] - 2025-10-13
 
 ### Added

@@ -20,8 +20,8 @@ import {McpResponse} from './McpResponse.js';
 import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
-import {VERSION} from './version.js';
 import {displayStdioModeInfo} from './utils/modeMessages.js';
+import {VERSION} from './version.js';
 
 const version = VERSION;
 

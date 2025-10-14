@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Browser} from 'puppeteer-core';
-import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
+import type {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import type {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
+import type {Browser} from 'puppeteer-core';
 
+import {logger} from '../../logger.js';
 import type {McpContext} from '../../McpContext.js';
 import type {Session, SessionConfig, SessionStats} from '../types/session.types.js';
-import {logger} from '../../logger.js';
 
 /**
  * 会话管理器
@@ -219,7 +219,7 @@ export class SessionManager {
     // 复制Set避免在迭代时被deleteSession()修改导致迭代器失效
     const sessionIdsCopy = Array.from(sessionIds);
 
-    const deletePromises: Promise<boolean>[] = [];
+    const deletePromises: Array<Promise<boolean>> = [];
     for (const sessionId of sessionIdsCopy) {
       deletePromises.push(this.deleteSession(sessionId));
     }
@@ -261,7 +261,7 @@ export class SessionManager {
   async cleanupAll(): Promise<void> {
     logger('[SessionManager] 清理所有会话');
 
-    const deletePromises: Promise<boolean>[] = [];
+    const deletePromises: Array<Promise<boolean>> = [];
     for (const sessionId of this.#sessions.keys()) {
       deletePromises.push(this.deleteSession(sessionId));
     }

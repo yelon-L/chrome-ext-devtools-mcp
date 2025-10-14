@@ -6,6 +6,7 @@
 
 import assert from 'node:assert';
 import {describe, it, beforeEach, afterEach} from 'node:test';
+
 import sinon from 'sinon';
 
 import {SessionManager} from '../../src/multi-tenant/core/SessionManager.js';

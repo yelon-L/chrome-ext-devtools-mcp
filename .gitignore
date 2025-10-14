@@ -149,3 +149,5 @@ log.txt
 package-lock.json
 .windsurf/
 Caddyfile.dev
+test-extension-enhanced
+pnpm-lock*

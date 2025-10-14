@@ -19,9 +19,9 @@ import type {
   PredefinedNetworkConditions,
 } from 'puppeteer-core';
 
-import {ExtensionHelper} from './extension/ExtensionHelper.js';
-import {CdpTargetManager} from './CdpTargetManager.js';
 import {CdpOperations} from './CdpOperations.js';
+import {CdpTargetManager} from './CdpTargetManager.js';
+import {ExtensionHelper} from './extension/ExtensionHelper.js';
 import type {
   ExtensionContext,
   ExtensionInfo,
