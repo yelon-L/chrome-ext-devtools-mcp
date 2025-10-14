@@ -183,6 +183,25 @@ export const hostConfig = {};
   fs.copyFileSync(devtoolsLicenseFileSource, devtoolsLicenseFileDestination);
 
   copyThirdPartyLicenseFiles();
+
+  // 复制多租户 Web UI 静态文件
+  const publicSrcDir = path.join(process.cwd(), 'src', 'multi-tenant', 'public');
+  const publicDestDir = path.join(BUILD_DIR, 'src', 'multi-tenant', 'public');
+  
+  if (fs.existsSync(publicSrcDir)) {
+    fs.mkdirSync(publicDestDir, { recursive: true });
+    
+    const files = fs.readdirSync(publicSrcDir);
+    for (const file of files) {
+      const srcFile = path.join(publicSrcDir, file);
+      const destFile = path.join(publicDestDir, file);
+      
+      if (fs.statSync(srcFile).isFile()) {
+        fs.copyFileSync(srcFile, destFile);
+        console.log(`✅ Copied public file: ${file}`);
+      }
+    }
+  }
 }
 
 main();

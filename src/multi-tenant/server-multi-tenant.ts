@@ -14,8 +14,11 @@
 import '../polyfill.js';
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import http from 'node:http';
+import path from 'node:path';
 import {URL} from 'node:url';
+import {fileURLToPath} from 'node:url';
 
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
@@ -364,8 +367,13 @@ class MultiTenantMCPServer {
       // 其他
       else if (url.pathname === '/message' && req.method === 'POST') {
         await this.handleMessage(req, res, url);
-      } else if (url.pathname === '/test' || url.pathname === '/') {
+      } else if (url.pathname === '/test') {
         this.handleTestPage(res);
+      } else if (url.pathname === '/' || url.pathname.startsWith('/index')) {
+        this.serveStaticFile(res, 'index.html');
+      } else if (url.pathname.startsWith('/public/')) {
+        const filename = url.pathname.substring('/public/'.length);
+        this.serveStaticFile(res, filename);
       } else {
         res.writeHead(404);
         res.end('Not found');
@@ -1366,6 +1374,58 @@ class MultiTenantMCPServer {
   private handleTestPage(res: http.ServerResponse): void {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(this.getTestPageHTML());
+  }
+
+  /**
+   * 提供静态文件服务
+   */
+  private serveStaticFile(res: http.ServerResponse, filename: string): void {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const publicDir = path.join(__dirname, 'public');
+    const filePath = path.join(publicDir, filename);
+
+    // 安全检查：确保文件在 public 目录内
+    const resolvedPath = path.resolve(filePath);
+    const resolvedPublicDir = path.resolve(publicDir);
+    
+    if (!resolvedPath.startsWith(resolvedPublicDir)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
+
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('File not found');
+      return;
+    }
+
+    // 获取 MIME 类型
+    const ext = path.extname(filename);
+    const mimeTypes: Record<string, string> = {
+      '.html': 'text/html',
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon',
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+    // 读取并返回文件
+    try {
+      const content = fs.readFileSync(filePath);
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Internal server error');
+    }
   }
 
   /**
