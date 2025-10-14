@@ -1,0 +1,10 @@
+--- src/multi-tenant/storage/PersistentStoreV2.ts
++++ src/multi-tenant/storage/PersistentStoreV2.ts
+@@ -396,6 +405,7 @@ export class PersistentStoreV2 {
+       tokenName,
+       token,
+       createdAt: Date.now(),
++      toolCallCount: 0,
+     };
+     
+     const operation: LogOperation = {

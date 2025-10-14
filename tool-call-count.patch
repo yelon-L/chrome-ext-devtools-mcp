@@ -1,0 +1,65 @@
+--- a/src/multi-tenant/storage/PersistentStoreV2.ts
++++ b/src/multi-tenant/storage/PersistentStoreV2.ts
+@@ -41,6 +41,7 @@ export interface BrowserRecordV2 {
+   token: string;            // 访问令牌
+   createdAt: number;
+   lastConnectedAt?: number;
++  toolCallCount?: number;   // 工具调用次数
+   metadata?: {
+     description?: string;
+     browserInfo?: {
+@@ -62,6 +63,7 @@ type LogOperation =
+   | { op: 'bind_browser'; timestamp: number; data: BrowserRecordV2 }
+   | { op: 'update_browser'; timestamp: number; browserId: string; browserURL?: string; description?: string }
+   | { op: 'update_last_connected'; timestamp: number; browserId: string }
++  | { op: 'increment_tool_call'; timestamp: number; browserId: string }
+   | { op: 'unbind_browser'; timestamp: number; browserId: string }
+   | { op: 'snapshot'; timestamp: number; users: UserRecordV2[]; browsers: BrowserRecordV2[] };
+ 
+@@ -227,6 +229,13 @@ export class PersistentStoreV2 {
+         }
+         break;
+         
++      case 'increment_tool_call':
++        const browserForToolCall = this.browsers.get(op.browserId);
++        if (browserForToolCall) {
++          browserForToolCall.toolCallCount = (browserForToolCall.toolCallCount || 0) + 1;
++        }
++        break;
++        
+       case 'unbind_browser':
+         const unboundBrowser = this.browsers.get(op.browserId);
+         if (unboundBrowser) {
+@@ -387,6 +396,7 @@ export class PersistentStoreV2 {
+       tokenName,
+       token,
+       createdAt: Date.now(),
++      toolCallCount: 0,
+     };
+     
+     const operation: LogOperation = {
+@@ -599,6 +609,24 @@ export class PersistentStoreV2 {
+   }
+   
+   /**
++   * 增加工具调用计数
++   */
++  async incrementToolCallCount(browserId: string): Promise<void> {
++    if (!this.browsers.has(browserId)) {
++      return; // 静默失败
++    }
++    
++    const operation: LogOperation = {
++      op: 'increment_tool_call',
++      timestamp: Date.now(),
++      browserId,
++    };
++    
++    await this.writeLog(operation);
++    this.applyOperation(operation);
++  }
++  
++  /**
+    * 解绑浏览器
+    */
+   async unbindBrowser(browserId: string): Promise<void> {

@@ -414,26 +414,16 @@
                                placeholder="可选，默认使用邮箱前缀">
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">🌐 浏览器地址 *</label>
-                        <input type="url" id="browserURL" class="form-input" required
-                               value="http://localhost:9222"
-                               placeholder="http://localhost:9222">
-                        <small style="color: #718096; display: block; margin-top: 8px;">
-                            💡 确保 Chrome 以调试模式运行：<code>chrome --remote-debugging-port=9222</code>
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">🏷️ 浏览器名称</label>
-                        <input type="text" id="tokenName" class="form-input"
-                               placeholder="如：dev-chrome, my-browser">
-                    </div>
-
                     <button type="submit" class="btn btn-primary" id="registerBtn">
-                        ✅ 注册并绑定浏览器
+                        ✅ 注册用户
                     </button>
                 </form>
+
+                <div style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #e2e8f0;">
+                    <p style="color: #718096; margin-bottom: 15px;">
+                        💡 <strong>提示</strong>：注册完成后，请到用户列表中选择该用户，然后绑定浏览器获取 Token。
+                    </p>
+                </div>
             </div>
 
             <!-- 关于选项卡 -->
@@ -623,7 +613,7 @@ GET    /sse-v2                         - SSE V2 连接
             }
         }
 
-        // 注册用户
+        // 注册用户（只注册，不绑定浏览器）
         async function handleRegister(event) {
             event.preventDefault();
 
@@ -635,7 +625,7 @@ GET    /sse-v2                         - SSE V2 连接
                 const email = document.getElementById('email').value;
                 const username = document.getElementById('username').value;
 
-                // 1. 注册用户
+                // 只注册用户
                 const registerResponse = await fetch(`${API_BASE}/api/users`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -648,46 +638,23 @@ GET    /sse-v2                         - SSE V2 连接
                 }
 
                 const userData = await registerResponse.json();
-                currentUserId = userData.userId;
-
-                // 2. 绑定浏览器
-                const browserURL = document.getElementById('browserURL').value;
-                const tokenName = document.getElementById('tokenName').value || 'default';
-
-                const bindResponse = await fetch(`${API_BASE}/api/users/${currentUserId}/browsers`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        browserURL,
-                        tokenName,
-                        description: 'Created via Web UI'
-                    })
-                });
-
-                if (!bindResponse.ok) {
-                    const error = await bindResponse.json();
-                    throw new Error(error.message || error.error);
-                }
-
-                const browserData = await bindResponse.json();
-                registeredToken = browserData.token;
-
-                // 3. 显示 Token
-                document.getElementById('modalUserId').textContent = currentUserId;
-                document.getElementById('modalToken').textContent = registeredToken;
-                document.getElementById('modalTokenName').textContent = browserData.tokenName;
-                document.getElementById('tokenModal').classList.add('active');
 
                 // 重置表单
                 event.target.reset();
-                document.getElementById('browserURL').value = 'http://localhost:9222';
 
-                showAlert('用户注册成功！请保存 Token', 'success');
+                showAlert(`用户注册成功！用户 ID: ${userData.userId}`, 'success');
+                
+                // 切换到用户列表并刷新
+                setTimeout(() => {
+                    switchTab('users');
+                    document.querySelector('.tab[onclick*=users]').click();
+                    loadUsers();
+                }, 1500);
             } catch (error) {
                 showAlert('注册失败: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '✅ 注册并绑定浏览器';
+                btn.innerHTML = '✅ 注册用户';
             }
         }
 
@@ -716,15 +683,44 @@ GET    /sse-v2                         - SSE V2 连接
 
                 const container = document.getElementById('browsersContainer');
 
+                container.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-success" onclick="showBindBrowserForm('${userId}')">
+                            ➕ 绑定新浏览器
+                        </button>
+                    </div>
+                    
+                    <div id="bindBrowserForm-${userId}" style="display: none; margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 8px;">
+                        <h4 style="margin-bottom: 15px;">绑定浏览器</h4>
+                        <div class="form-group">
+                            <label class="form-label">🌐 浏览器地址 *</label>
+                            <input type="url" id="bindBrowserURL-${userId}" class="form-input" required
+                                   value="http://localhost:9222"
+                                   placeholder="http://localhost:9222">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">🏷️ 浏览器名称（可选）</label>
+                            <input type="text" id="bindTokenName-${userId}" class="form-input"
+                                   placeholder="留空自动生成">
+                        </div>
+                        <button class="btn btn-primary" onclick="bindBrowser('${userId}')">
+                            ✅ 绑定
+                        </button>
+                        <button class="btn btn-secondary" onclick="hideBindBrowserForm('${userId}')">
+                            取消
+                        </button>
+                    </div>
+                `;
+                
                 if (data.browsers.length === 0) {
-                    container.innerHTML = `
+                    container.innerHTML += `
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
-                            <p>还没有绑定浏览器</p>
+                            <p>还没有绑定浏览器，点击上方按钮绑定第一个浏览器</p>
                         </div>
                     `;
                 } else {
-                    container.innerHTML = `
+                    container.innerHTML += `
                         <table class="table">
                             <thead>
                                 <tr>
@@ -740,7 +736,13 @@ GET    /sse-v2                         - SSE V2 连接
                                     <tr>
                                         <td>${browser.tokenName}</td>
                                         <td><code style="font-size: 0.85em;">${browser.browserURL}</code></td>
-                                        <td><code style="font-size: 0.75em;">${browser.token.substring(0, 20)}...</code></td>
+                                        <td>
+                                            <code style="font-size: 0.75em;">${browser.token.substring(0, 20)}...</code>
+                                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75em; margin-left: 5px;" 
+                                                    onclick="copyTokenValue('${browser.token}')">
+                                                📋
+                                            </button>
+                                        </td>
                                         <td>${new Date(browser.createdAt).toLocaleString('zh-CN')}</td>
                                         <td>
                                             <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.85em;" 
@@ -759,6 +761,60 @@ GET    /sse-v2                         - SSE V2 连接
             } catch (error) {
                 showAlert('加载浏览器列表失败: ' + error.message, 'error');
             }
+        }
+
+        // 显示绑定浏览器表单
+        function showBindBrowserForm(userId) {
+            document.getElementById(`bindBrowserForm-${userId}`).style.display = 'block';
+        }
+
+        // 隐藏绑定浏览器表单
+        function hideBindBrowserForm(userId) {
+            document.getElementById(`bindBrowserForm-${userId}`).style.display = 'none';
+        }
+
+        // 绑定浏览器
+        async function bindBrowser(userId) {
+            const browserURL = document.getElementById(`bindBrowserURL-${userId}`).value;
+            const tokenName = document.getElementById(`bindTokenName-${userId}`).value;
+
+            if (!browserURL) {
+                showAlert('请输入浏览器地址', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/users/${userId}/browsers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        browserURL,
+                        tokenName: tokenName || undefined,
+                        description: 'Bound via Web UI'
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || error.error);
+                }
+
+                const data = await response.json();
+                showAlert(`浏览器绑定成功！Token: ${data.token.substring(0, 20)}...`, 'success');
+                
+                // 刷新浏览器列表
+                viewBrowsers(userId);
+                loadUsers();
+            } catch (error) {
+                showAlert('绑定失败: ' + error.message, 'error');
+            }
+        }
+
+        // 复制 Token 值
+        function copyTokenValue(token) {
+            navigator.clipboard.writeText(token).then(() => {
+                showAlert('Token 已复制到剪贴板', 'success');
+            });
         }
 
         // 关闭浏览器模态框

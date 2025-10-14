@@ -263,8 +263,11 @@ export async function handleBindBrowserV2(
       return;
     }
     
-    // 绑定浏览器
-    const browser = await this.storeV2.bindBrowser(userId, browserURL, tokenName, description);
+    // 生成默认 tokenName（如果未提供）
+    const finalTokenName = tokenName || `browser-${Date.now()}`;
+    
+    // 绑定浏览器（浏览器已验证可达）
+    const browser = await this.storeV2.bindBrowser(userId, browserURL, finalTokenName, description);
     
     // 更新浏览器信息
     if (browserDetection.browserInfo) {

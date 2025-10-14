@@ -11,6 +11,7 @@
  * 这确保了所有传输模式（stdio、SSE、Streamable HTTP）都使用相同的工具集
  */
 
+import * as browserInfoTools from './browser-info.js';
 import * as consoleTools from './console.js';
 import * as emulationTools from './emulation.js';
 import * as extensionTools from './extension/index.js';
@@ -29,6 +30,7 @@ import type {ToolDefinition} from './ToolDefinition.js';
  * 所有可用工具的统一列表
  * 
  * 工具模块分类：
+ * - browserInfo: 浏览器信息工具
  * - console: 控制台日志工具
  * - emulation: CPU/网络模拟工具
  * - extension: Chrome 扩展调试工具（核心）
@@ -44,6 +46,7 @@ import type {ToolDefinition} from './ToolDefinition.js';
  */
 export function getAllTools(): ToolDefinition[] {
   return [
+    ...Object.values(browserInfoTools),
     ...Object.values(consoleTools),
     ...Object.values(emulationTools),
     ...Object.values(extensionTools),
@@ -78,6 +81,7 @@ export function getToolNames(): string[] {
  */
 export function getToolStatsByCategory(): Record<string, number> {
   return {
+    browserInfo: Object.keys(browserInfoTools).length,
     console: Object.keys(consoleTools).length,
     emulation: Object.keys(emulationTools).length,
     extension: Object.keys(extensionTools).length,

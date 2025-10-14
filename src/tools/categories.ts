@@ -14,4 +14,5 @@ export enum ToolCategories {
   EXTENSION_DEBUGGING = 'Extension debugging',
   EXTENSION_ANALYSIS = 'Extension analysis',
   EXTENSION_MONITORING = 'Extension monitoring',
+  BROWSER_INFO = 'Browser information',
 }

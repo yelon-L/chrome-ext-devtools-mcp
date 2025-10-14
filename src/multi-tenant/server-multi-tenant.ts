@@ -1502,10 +1502,25 @@ class MultiTenantMCPServer {
           // 确保上下文已初始化（延迟创建页面）
           await context.ensureInitialized();
           
-          const response = new McpResponse();
-          await tool.handler({ params }, response, context);
-          const content = await response.handle(tool.name, context);
-          return { content };
+          // 执行工具
+          const result = await this.executeTool(session, tool.name, params);
+          
+          // 记录工具调用计数（V2 架构）
+          if (session.browserId) {
+            // 异步记录，不阻塞响应
+            this.storeV2.incrementToolCallCount(session.browserId).catch(err => {
+              logger(`[Server] ⚠️  Failed to increment tool call count: ${err}`);
+            });
+          }
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
         } catch (error) {
           const errorText = error instanceof Error ? error.message : String(error);
           return {

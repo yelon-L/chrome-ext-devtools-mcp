@@ -42,7 +42,6 @@ export interface BrowserRecordV2 {
   token: string;            // 访问令牌
   createdAt: number;
   lastConnectedAt?: number;
-  toolCallCount?: number;   // 工具调用次数
   metadata?: {
     description?: string;
     browserInfo?: {
@@ -63,7 +62,6 @@ type LogOperation =
   | { op: 'bind_browser'; timestamp: number; data: BrowserRecordV2 }
   | { op: 'update_browser'; timestamp: number; browserId: string; browserURL?: string; description?: string }
   | { op: 'update_last_connected'; timestamp: number; browserId: string }
-  | { op: 'increment_tool_call'; timestamp: number; browserId: string }
   | { op: 'unbind_browser'; timestamp: number; browserId: string }
   | { op: 'snapshot'; timestamp: number; users: UserRecordV2[]; browsers: BrowserRecordV2[] };
 
@@ -227,13 +225,6 @@ export class PersistentStoreV2 {
         const browserToUpdate = this.browsers.get(op.browserId);
         if (browserToUpdate) {
           browserToUpdate.lastConnectedAt = op.timestamp;
-        }
-        break;
-        
-      case 'increment_tool_call':
-        const browserForToolCall = this.browsers.get(op.browserId);
-        if (browserForToolCall) {
-          browserForToolCall.toolCallCount = (browserForToolCall.toolCallCount || 0) + 1;
         }
         break;
         
@@ -593,24 +584,6 @@ export class PersistentStoreV2 {
     
     const operation: LogOperation = {
       op: 'update_last_connected',
-      timestamp: Date.now(),
-      browserId,
-    };
-    
-    await this.writeLog(operation);
-    this.applyOperation(operation);
-  }
-  
-  /**
-   * 增加工具调用计数
-   */
-  async incrementToolCallCount(browserId: string): Promise<void> {
-    if (!this.browsers.has(browserId)) {
-      return; // 静默失败
-    }
-    
-    const operation: LogOperation = {
-      op: 'increment_tool_call',
       timestamp: Date.now(),
       browserId,
     };

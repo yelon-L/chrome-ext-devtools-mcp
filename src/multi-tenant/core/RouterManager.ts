@@ -31,9 +31,17 @@ export class RouterManager {
     let loadedCount = 0;
     
     for (const userRecord of users) {
+      // 检查是否为旧格式的用户记录（带 browserURL）
+      const browserURL = (userRecord as any).browserURL;
+      if (!browserURL) {
+        // 新格式的用户记录（来自 V2），跳过
+        // V2 API 不使用 RouterManager
+        continue;
+      }
+      
       const mapping: UserBrowserMapping = {
         userId: userRecord.userId,
-        browserURL: userRecord.browserURL,
+        browserURL: browserURL,
         registeredAt: new Date(userRecord.registeredAt),
         metadata: userRecord.metadata,
       };
@@ -42,7 +50,7 @@ export class RouterManager {
       loadedCount++;
     }
     
-    logger(`[RouterManager] 从持久化存储加载 ${loadedCount} 个用户`);
+    logger(`[RouterManager] 从持久化存储加载 ${loadedCount} 个用户（旧格式）`);
   }
 
   /**
