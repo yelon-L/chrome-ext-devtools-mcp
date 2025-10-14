@@ -323,27 +323,27 @@ class MultiTenantMCPServer {
         await this.handleHealth(req, res);
       }
       // V2 API: 用户管理
-      else if (url.pathname === '/api/users' && req.method === 'POST') {
+      else if (url.pathname === '/api/v2/users' && req.method === 'POST') {
         await this.handleRegisterUserV2(req, res);
-      } else if (url.pathname === '/api/users' && req.method === 'GET') {
+      } else if (url.pathname === '/api/v2/users' && req.method === 'GET') {
         await this.handleListUsersV2(req, res);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'GET') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+$/) && req.method === 'GET') {
         await this.handleGetUserV2(req, res, url);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'PATCH') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+$/) && req.method === 'PATCH') {
         await this.handleUpdateUsernameV2(req, res, url);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'DELETE') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+$/) && req.method === 'DELETE') {
         await this.handleDeleteUserV2(req, res, url);
       }
       // V2 API: 浏览器管理
-      else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers$/) && req.method === 'POST') {
+      else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+\/browsers$/) && req.method === 'POST') {
         await this.handleBindBrowserV2(req, res, url);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers$/) && req.method === 'GET') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+\/browsers$/) && req.method === 'GET') {
         await this.handleListBrowsersV2(req, res, url);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'GET') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'GET') {
         await this.handleGetBrowserV2(req, res, url);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'PATCH') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'PATCH') {
         await this.handleUpdateBrowserV2(req, res, url);
-      } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'DELETE') {
+      } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'DELETE') {
         await this.handleUnbindBrowserV2(req, res, url);
       }
       // Legacy API
@@ -359,9 +359,14 @@ class MultiTenantMCPServer {
         logger(`[Server] ➡️  Routing to handleSSE`);
         await this.handleSSE(req, res);
       }
-      // SSE V2 连接（基于 token）
-      else if (url.pathname === '/sse-v2' && req.method === 'GET') {
+      // SSE V2 连接（基于 token）- 新路径
+      else if (url.pathname === '/api/v2/sse' && req.method === 'GET') {
         logger(`[Server] ➡️  Routing to handleSSEV2`);
+        await this.handleSSEV2(req, res);
+      }
+      // SSE V2 连接 - 兼容旧路径
+      else if (url.pathname === '/sse-v2' && req.method === 'GET') {
+        logger(`[Server] ⚠️  Legacy path /sse-v2, please use /api/v2/sse`);
         await this.handleSSEV2(req, res);
       }
       // 其他

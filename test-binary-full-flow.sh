@@ -51,7 +51,7 @@ echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "步骤 3: 注册用户"
 echo "════════════════════════════════════════════════════════════"
-REGISTER_RESPONSE=$(curl -s -X POST "$SERVER_URL/api/users" \
+REGISTER_RESPONSE=$(curl -s -X POST "$SERVER_URL/api/v2/users" \
   -H "Content-Type: application/json" \
   -d "{\"email\": \"$TEST_EMAIL\", \"username\": \"$TEST_USERNAME\"}")
 
@@ -70,7 +70,7 @@ echo "════════════════════════�
 echo "步骤 4: 绑定浏览器并获取 Token"
 echo "════════════════════════════════════════════════════════════"
 TOKEN_NAME="test-browser-$(date +%s)"
-BIND_RESPONSE=$(curl -s -X POST "$SERVER_URL/api/users/$USER_ID/browsers" \
+BIND_RESPONSE=$(curl -s -X POST "$SERVER_URL/api/v2/users/$USER_ID/browsers" \
   -H "Content-Type: application/json" \
   -d "{\"browserURL\": \"$BROWSER_URL\", \"tokenName\": \"$TOKEN_NAME\", \"description\": \"Binary test browser\"}")
 
@@ -93,7 +93,7 @@ echo "ℹ️  正在建立 SSE 连接..."
 
 # 启动 SSE 连接到后台，捕获 session ID
 SSE_OUTPUT=$(mktemp)
-curl -N -H "Authorization: Bearer $TOKEN" "$SERVER_URL/sse-v2" > $SSE_OUTPUT 2>&1 &
+curl -N -H "Authorization: Bearer $TOKEN" "$SERVER_URL/api/v2/sse" > $SSE_OUTPUT 2>&1 &
 SSE_PID=$!
 
 # 等待连接建立并获取 session ID
@@ -184,7 +184,7 @@ echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "步骤 7: 验证工具调用计数"
 echo "════════════════════════════════════════════════════════════"
-BROWSER_INFO=$(curl -s "$SERVER_URL/api/users/$USER_ID/browsers/$TOKEN_NAME")
+BROWSER_INFO=$(curl -s "$SERVER_URL/api/v2/users/$USER_ID/browsers/$TOKEN_NAME")
 TOOL_CALL_COUNT=$(echo "$BROWSER_INFO" | jq -r '.toolCallCount // 0')
 echo "✅ Token 工具调用计数: $TOOL_CALL_COUNT 次"
 echo ""
@@ -199,7 +199,7 @@ kill $SSE_PID 2>/dev/null || true
 rm -f $SSE_OUTPUT
 
 # 删除用户（级联删除浏览器）
-DELETE_RESPONSE=$(curl -s -X DELETE "$SERVER_URL/api/users/$USER_ID")
+DELETE_RESPONSE=$(curl -s -X DELETE "$SERVER_URL/api/v2/users/$USER_ID")
 echo "✅ 测试数据已清理"
 echo ""
 

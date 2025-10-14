@@ -511,7 +511,7 @@ GET    /sse-v2                         - SSE V2 连接
     </div>
 
     <script>
-        const API_BASE = '';
+        const API_BASE = '/api/v2';
         let currentUserId = null;
         let registeredToken = null;
 
@@ -552,7 +552,7 @@ GET    /sse-v2                         - SSE V2 连接
         // 加载用户列表
         async function loadUsers() {
             try {
-                const response = await fetch(`${API_BASE}/api/users`);
+                const response = await fetch(`${API_BASE}/users`);
                 const data = await response.json();
 
                 const container = document.getElementById('usersContainer');
@@ -626,7 +626,7 @@ GET    /sse-v2                         - SSE V2 连接
                 const username = document.getElementById('username').value;
 
                 // 只注册用户
-                const registerResponse = await fetch(`${API_BASE}/api/users`, {
+                const registerResponse = await fetch(`${API_BASE}/users`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, username: username || undefined })
@@ -676,7 +676,7 @@ GET    /sse-v2                         - SSE V2 连接
         // 查看浏览器列表
         async function viewBrowsers(userId) {
             try {
-                const response = await fetch(`${API_BASE}/api/users/${userId}/browsers`);
+                const response = await fetch(`${API_BASE}/users/${userId}/browsers`);
                 const data = await response.json();
 
                 document.getElementById('browsersModalTitle').textContent = `🌐 ${userId} 的浏览器`;
@@ -784,7 +784,7 @@ GET    /sse-v2                         - SSE V2 连接
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/users/${userId}/browsers`, {
+                const response = await fetch(`${API_BASE}/users/${userId}/browsers`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -829,7 +829,7 @@ GET    /sse-v2                         - SSE V2 连接
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/users/${userId}/browsers/${tokenName}`, {
+                const response = await fetch(`${API_BASE}/users/${userId}/browsers/${tokenName}`, {
                     method: 'DELETE'
                 });
 
@@ -853,7 +853,7 @@ GET    /sse-v2                         - SSE V2 连接
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/users/${userId}`, {
+                const response = await fetch(`${API_BASE}/users/${userId}`, {
                     method: 'DELETE'
                 });
 
