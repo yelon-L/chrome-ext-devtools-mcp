@@ -347,16 +347,16 @@ export async function handleGetBrowserV2(
   url: URL
 ): Promise<void> {
   const pathParts = url.pathname.split('/');
-  const tokenName = pathParts[pathParts.length - 1];
+  const browserId = pathParts[pathParts.length - 1];
   const userId = pathParts[pathParts.length - 3];
   
-  if (!userId || !tokenName) {
+  if (!userId || !browserId) {
     res.writeHead(400, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify({error: 'Invalid userId or tokenName'}));
+    res.end(JSON.stringify({error: 'Invalid userId or browserId'}));
     return;
   }
   
-  const browser = this.storeV2.getBrowserByUserAndName(userId, tokenName);
+  const browser = this.storeV2.getBrowserById(browserId);
   if (!browser) {
     res.writeHead(404, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({error: 'Browser not found'}));
@@ -390,12 +390,12 @@ export async function handleUpdateBrowserV2(
   url: URL
 ): Promise<void> {
   const pathParts = url.pathname.split('/');
-  const tokenName = pathParts[pathParts.length - 1];
+  const browserId = pathParts[pathParts.length - 1];
   const userId = pathParts[pathParts.length - 3];
   
-  if (!userId || !tokenName) {
+  if (!userId || !browserId) {
     res.writeHead(400, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify({error: 'Invalid userId or tokenName'}));
+    res.end(JSON.stringify({error: 'Invalid userId or browserId'}));
     return;
   }
   
@@ -404,7 +404,7 @@ export async function handleUpdateBrowserV2(
     const data = JSON.parse(body);
     const {browserURL, description} = data;
     
-    const browser = this.storeV2.getBrowserByUserAndName(userId, tokenName);
+    const browser = this.storeV2.getBrowserById(browserId);
     if (!browser) {
       res.writeHead(404, {'Content-Type': 'application/json'});
       res.end(JSON.stringify({error: 'Browser not found'}));
@@ -466,17 +466,17 @@ export async function handleUnbindBrowserV2(
   url: URL
 ): Promise<void> {
   const pathParts = url.pathname.split('/');
-  const tokenName = pathParts[pathParts.length - 1];
+  const browserId = pathParts[pathParts.length - 1];
   const userId = pathParts[pathParts.length - 3];
   
-  if (!userId || !tokenName) {
+  if (!userId || !browserId) {
     res.writeHead(400, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify({error: 'Invalid userId or tokenName'}));
+    res.end(JSON.stringify({error: 'Invalid userId or browserId'}));
     return;
   }
   
   try {
-    const browser = this.storeV2.getBrowserByUserAndName(userId, tokenName);
+    const browser = this.storeV2.getBrowserById(browserId);
     if (!browser) {
       res.writeHead(404, {'Content-Type': 'application/json'});
       res.end(JSON.stringify({error: 'Browser not found'}));
@@ -488,8 +488,9 @@ export async function handleUnbindBrowserV2(
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
       success: true,
-      message: `Browser '${tokenName}' unbound and token revoked`,
-      tokenName,
+      message: `Browser '${browser.tokenName}' unbound and token revoked`,
+      browserId,
+      tokenName: browser.tokenName,
       deletedAt: new Date().toISOString(),
     }));
   } catch (error) {

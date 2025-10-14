@@ -32,30 +32,37 @@
 - [x] 移除 `/api/register`
 - [x] 移除 `/api/auth/token`
 - [x] 移除 `/api/users/:id/browser` (PUT)
-- [x] 移除 `/sse` (GET) - 保留 `/sse-v2`
+- [x] 移除 `/sse` (GET)
 
 ### Phase 2: 移除 Legacy 组件
-- [ ] 移除 `PersistentStore` 导入和实例
-- [ ] 移除 `AuthManager` 导入和实例
-- [ ] 移除 `RouterManager` 导入和实例
-- [ ] 移除相关 handler 方法
+- [x] 移除 `PersistentStore` 导入和实例
+- [x] 移除 `AuthManager` 导入和实例
+- [x] 移除 `RouterManager` 导入和实例
+- [x] 移除相关 handler 方法
 
 ### Phase 3: 规范化 V2 API 路径
-- [ ] `/api/users` → `/api/v2/users`
-- [ ] `/api/users/:id` → `/api/v2/users/:id`
-- [ ] `/api/users/:id/browsers` → `/api/v2/users/:id/browsers`
-- [ ] `/sse-v2` → `/api/v2/sse`
+- [x] V2 API 已使用 `/api/v2/` 前缀
+- [x] 移除兼容路径 `/sse-v2`
+- [x] 统一使用 `/api/v2/sse`
 
 ### Phase 4: 清理文件
-- [ ] 删除 `storage/PersistentStore.ts`
-- [ ] 删除 `core/AuthManager.ts`
-- [ ] 删除 `core/RouterManager.ts`
-- [ ] 删除相关类型文件
+- [x] 删除 `storage/PersistentStore.ts`
+- [x] 删除 `core/AuthManager.ts`
+- [x] 删除 `core/RouterManager.ts`
+- [x] 删除 `types/auth.types.ts`
+- [x] 删除 `types/router.types.ts`
+- [x] 删除 `tests/multi-tenant/AuthManager.test.ts`
+- [x] 删除 `tests/multi-tenant/RouterManager.test.ts`
 
 ### Phase 5: 更新依赖
-- [ ] 更新测试脚本
-- [ ] 更新文档
-- [ ] 更新 Web UI
+- [x] 创建 V2 API 迁移指南
+- [ ] 更新测试脚本（需要将 Legacy API 调用改为 V2 API）
+- [ ] 更新文档（更新所有文档中的 API 示例）
+- [ ] 更新 Web UI（需要更新前端代码）
+
+## 已创建的文档
+- `PHASE_2_REFACTORING_COMPLETE.md` - 重构完成总结
+- `docs/guides/V2_API_MIGRATION_GUIDE.md` - V2 API 迁移指南
 
 ## 注意事项
 

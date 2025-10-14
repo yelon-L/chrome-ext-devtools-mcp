@@ -35,3 +35,17 @@
 {"op":"bind_browser","timestamp":1760416669783,"data":{"browserId":"4a901e26-de31-4bfd-93db-39bb4384d09a","userId":"test-1760416669","browserURL":"http://localhost:9222","tokenName":"test-browser-1760416669","token":"mcp_14f584f2ae9ec4941f1994e50904745b34c958dd8ee083bac8568fea5185ab0f","createdAt":1760416669783,"metadata":{"description":"Binary test browser"}}}
 {"op":"update_browser","timestamp":1760416669783,"browserId":"4a901e26-de31-4bfd-93db-39bb4384d09a","description":"Binary test browser"}
 {"op":"update_last_connected","timestamp":1760416669801,"browserId":"4a901e26-de31-4bfd-93db-39bb4384d09a"}
+{"op":"register_user","timestamp":1760421771583,"data":{"userId":"test-user","email":"test-user@example.com","username":"Test User","registeredAt":1760421771583}}
+{"op":"register_user","timestamp":1760421932812,"data":{"userId":"test-1760421932","email":"test-1760421932@example.com","username":"Test User","registeredAt":1760421932812}}
+{"op":"update_username","timestamp":1760421932877,"userId":"test-1760421932","username":"Updated Test User"}
+{"op":"bind_browser","timestamp":1760421932922,"data":{"browserId":"61a706b9-cc4f-4251-a01d-d979217dca65","userId":"test-1760421932","browserURL":"http://localhost:9222","tokenName":"test-browser","token":"mcp_a624231e02a6b418a49569ee0862c0b3c54651eab2bbd4fdd2fc48ea9659615e","createdAt":1760421932922,"metadata":{"description":"测试浏览器"}}}
+{"op":"update_browser","timestamp":1760421932923,"browserId":"61a706b9-cc4f-4251-a01d-d979217dca65","description":"测试浏览器"}
+{"op":"update_browser","timestamp":1760421932989,"browserId":"61a706b9-cc4f-4251-a01d-d979217dca65","description":"更新后的浏览器描述"}
+{"op":"update_last_connected","timestamp":1760421933012,"browserId":"61a706b9-cc4f-4251-a01d-d979217dca65"}
+{"op":"bind_browser","timestamp":1760421935018,"data":{"browserId":"9e7fad75-bc52-4ffb-b7d8-14a3b6582f15","userId":"test-1760421932","browserURL":"http://localhost:9222","tokenName":"test-browser-2","token":"mcp_ebf0a50c7e5076d938fe3fb2b3fc2f2474c67f3efa29baa2ae2ce2a4ec6fdf63","createdAt":1760421935018,"metadata":{"description":"第二个测试浏览器"}}}
+{"op":"update_browser","timestamp":1760421935018,"browserId":"9e7fad75-bc52-4ffb-b7d8-14a3b6582f15","description":"第二个测试浏览器"}
+{"op":"unbind_browser","timestamp":1760421935048,"browserId":"9e7fad75-bc52-4ffb-b7d8-14a3b6582f15"}
+{"op":"register_user","timestamp":1760422082779,"data":{"userId":"test-1760422082","email":"test-1760422082@example.com","username":"Binary Test User","registeredAt":1760422082779}}
+{"op":"bind_browser","timestamp":1760422082817,"data":{"browserId":"f5b021ee-e2f8-4fbd-b9f0-8443f9f8e24f","userId":"test-1760422082","browserURL":"http://localhost:9222","tokenName":"test-browser-1760422082","token":"mcp_e1b150a85a5a9dc38f140174622db1e805342d0be9b7fd47e5bc9619cebda1a5","createdAt":1760422082817,"metadata":{"description":"Binary test browser"}}}
+{"op":"update_browser","timestamp":1760422082817,"browserId":"f5b021ee-e2f8-4fbd-b9f0-8443f9f8e24f","description":"Binary test browser"}
+{"op":"update_last_connected","timestamp":1760422082833,"browserId":"f5b021ee-e2f8-4fbd-b9f0-8443f9f8e24f"}

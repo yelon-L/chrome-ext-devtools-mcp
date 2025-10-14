@@ -26,18 +26,14 @@ import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 
 import {logger} from '../logger.js';
 import {McpContext} from '../McpContext.js';
-import {McpResponse} from '../McpResponse.js';
 import {Mutex} from '../Mutex.js';
 import {getAllTools} from '../tools/registry.js';
 import type {ToolDefinition} from '../tools/ToolDefinition.js';
 import {displayMultiTenantModeInfo} from '../utils/modeMessages.js';
 import {VERSION} from '../version.js';
 
-import {AuthManager} from './core/AuthManager.js';
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
-import {RouterManager} from './core/RouterManager.js';
 import {SessionManager} from './core/SessionManager.js';
-import {PersistentStore} from './storage/PersistentStore.js';
 import {PersistentStoreV2, type UserRecordV2, type BrowserRecordV2} from './storage/PersistentStoreV2.js';
 import * as v2Handlers from './handlers-v2.js';
 import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
@@ -53,11 +49,8 @@ class MultiTenantMCPServer {
   
   // 核心管理器
   private sessionManager: SessionManager;
-  private routerManager: RouterManager;
-  private authManager: AuthManager;
   private browserPool: BrowserConnectionPool;
-  private store: PersistentStore;  // 旧的存储（向后兼容）
-  private storeV2: PersistentStoreV2;  // 新的存储（基于邮箱）
+  private storeV2: PersistentStoreV2;  // V2 存储（基于邮箱）
   
   // 每个会话一个Mutex，避免全局锁导致的性能瓶颈
   private sessionMutexes = new Map<string, Mutex>();
@@ -123,14 +116,6 @@ class MultiTenantMCPServer {
       console.log('🌍 No IP whitelist set, allowing all IP access');
     }
 
-    // Initialize persistent storage (legacy)
-    this.store = new PersistentStore({
-      dataDir: process.env.DATA_DIR || './.mcp-data',
-      logFileName: 'auth-store.jsonl',
-      snapshotThreshold: 10000,
-      autoCompaction: true,
-    });
-    
     // Initialize V2 storage (email-based)
     this.storeV2 = new PersistentStoreV2({
       dataDir: process.env.DATA_DIR || './.mcp-data',
@@ -143,16 +128,6 @@ class MultiTenantMCPServer {
     this.sessionManager = new SessionManager({
       timeout: MultiTenantMCPServer.SESSION_TIMEOUT,
       cleanupInterval: MultiTenantMCPServer.CLEANUP_INTERVAL,
-    });
-
-    this.routerManager = new RouterManager();
-
-    // 从环境变量读取认证配置
-    const authEnabled = process.env.AUTH_ENABLED !== 'false';
-    this.authManager = new AuthManager({
-      enabled: authEnabled,
-      tokenExpiration: 86400, // 24 小时
-      type: 'token',
     });
 
     this.browserPool = new BrowserConnectionPool({
@@ -195,12 +170,7 @@ class MultiTenantMCPServer {
     console.log(`${'-'.repeat(60)}\n`);
 
     // Initialize storage engine
-    await this.store.initialize();
     await this.storeV2.initialize();
-    
-    // Initialize managers with stored data
-    await this.authManager.initialize(this.store);
-    await this.routerManager.initialize(this.store);
 
     // Start managers
     this.sessionManager.start();
@@ -222,7 +192,6 @@ class MultiTenantMCPServer {
         console.log('');
         displayMultiTenantModeInfo(this.port);
         console.log(`✅ Multi-tenant server started successfully`);
-        console.log(`   Authentication: ${this.authManager.isEnabled() ? 'Enabled' : 'Disabled'}`);
         console.log('   Press Ctrl+C to stop\n');
         resolve();
       });
@@ -346,27 +315,9 @@ class MultiTenantMCPServer {
       } else if (url.pathname.match(/^\/api\/v2\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'DELETE') {
         await this.handleUnbindBrowserV2(req, res, url);
       }
-      // Legacy API
-      else if (url.pathname === '/api/auth/token' && req.method === 'POST') {
-        await this.handleGenerateToken(req, res);
-      } else if (url.pathname === '/api/register' && req.method === 'POST') {
-        await this.handleRegister(req, res);
-      } else if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/browser') && req.method === 'PUT') {
-        await this.handleUpdateBrowser(req, res, url);
-      }
-      // SSE连接
-      else if (url.pathname === '/sse' && req.method === 'GET') {
-        logger(`[Server] ➡️  Routing to handleSSE`);
-        await this.handleSSE(req, res);
-      }
-      // SSE V2 连接（基于 token）- 新路径
+      // SSE V2 连接（基于 token）
       else if (url.pathname === '/api/v2/sse' && req.method === 'GET') {
         logger(`[Server] ➡️  Routing to handleSSEV2`);
-        await this.handleSSEV2(req, res);
-      }
-      // SSE V2 连接 - 兼容旧路径
-      else if (url.pathname === '/sse-v2' && req.method === 'GET') {
-        logger(`[Server] ⚠️  Legacy path /sse-v2, please use /api/v2/sse`);
         await this.handleSSEV2(req, res);
       }
       // 其他
@@ -557,7 +508,10 @@ class MultiTenantMCPServer {
       version: this.version,
       sessions: this.sessionManager.getStats(),
       browsers: this.browserPool.getStats(),
-      users: this.routerManager.getStats(),
+      users: {
+        total: this.storeV2.getStats().users,
+        totalBrowsers: this.storeV2.getStats().browsers,
+      },
       performance: {
         totalConnections: this.stats.totalConnections,
         totalRequests: this.stats.totalRequests,
@@ -572,383 +526,6 @@ class MultiTenantMCPServer {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats, null, 2));
-  }
-
-  /**
-   * 生成认证 Token
-   */
-  private async handleGenerateToken(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    // 读取请求体
-    const body = await this.readRequestBody(req);
-    
-    // 解析JSON
-    let data;
-    try {
-      data = JSON.parse(body);
-    } catch (parseError) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'INVALID_JSON',
-        message: 'Request body must be valid JSON',
-      }));
-      return;
-    }
-
-    const { userId, tokenName, permissions, expiresIn } = data;
-
-    // 验证参数
-    if (!userId) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'userId is required',
-      }));
-      return;
-    }
-
-    try {
-      // 检查用户是否已注册
-      if (!this.store.hasUser(userId)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'USER_NOT_FOUND',
-          message: `User ${userId} not registered. Please register first.`,
-        }));
-        return;
-      }
-
-      // 生成 token 名称（如果未提供）
-      const finalTokenName = tokenName || `${userId}-${crypto.randomBytes(4).toString('hex')}`;
-
-      // 生成 token (使用 AuthManager)
-      const token = this.authManager.generateToken(
-        userId,
-        permissions || ['*'],
-        expiresIn
-      );
-
-      // 保存到持久化存储
-      await this.store.createToken(
-        userId,
-        token,
-        finalTokenName,
-        permissions || ['*'],
-        expiresIn // undefined 表示永不过期
-      );
-
-      // 统计用户的 token 数量
-      const userTokens = this.store.getUserTokens(userId);
-
-      const response: Record<string, unknown> = {
-        success: true,
-        token,
-        tokenName: finalTokenName,
-        userId,
-        permissions: permissions || ['*'],
-        totalTokens: userTokens.length,
-        message: 'Token generated successfully',
-      };
-
-      // 只有指定了 expiresIn 才返回 expiresAt
-      if (expiresIn) {
-        response.expiresAt = new Date(Date.now() + expiresIn).toISOString();
-        response.expiresIn = expiresIn;
-      } else {
-        response.expiresAt = null;
-        response.expiresIn = null;
-        response.note = 'Token never expires';
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(response));
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
-  }
-
-
-  /**
-   * 处理用户注册
-   */
-  private async handleRegister(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    // 注册接口不需要认证（首次注册）
-    
-    // 读取请求体
-    const body = await this.readRequestBody(req);
-    
-    // 解析JSON，单独处理解析错误
-    let data;
-    try {
-      data = JSON.parse(body);
-    } catch (parseError) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'INVALID_JSON',
-        message: 'Request body must be valid JSON',
-      }));
-      return;
-    }
-
-    const { userId, browserURL, metadata } = data;
-
-    // 验证参数
-    if (!userId || !browserURL) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'userId and browserURL are required',
-      }));
-      return;
-    }
-
-    try {
-      // 检查用户名重复（使用持久化存储）
-      if (this.store.hasUser(userId)) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'USER_EXISTS',
-          message: `User ${userId} already registered`,
-        }));
-        return;
-      }
-
-      // 检测浏览器连接
-      const browserDetection = await detectBrowser(
-        browserURL,
-        MultiTenantMCPServer.BROWSER_DETECTION_TIMEOUT
-      );
-
-      // 如果浏览器检测失败，拒绝注册
-      if (!browserDetection.connected) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'BROWSER_NOT_ACCESSIBLE',
-          message: 'Cannot connect to the specified browser. Please ensure Chrome is running with remote debugging enabled.',
-          browserURL,
-          details: browserDetection.error,
-          suggestions: [
-            `Start Chrome with: chrome --remote-debugging-port=${new URL(browserURL).port} --remote-debugging-address=0.0.0.0`,
-            'Verify the browser URL is correct and accessible',
-            'Check firewall settings allow connections to the debugging port',
-            'Ensure Chrome is running on the specified host and port',
-          ],
-        }));
-        return;
-      }
-
-      // 注册用户到持久化存储
-      await this.store.registerUser(userId, browserURL, metadata);
-      
-      // 同时注册到路由管理器（保持兼容）
-      this.routerManager.registerUser(userId, browserURL, metadata);
-
-      // 返回注册结果，包含浏览器信息
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        userId,
-        browserURL,
-        browser: {
-          connected: true,
-          info: browserDetection.browserInfo,
-        },
-        message: 'User registered successfully. Browser connected.',
-      }));
-    } catch (error) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
-  }
-
-
-  /**
-   * 处理浏览器更新（检测并更新浏览器信息）
-   */
-  private async handleUpdateBrowser(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    url: URL
-  ): Promise<void> {
-    // 认证
-    const authResult = await this.authenticate(req);
-    if (!authResult.success) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: authResult.error }));
-      return;
-    }
-
-    // 从路径提取 userId: /api/users/{userId}/browser
-    const pathParts = url.pathname.split('/');
-    const userId = pathParts[pathParts.length - 2];
-    
-    if (!userId) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid userId' }));
-      return;
-    }
-
-    const mapping = this.routerManager.getUserMapping(userId);
-    if (!mapping) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'User not found' }));
-      return;
-    }
-
-    try {
-      // 读取请求体（可选：允许更新 browserURL）
-      const body = await this.readRequestBody(req);
-      let newBrowserURL = mapping.browserURL;
-      
-      if (body) {
-        try {
-          const data = JSON.parse(body);
-          if (data.browserURL) {
-            newBrowserURL = data.browserURL;
-          }
-        } catch (e) {
-          // 忽略解析错误，使用现有 URL
-        }
-      }
-
-      // 检测浏览器连接
-      const browserDetection = await detectBrowser(
-        newBrowserURL,
-        MultiTenantMCPServer.BROWSER_DETECTION_TIMEOUT
-      );
-
-      // 如果浏览器检测失败，返回错误
-      if (!browserDetection.connected) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'BROWSER_NOT_ACCESSIBLE',
-          message: 'Cannot connect to the specified browser. Browser URL not updated.',
-          browserURL: newBrowserURL,
-          currentBrowserURL: mapping.browserURL,
-          details: browserDetection.error,
-          detectedAt: new Date().toISOString(),
-          suggestions: [
-            `Start Chrome with: chrome --remote-debugging-port=${new URL(newBrowserURL).port} --remote-debugging-address=0.0.0.0`,
-            'Check firewall settings',
-            'Verify the browser URL is correct',
-            'Ensure the browser is accessible from the server',
-          ],
-        }, null, 2));
-        return;
-      }
-
-      // 如果 URL 改变了，更新存储
-      if (newBrowserURL !== mapping.browserURL) {
-        await this.store.updateBrowserURL(userId, newBrowserURL);
-        this.routerManager.updateBrowserURL(userId, newBrowserURL);
-      }
-
-      // 返回检测结果和浏览器信息
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        userId,
-        browserURL: newBrowserURL,
-        browser: {
-          connected: true,
-          info: browserDetection.browserInfo,
-          detectedAt: new Date().toISOString(),
-        },
-        message: 'Browser detected and updated successfully',
-      }, null, 2));
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
-  }
-
-  /**
-   * 处理 SSE 连接
-   */
-  private async handleSSE(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    const startTime = Date.now();
-    this.stats.totalConnections++;
-    
-    // 认证
-    const authResult = await this.authenticate(req);
-    if (!authResult.success) {
-      this.stats.totalErrors++;
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: authResult.error }));
-      return;
-    }
-
-    // 获取用户 ID (支持 header 和 query 参数)
-    const url = new URL(req.url!, `http://${req.headers.host}`);
-    const userId = (req.headers['x-user-id'] as string) || url.searchParams.get('userId');
-    
-    if (!userId) {
-      this.stats.totalErrors++;
-      logger(`[Server] ❌ 缺少 userId`);
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ 
-        error: 'userId is required',
-        hint: 'Provide X-User-Id header or userId query parameter'
-      }));
-      return;
-    }
-
-    // Check if user is registered
-    const browserURL = this.routerManager.getUserBrowserURL(userId);
-    if (!browserURL) {
-      this.stats.totalErrors++;
-      logger(`[Server] ❌ user not registered: ${userId}`);
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'User not registered',
-        message: 'Please register your browser URL first',
-      }));
-      return;
-    }
-
-    logger(`[Server] 📡 SSE connection request: ${userId}`);
-
-    // 并发连接控制：检查该用户是否有正在建立的连接
-    const existingConnection = this.activeConnections.get(userId);
-    if (existingConnection) {
-      logger(`[Server] ⚠️  user ${userId} already has a connection being established, rejecting duplicate connection`);
-      this.stats.totalErrors++;
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'CONCURRENT_CONNECTION',
-        message: 'user already has a connection being established, please try again later',
-      }));
-      return;
-    }
-
-    // 创建连接承诺并记录
-    const connectionPromise = this.establishConnection(userId, browserURL, res, startTime)
-      .finally(() => {
-        // 连接完成（成功或失败）后移除记录
-        this.activeConnections.delete(userId);
-      });
-    
-    this.activeConnections.set(userId, connectionPromise);
-
-    try {
-      await connectionPromise;
-    } catch (error) {
-      // 错误已在 establishConnection 中处理和记录
-      logger(`[Server] ❌ connection failed: ${userId}`);
-    }
   }
 
   /**
@@ -1552,27 +1129,6 @@ class MultiTenantMCPServer {
   }
 
   /**
-   * 认证请求
-   */
-  private async authenticate(req: http.IncomingMessage): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
-    if (!this.authManager.isEnabled()) {
-      return { success: true };
-    }
-
-    const authorization = req.headers['authorization'] as string | undefined;
-    const token = AuthManager.extractTokenFromHeader(authorization);
-
-    if (!token) {
-      return { success: false, error: 'Authorization header is required' };
-    }
-
-    return await this.authManager.authenticate(token);
-  }
-
-  /**
    * 读取请求体（带大小限制）
    * 
    * @param req - HTTP请求
@@ -1658,7 +1214,7 @@ class MultiTenantMCPServer {
     await this.sessionManager.cleanupAll();
     
     // 关闭存储引擎
-    await this.store.close();
+    await this.storeV2.close();
 
     // 关闭 HTTP 服务器
     if (this.httpServer) {
