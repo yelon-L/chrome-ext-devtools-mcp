@@ -8,9 +8,10 @@ import type {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import type {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
 import type {Browser} from 'puppeteer-core';
 
-import {logger} from '../../logger.js';
 import type {McpContext} from '../../McpContext.js';
 import type {Session, SessionConfig, SessionStats} from '../types/session.types.js';
+import {createLogger} from '../utils/Logger.js';
+import {MaxSessionsReachedError} from '../errors/index.js';
 
 /**
  * 会话管理器
@@ -29,6 +30,12 @@ export class SessionManager {
   
   /** 配置 */
   #config: SessionConfig;
+  
+  /** 会话删除回调 */
+  #onSessionDeleted?: (sessionId: string) => void;
+
+  /** Logger 实例 */
+  #logger = createLogger('SessionManager');
 
   constructor(config?: Partial<SessionConfig>) {
     this.#config = {
@@ -39,10 +46,21 @@ export class SessionManager {
   }
 
   /**
+   * 设置会话删除回调（用于外部资源清理）
+   */
+  setOnSessionDeleted(callback: (sessionId: string) => void): void {
+    this.#onSessionDeleted = callback;
+  }
+
+  /**
    * 启动会话管理器
    */
   start(): void {
-    logger('[SessionManager] 启动会话管理器');
+    this.#logger.info('启动会话管理器', {
+      timeout: this.#config.timeout,
+      cleanupInterval: this.#config.cleanupInterval,
+      maxSessions: this.#config.maxSessions,
+    });
     
     // 定期清理过期会话
     this.#cleanupInterval = setInterval(
@@ -55,7 +73,7 @@ export class SessionManager {
    * 停止会话管理器
    */
   stop(): void {
-    logger('[SessionManager] 停止会话管理器');
+    this.#logger.info('停止会话管理器');
     
     if (this.#cleanupInterval) {
       clearInterval(this.#cleanupInterval);
@@ -85,9 +103,7 @@ export class SessionManager {
   ): Session {
     // 检查会话数限制
     if (this.#config.maxSessions && this.#sessions.size >= this.#config.maxSessions) {
-      throw new Error(
-        `达到最大会话数限制: ${this.#config.maxSessions}`
-      );
+      throw new MaxSessionsReachedError(this.#config.maxSessions);
     }
 
     const now = new Date();
@@ -110,7 +126,7 @@ export class SessionManager {
     }
     this.#userSessions.get(userId)!.add(sessionId);
 
-    logger(`[SessionManager] 会话已创建: ${sessionId} (用户: ${userId})`);
+    this.#logger.info('会话已创建', {sessionId, userId});
 
     return session;
   }
@@ -157,9 +173,9 @@ export class SessionManager {
       session.transport.onclose = undefined;
       // 先关闭传输层资源
       await session.transport.close();
-      logger(`[SessionManager] 传输层已关闭: ${sessionId}`);
+      this.#logger.debug('传输层已关闭', {sessionId});
     } catch (error) {
-      logger(`[SessionManager] 关闭传输层失败: ${sessionId} - ${error}`);
+      this.#logger.warn('关闭传输层失败', error as Error, {sessionId});
       // 继续执行清理逻辑，不抛出异常
     } finally {
       // 无论关闭成功与否，都要清理索引，避免内存泄露
@@ -174,7 +190,16 @@ export class SessionManager {
         }
       }
 
-      logger(`[SessionManager] 会话已删除: ${sessionId}`);
+      this.#logger.info('会话已删除', {sessionId});
+      
+      // 触发删除回调，允许外部清理资源
+      if (this.#onSessionDeleted) {
+        try {
+          this.#onSessionDeleted(sessionId);
+        } catch (error) {
+          this.#logger.error('会话删除回调失败', error as Error, {sessionId});
+        }
+      }
     }
 
     return true;
@@ -226,7 +251,7 @@ export class SessionManager {
 
     await Promise.all(deletePromises);
 
-    logger(`[SessionManager] 用户会话已清理: ${userId}`);
+    this.#logger.info('用户会话已清理', {userId, count: sessionIdsCopy.length});
   }
 
   /**
@@ -247,9 +272,7 @@ export class SessionManager {
       return;
     }
 
-    logger(
-      `[SessionManager] 清理 ${expiredSessions.length} 个过期会话`
-    );
+    this.#logger.info('清理过期会话', {count: expiredSessions.length});
 
     const deletePromises = expiredSessions.map(id => this.deleteSession(id));
     await Promise.all(deletePromises);
@@ -259,7 +282,7 @@ export class SessionManager {
    * 清理所有会话
    */
   async cleanupAll(): Promise<void> {
-    logger('[SessionManager] 清理所有会话');
+    this.#logger.info('清理所有会话', {total: this.#sessions.size});
 
     const deletePromises: Array<Promise<boolean>> = [];
     for (const sessionId of this.#sessions.keys()) {
@@ -317,3 +340,4 @@ export class SessionManager {
     return Array.from(this.#sessions.keys());
   }
 }
+

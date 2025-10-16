@@ -12,6 +12,7 @@
 
 import type {PersistentStoreV2, UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
 import type {StorageAdapter} from './StorageAdapter.js';
+import {SyncMethodNotSupportedError, StorageNotInitializedError} from '../errors/index.js';
 
 /**
  * 统一存储适配器
@@ -41,50 +42,50 @@ export class UnifiedStorage {
     if (this.storeV2) {
       return this.storeV2.hasEmail(email);
     }
-    // PostgreSQL 模式：无法提供同步检查，返回 false 并依赖异步验证
-    throw new Error('hasEmail() is not supported in async storage mode. Use async methods.');
+    // PostgreSQL 模式：无法提供同步检查
+    throw new SyncMethodNotSupportedError('hasEmail', 'hasEmailAsync');
   }
 
   getUserById(userId: string): UserRecordV2 | null {
     if (this.storeV2) {
       return this.storeV2.getUserById(userId);
     }
-    throw new Error('getUserById() is synchronous and not supported in async storage. Use async getUserByIdAsync()');
+    throw new SyncMethodNotSupportedError('getUserById', 'getUserByIdAsync');
   }
 
   getAllUsers(): UserRecordV2[] {
     if (this.storeV2) {
       return this.storeV2.getAllUsers();
     }
-    throw new Error('getAllUsers() is synchronous. Use async getAllUsersAsync()');
+    throw new SyncMethodNotSupportedError('getAllUsers', 'getAllUsersAsync');
   }
 
   listUserBrowsers(userId: string): BrowserRecordV2[] {
     if (this.storeV2) {
       return this.storeV2.listUserBrowsers(userId);
     }
-    throw new Error('listUserBrowsers() is synchronous. Use async getUserBrowsersAsync()');
+    throw new SyncMethodNotSupportedError('listUserBrowsers', 'getUserBrowsersAsync');
   }
 
   getBrowserById(browserId: string): BrowserRecordV2 | null {
     if (this.storeV2) {
       return this.storeV2.getBrowserById(browserId);
     }
-    throw new Error('getBrowserById() is synchronous. Use async getBrowserAsync()');
+    throw new SyncMethodNotSupportedError('getBrowserById', 'getBrowserAsync');
   }
 
   getBrowserByToken(token: string): BrowserRecordV2 | null {
     if (this.storeV2) {
       return this.storeV2.getBrowserByToken(token);
     }
-    throw new Error('getBrowserByToken() is synchronous. Use async getBrowserByTokenAsync()');
+    throw new SyncMethodNotSupportedError('getBrowserByToken', 'getBrowserByTokenAsync');
   }
 
   getStats(): {users: number; browsers: number} {
     if (this.storeV2) {
       return this.storeV2.getStats();
     }
-    throw new Error('getStats() is synchronous. Use async getStatsAsync()');
+    throw new SyncMethodNotSupportedError('getStats', 'getStatsAsync');
   }
 
   // ============================================================================
@@ -118,7 +119,7 @@ export class UnifiedStorage {
       await this.storage.registerUser(user);
       return user;
     }
-    throw new Error('No storage available');
+    throw new StorageNotInitializedError();
   }
 
   async getUserByIdAsync(userId: string): Promise<UserRecordV2 | null> {
@@ -191,7 +192,7 @@ export class UnifiedStorage {
       await this.storage.bindBrowser(browser);
       return browser;
     }
-    throw new Error('No storage available');
+    throw new StorageNotInitializedError();
   }
 
   async getUserBrowsersAsync(userId: string): Promise<BrowserRecordV2[]> {

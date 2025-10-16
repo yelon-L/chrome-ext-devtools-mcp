@@ -1,3 +1,8 @@
 {"op":"register_user","timestamp":1760426127309,"data":{"userId":"test-jsonl","email":"test-jsonl@example.com","username":"JSONL Test","registeredAt":1760426127309}}
 {"op":"bind_browser","timestamp":1760426128067,"data":{"browserId":"1b35c767-37a0-4462-81d4-a60a10e06738","userId":"test-jsonl","browserURL":"http://localhost:9222","tokenName":"test-browser","token":"mcp_286704d2c86d318e79e1c9e82540d53b70b643842979d3cb223beee93e97efd2","createdAt":1760426128067,"metadata":{"description":"Test browser"}}}
 {"op":"update_browser","timestamp":1760426128068,"browserId":"1b35c767-37a0-4462-81d4-a60a10e06738","description":"Test browser"}
+{"op":"register_user","timestamp":1760543273159,"data":{"userId":"test","email":"test@example.com","username":"TestUser","registeredAt":1760543273159}}
+{"op":"register_user","timestamp":1760580878671,"data":{"userId":"test-9226","email":"test-9226@example.com","username":"Test User 9226","registeredAt":1760580878671}}
+{"op":"bind_browser","timestamp":1760580889362,"data":{"browserId":"2b27b60f-1d34-48af-80c4-8e818730e45c","userId":"test-9226","browserURL":"http://localhost:9226","tokenName":"chrome-9226","token":"mcp_e336638c8c8b0947d56eab142341e3adceb9ab1ffc5677ff6ae3c2d900a81d84","createdAt":1760580889362,"metadata":{"description":"Chrome on port 9226"}}}
+{"op":"update_browser","timestamp":1760580889362,"browserId":"2b27b60f-1d34-48af-80c4-8e818730e45c","description":"Chrome on port 9226"}
+{"op":"update_last_connected","timestamp":1760580960274,"browserId":"2b27b60f-1d34-48af-80c4-8e818730e45c"}

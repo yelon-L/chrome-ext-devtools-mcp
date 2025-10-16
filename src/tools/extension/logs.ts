@@ -5,7 +5,7 @@
  */
 
 /**
- * 扩展日志收集工具
+ * Extension log collection tool
  */
 
 import z from 'zod';
@@ -156,39 +156,13 @@ export const getExtensionLogs = defineTool({
 
       response.appendResponseLine('\n**Tip**: Use the `since` parameter to get only new logs since your last check.');
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      
-      response.appendResponseLine(`# ❌ Failed to Get Extension Logs\n`);
-      response.appendResponseLine(`**Extension ID**: ${extensionId}\n`);
-      response.appendResponseLine(`**Error**: ${message}\n`);
-      
-      // Smart detection of Service Worker related errors
-      if (
-        message.includes('No background context') ||
-        message.includes('Service Worker') ||
-        message.includes('inactive') ||
-        message.includes('not running') ||
-        message.toLowerCase().includes('sw')
-      ) {
-        response.appendResponseLine(`## 🟡 Service Worker Inactive\n`);
-        response.appendResponseLine(`The Service Worker is not active, so **background logs are unavailable**.\n`);
-        response.appendResponseLine(`**However**: Content script logs may still be available if the extension has content scripts running.\n`);
-        response.appendResponseLine(`**To get background logs**:`);
-        response.appendResponseLine(`1. Check SW status: \`list_extensions\``);
-        response.appendResponseLine(`2. Activate SW: \`activate_extension_service_worker\` with extensionId="${extensionId}"`);
-        response.appendResponseLine(`3. Wait a moment for SW to generate logs`);
-        response.appendResponseLine(`4. Retry: \`get_extension_logs\` with extensionId="${extensionId}"\n`);
-      } else {
-        response.appendResponseLine(`**Possible causes**:`);
-        response.appendResponseLine(`- Extension is disabled or uninstalled`);
-        response.appendResponseLine(`- Extension ID is incorrect`);
-        response.appendResponseLine(`- Extension has not generated any logs yet`);
-        response.appendResponseLine(`- Chrome DevTools Protocol connection issue`);
-      }
-      
-      response.setIncludePages(true);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to get extension logs. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });

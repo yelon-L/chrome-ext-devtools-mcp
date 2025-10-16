@@ -5,15 +5,17 @@
  */
 
 /**
- * Manifest 深度检查工具
+ * Manifest deep inspection tool
  * 
- * 提供 MV2/MV3 兼容性分析、权限检查和最佳实践建议
+ * Provides MV2/MV3 compatibility analysis, permission checks and best practice recommendations
  */
 
 import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {EXTENSION_NOT_FOUND, MANIFEST_NOT_AVAILABLE} from './errors.js';
+import {reportExtensionNotFound, reportResourceUnavailable} from '../utils/ErrorReporting.js';
 
 export const inspectExtensionManifest = defineTool({
   name: 'inspect_extension_manifest',
@@ -75,19 +77,30 @@ export const inspectExtensionManifest = defineTool({
     } = request.params;
 
     try {
-      // 获取扩展详情（包含 manifest）
+      // Get extension details (includes manifest)
       const extensions = await context.getExtensions();
       const extension = extensions.find(ext => ext.id === extensionId);
 
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!extension) {
-        throw new Error(`Extension ${extensionId} not found`);
+        reportExtensionNotFound(response, extensionId, extensions);
+        response.setIncludePages(true);
+        return;
       }
 
       const manifest = extension.manifest;
       const manifestVersion = extension.manifestVersion;
 
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!manifest) {
-        throw new Error(`Manifest data not available for extension ${extensionId}`);
+        reportResourceUnavailable(
+          response,
+          'Manifest',
+          extensionId,
+          'Extension manifest data is being loaded or unavailable'
+        );
+        response.setIncludePages(true);
+        return;
       }
 
       response.appendResponseLine(`# Manifest Inspection Report\n`);
@@ -95,7 +108,7 @@ export const inspectExtensionManifest = defineTool({
       response.appendResponseLine(`**Version**: ${extension.version}`);
       response.appendResponseLine(`**Manifest Version**: ${manifestVersion}\n`);
 
-      // 1. 基本信息
+      // 1. Basic information
       response.appendResponseLine(`## Basic Information\n`);
       response.appendResponseLine(`**Name**: ${manifest.name}`);
       response.appendResponseLine(`**Version**: ${manifest.version}`);
@@ -104,7 +117,7 @@ export const inspectExtensionManifest = defineTool({
       }
       response.appendResponseLine('');
 
-      // 2. Manifest 结构分析
+      // 2. Manifest structure analysis
       response.appendResponseLine(`## Manifest Structure\n`);
       
       if (manifestVersion === 2) {
@@ -113,50 +126,53 @@ export const inspectExtensionManifest = defineTool({
         analyzeMV3Structure(manifest, response);
       }
 
-      // 3. 权限分析
+      // 3. Permission analysis
       if (checkPermissions) {
         response.appendResponseLine(`## 🔒 Permission Analysis\n`);
         analyzePermissions(manifest, manifestVersion, response);
       }
 
-      // 4. MV3 兼容性检查（仅 MV2）
+      // 4. MV3 compatibility check (MV2 only)
       if (checkMV3Compatibility && manifestVersion === 2) {
         response.appendResponseLine(`## 🔄 MV3 Migration Compatibility\n`);
         checkMV3MigrationIssues(manifest, response);
       }
 
-      // 5. 安全审计
+      // 5. Security audit
       response.appendResponseLine(`## 🛡️ Security Audit\n`);
       performSecurityAudit(manifest, manifestVersion, response);
 
-      // 6. 最佳实践检查
+      // 6. Best practices check
       if (checkBestPractices) {
         response.appendResponseLine(`## ✨ Best Practices\n`);
         checkBestPracticesCompliance(manifest, manifestVersion, response);
       }
 
-      // 7. 完整的 manifest JSON
+      // 7. Complete manifest JSON
       response.appendResponseLine(`## 📄 Complete Manifest\n`);
       response.appendResponseLine('```json');
       response.appendResponseLine(JSON.stringify(manifest, null, 2));
       response.appendResponseLine('```\n');
 
-      // 8. 总体评估
+      // 8. Overall assessment
       response.appendResponseLine(`## 📊 Overall Assessment\n`);
       const score = calculateManifestScore(manifest, manifestVersion);
       response.appendResponseLine(`**Manifest Quality Score**: ${getScoreEmoji(score)} ${score}/100`);
       response.appendResponseLine(getScoreDescription(score));
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to inspect manifest: ${message}`);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to inspect manifest. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });
 
 /**
- * 分析 MV2 Manifest 结构
+ * Analyze MV2 Manifest structure
  */
 function analyzeMV2Structure(manifest: any, response: any): void {
   response.appendResponseLine('**Type**: Manifest V2 (Legacy)');
@@ -194,7 +210,7 @@ function analyzeMV2Structure(manifest: any, response: any): void {
 }
 
 /**
- * 分析 MV3 Manifest 结构
+ * Analyze MV3 Manifest structure
  */
 function analyzeMV3Structure(manifest: any, response: any): void {
   response.appendResponseLine('**Type**: Manifest V3 (Current)');
@@ -226,7 +242,7 @@ function analyzeMV3Structure(manifest: any, response: any): void {
 }
 
 /**
- * 分析权限
+ * Analyze permissions
  */
 function analyzePermissions(manifest: any, manifestVersion: number, response: any): void {
   // Regular permissions
@@ -275,50 +291,50 @@ function analyzePermissions(manifest: any, manifestVersion: number, response: an
 }
 
 /**
- * 检查 MV3 迁移问题
+ * Check MV3 migration issues
  */
 function checkMV3MigrationIssues(manifest: any, response: any): void {
   const issues: string[] = [];
   const recommendations: string[] = [];
 
-  // 检查 background.scripts
+  // Check background.scripts
   if (manifest.background?.scripts) {
     issues.push('❌ `background.scripts` must be migrated to `background.service_worker`');
     recommendations.push('Combine background scripts into a single service worker file');
   }
 
-  // 检查 background.persistent
+  // Check background.persistent
   if (manifest.background?.persistent === true) {
     issues.push('❌ `background.persistent: true` is not supported in MV3');
     recommendations.push('Remove persistent property and design for event-driven architecture');
   }
 
-  // 检查 browser_action / page_action
+  // Check browser_action / page_action
   if (manifest.browser_action || manifest.page_action) {
     issues.push('❌ `browser_action` and `page_action` must be replaced with `action`');
     recommendations.push('Rename to `action` and update references in code');
   }
 
-  // 检查 blocking web request
+  // Check blocking web request
   if (manifest.permissions?.includes('webRequest') && manifest.permissions?.includes('webRequestBlocking')) {
     issues.push('❌ `webRequestBlocking` is deprecated in MV3');
     recommendations.push('Migrate to declarativeNetRequest API');
   }
 
-  // 检查 content_security_policy 格式
+  // Check content_security_policy format
   if (manifest.content_security_policy && typeof manifest.content_security_policy === 'string') {
     issues.push('❌ CSP format changed in MV3 (must be object)');
     recommendations.push('Change CSP from string to object format');
   }
 
-  // 检查远程代码
+  // Check remote code
   const csp = manifest.content_security_policy;
   if (typeof csp === 'string' && csp.includes('unsafe-eval')) {
     issues.push('⚠️ `unsafe-eval` is not allowed in MV3');
     recommendations.push('Remove eval() and Function() from code');
   }
 
-  // 显示结果
+  // Show results
   if (issues.length === 0) {
     response.appendResponseLine('✅ **No major migration issues detected!**');
     response.appendResponseLine('This MV2 extension should be relatively easy to migrate to MV3.\n');
@@ -334,7 +350,7 @@ function checkMV3MigrationIssues(manifest: any, response: any): void {
     response.appendResponseLine('');
   }
 
-  // 迁移资源
+  // Migration resources
   response.appendResponseLine(`**Migration Resources**:`);
   response.appendResponseLine('- [Chrome MV3 Migration Guide](https://developer.chrome.com/docs/extensions/migrating/)');
   response.appendResponseLine('- [MV3 Migration Checklist](https://developer.chrome.com/docs/extensions/mv3/mv3-migration-checklist/)');
@@ -342,12 +358,12 @@ function checkMV3MigrationIssues(manifest: any, response: any): void {
 }
 
 /**
- * 执行安全审计
+ * Perform security audit
  */
 function performSecurityAudit(manifest: any, manifestVersion: number, response: any): void {
   const findings: Array<{level: string; message: string}> = [];
 
-  // 检查过度权限
+  // Check excessive permissions
   const permissions = manifest.permissions || [];
   const dangerousPerms = ['<all_urls>', 'tabs', 'webRequest', 'webRequestBlocking', 'debugger'];
   const foundDangerous = permissions.filter((p: string) => dangerousPerms.includes(p));
@@ -359,7 +375,7 @@ function performSecurityAudit(manifest: any, manifestVersion: number, response: 
     });
   }
 
-  // 检查 host_permissions <all_urls>
+  // Check host_permissions <all_urls>
   const hostPerms = manifest.host_permissions || [];
   if (hostPerms.includes('<all_urls>')) {
     findings.push({
@@ -368,7 +384,7 @@ function performSecurityAudit(manifest: any, manifestVersion: number, response: 
     });
   }
 
-  // 检查 CSP
+  // Check CSP
   const csp = manifest.content_security_policy;
   if (!csp) {
     findings.push({
@@ -382,7 +398,7 @@ function performSecurityAudit(manifest: any, manifestVersion: number, response: 
     });
   }
 
-  // 检查外部资源
+  // Check external resources
   if (manifest.web_accessible_resources) {
     findings.push({
       level: 'info',
@@ -390,7 +406,7 @@ function performSecurityAudit(manifest: any, manifestVersion: number, response: 
     });
   }
 
-  // 显示结果
+  // Show results
   if (findings.length === 0) {
     response.appendResponseLine('✅ **No security concerns detected.**\n');
   } else {
@@ -403,22 +419,22 @@ function performSecurityAudit(manifest: any, manifestVersion: number, response: 
 }
 
 /**
- * 检查最佳实践
+ * Check best practices
  */
 function checkBestPracticesCompliance(manifest: any, manifestVersion: number, response: any): void {
   const recommendations: string[] = [];
 
-  // 检查图标
+  // Check icons
   if (!manifest.icons || Object.keys(manifest.icons).length === 0) {
     recommendations.push('Add icons (16x16, 48x48, 128x128) for better user experience');
   }
 
-  // 检查描述
+  // Check description
   if (!manifest.description || manifest.description.length < 10) {
     recommendations.push('Add a detailed description (required for Chrome Web Store)');
   }
 
-  // 检查 optional_permissions
+  // Check optional_permissions
   const permissions = manifest.permissions || [];
   const optionalizable = ['tabs', 'cookies', 'history'];
   const shouldBeOptional = permissions.filter((p: string) => optionalizable.includes(p));
@@ -427,7 +443,7 @@ function checkBestPracticesCompliance(manifest: any, manifestVersion: number, re
     recommendations.push(`Consider making these permissions optional: ${shouldBeOptional.join(', ')}`);
   }
 
-  // 检查 content_scripts 的 run_at
+  // Check content_scripts run_at
   if (manifest.content_scripts) {
     const missingRunAt = manifest.content_scripts.filter((cs: any) => !cs.run_at);
     if (missingRunAt.length > 0) {
@@ -442,7 +458,7 @@ function checkBestPracticesCompliance(manifest: any, manifestVersion: number, re
     }
   }
 
-  // 显示结果
+  // Show results
   if (recommendations.length === 0) {
     response.appendResponseLine('✅ **Manifest follows all best practices!**\n');
   } else {

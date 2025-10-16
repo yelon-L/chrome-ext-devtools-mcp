@@ -13,6 +13,10 @@
 
 import '../polyfill.js';
 
+// Load .env file before any other imports that might use env vars
+import {loadEnvFile} from './utils/load-env.js';
+loadEnvFile();
+
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -31,6 +35,8 @@ import {getAllTools} from '../tools/registry.js';
 import type {ToolDefinition} from '../tools/ToolDefinition.js';
 import {displayMultiTenantModeInfo} from '../utils/modeMessages.js';
 import {VERSION} from '../version.js';
+import {createLogger} from './utils/Logger.js';
+import {RateLimiter, PerUserRateLimiter} from './utils/RateLimiter.js';
 
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
 import {SessionManager} from './core/SessionManager.js';
@@ -42,6 +48,7 @@ import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-ma
 import {detectBrowser} from './utils/browser-detector.js';
 import {PerformanceMonitor} from './utils/performance-monitor.js';
 import {SimpleCache} from './utils/simple-cache.js';
+import {CircularBuffer} from './utils/circular-buffer.js';
 
 /**
  * 多租户 MCP 代理服务器
@@ -74,11 +81,8 @@ class MultiTenantMCPServer {
   // 简单缓存（用于API响应）
   private apiCache: SimpleCache;
   
-  // 循环缓冲区：保存最近100次连接时间，避免 shift() 的 O(n) 开销
-  private static readonly CONNECTION_TIMES_BUFFER_SIZE = 100;
-  private connectionTimesBuffer = new Array<number>(MultiTenantMCPServer.CONNECTION_TIMES_BUFFER_SIZE);
-  private connectionTimesIndex = 0;
-  private connectionTimesCount = 0; // 实际数据数量
+  // 循环缓冲区：保存最近100次连接时间
+  private connectionTimes: CircularBuffer<number>;
   
   // 并发控制 - 每个用户同时只能有一个连接正在建立
   private activeConnections = new Map<string, Promise<void>>();
@@ -89,6 +93,13 @@ class MultiTenantMCPServer {
   
   // IP 白名单配置
   private allowedIPPatterns: string[] | null;
+  
+  // Logger 实例
+  private serverLogger = createLogger('MultiTenantServer');
+  
+  // 限流器
+  private globalRateLimiter: RateLimiter;
+  private userRateLimiter: PerUserRateLimiter;
   
   // 配置常量
   private static readonly SESSION_TIMEOUT = 3600000;          // 1 hour
@@ -118,6 +129,7 @@ class MultiTenantMCPServer {
     // 初始化性能监控和缓存
     this.performanceMonitor = new PerformanceMonitor(1000);
     this.apiCache = new SimpleCache(30000, 500); // 30秒TTL，最多500个条目
+    this.connectionTimes = new CircularBuffer<number>(100); // 保存最近100次连接时间
     
     // 从环境变量读取 IP 白名单
     const allowedIPsEnv = process.env.ALLOWED_IPS;
@@ -162,6 +174,24 @@ class MultiTenantMCPServer {
       reconnectDelay: MultiTenantMCPServer.RECONNECT_DELAY,
     });
     
+    // 初始化限流器
+    this.globalRateLimiter = new RateLimiter({
+      maxTokens: 1000,          // 全局最多1000个请求
+      refillRate: 100,          // 每秒补充100个令牌
+    });
+    
+    this.userRateLimiter = new PerUserRateLimiter(
+      () => new RateLimiter({
+        maxTokens: 100,         // 每个用户最多100个请求
+        refillRate: 10,         // 每秒补充10个令牌
+      })
+    );
+    
+    this.serverLogger.info('限流器已初始化', {
+      global: { maxTokens: 1000, refillRate: 100 },
+      perUser: { maxTokens: 100, refillRate: 10 },
+    });
+    
     // CDP 混合架构：从环境变量读取配置
     this.useCdpHybrid = process.env.USE_CDP_HYBRID === 'true';
     this.useCdpOperations = process.env.USE_CDP_OPERATIONS === 'true';
@@ -189,7 +219,7 @@ class MultiTenantMCPServer {
   /**
    * 获取统一存储接口（支持JSONL和PostgreSQL）
    */
-  private getUnifiedStorage(): UnifiedStorage {
+  getUnifiedStorage(): UnifiedStorage {
     if (this.unifiedStorage) {
       return this.unifiedStorage;
     }
@@ -239,6 +269,12 @@ class MultiTenantMCPServer {
     // Start managers
     this.sessionManager.start();
     this.browserPool.start();
+    
+    // 设置会话删除回调，清理相关资源
+    this.sessionManager.setOnSessionDeleted((sessionId) => {
+      // 清理会话锁，防止内存泄露
+      this.sessionMutexes.delete(sessionId);
+    });
 
     // 创建 HTTP 服务器
     this.httpServer = http.createServer(async (req, res) => {
@@ -351,6 +387,46 @@ class MultiTenantMCPServer {
       return;
     }
     
+    // 限流检查（/health和/version端点除外）
+    if (url.pathname !== '/health' && url.pathname !== '/version' && url.pathname !== '/api/version') {
+      // 1. 全局限流检查
+      if (!this.globalRateLimiter.tryAcquire()) {
+        this.serverLogger.warn('全局限流触发', {
+          path: url.pathname,
+          method: req.method,
+          requestId,
+        });
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'RATE_LIMIT_EXCEEDED',
+          message: 'Global rate limit exceeded. Please try again later.',
+          requestId,
+        }));
+        return;
+      }
+
+      // 2. 用户级限流检查
+      const userId = req.headers['x-user-id'] as string;
+      if (userId) {
+        if (!this.userRateLimiter.tryAcquire(userId)) {
+          this.serverLogger.warn('用户限流触发', {
+            userId,
+            path: url.pathname,
+            method: req.method,
+            requestId,
+          });
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: 'USER_RATE_LIMIT_EXCEEDED',
+            message: 'User rate limit exceeded. Please try again later.',
+            userId,
+            requestId,
+          }));
+          return;
+        }
+      }
+    }
+    
     let isError = false;
 
     try {
@@ -359,6 +435,8 @@ class MultiTenantMCPServer {
         await this.handleHealth(req, res);
       } else if (url.pathname === '/metrics') {
         await this.handleMetrics(req, res);
+      } else if (url.pathname === '/version' || url.pathname === '/api/version') {
+        await this.handleVersion(req, res);
       }
       // V2 API: 用户管理
       else if (url.pathname === '/api/v2/users' && req.method === 'POST') {
@@ -544,12 +622,7 @@ class MultiTenantMCPServer {
    * @param elapsed - 连接耗时（毫秒）
    */
   #recordConnectionTime(elapsed: number): void {
-    this.connectionTimesBuffer[this.connectionTimesIndex] = elapsed;
-    this.connectionTimesIndex = (this.connectionTimesIndex + 1) % MultiTenantMCPServer.CONNECTION_TIMES_BUFFER_SIZE;
-    
-    if (this.connectionTimesCount < MultiTenantMCPServer.CONNECTION_TIMES_BUFFER_SIZE) {
-      this.connectionTimesCount++;
-    }
+    this.connectionTimes.push(elapsed);
   }
 
   /**
@@ -558,16 +631,7 @@ class MultiTenantMCPServer {
    * @returns 平均连接时间（毫秒）
    */
   #calculateAverageConnectionTime(): number {
-    if (this.connectionTimesCount === 0) {
-      return 0;
-    }
-    
-    let sum = 0;
-    for (let i = 0; i < this.connectionTimesCount; i++) {
-      sum += this.connectionTimesBuffer[i];
-    }
-    
-    return Math.round(sum / this.connectionTimesCount);
+    return Math.round(this.connectionTimes.average());
   }
 
   /**
@@ -625,6 +689,32 @@ class MultiTenantMCPServer {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(metrics, null, 2));
+  }
+
+  /**
+   * 处理版本查询
+   */
+  private async handleVersion(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    const versionInfo = {
+      version: this.version,
+      name: 'chrome-extension-debug-mcp',
+      mode: 'multi-tenant',
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      uptime: process.uptime(),
+      features: {
+        cdpHybrid: this.useCdpHybrid,
+        cdpOperations: this.useCdpOperations,
+        ipWhitelist: this.allowedIPPatterns !== null,
+      },
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(versionInfo, null, 2));
   }
 
   /**
@@ -1232,13 +1322,12 @@ class MultiTenantMCPServer {
   }
 
   /**
-   * 读取请求体（带大小限制）
-   * 
+   * 读取请求体
    * @param req - HTTP请求
    * @param maxSize - 最大大小（字节），默认10MB
    * @returns 请求体字符串
    */
-  private async readRequestBody(
+  async readRequestBody(
     req: http.IncomingMessage,
     maxSize = 10 * 1024 * 1024 // 默认10MB
   ): Promise<string> {

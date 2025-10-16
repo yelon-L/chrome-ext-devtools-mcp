@@ -5,7 +5,7 @@
  */
 
 /**
- * 扩展调试工具统一导出
+ * Extension debugging tools unified exports
  */
 
 export {listExtensions, getExtensionDetails} from './discovery.js';
@@ -15,7 +15,7 @@ export {getExtensionLogs} from './logs.js';
 export {evaluateInExtension, reloadExtension} from './execution.js';
 export {activateExtensionServiceWorker} from './service-worker-activation.js';
 
-// Phase 1: 新增高价值功能
+// Phase 1: New high-value features
 export {diagnoseExtensionErrors} from './diagnostics.js';
 export {inspectExtensionManifest} from './manifest-inspector.js';
 export {checkContentScriptInjection} from './content-script-checker.js';

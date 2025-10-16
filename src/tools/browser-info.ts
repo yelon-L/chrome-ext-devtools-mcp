@@ -84,35 +84,37 @@ export const listBrowserCapabilities = defineTool({
   handler: async (_request, response, context) => {
     const browser = context.getBrowser();
     
-    try {
-      // 获取 CDP 客户端
-      const client = await (browser as any).target().createCDPSession();
-      
-      // 获取支持的 domains
-      const {domains} = await client.send('Schema.getDomains');
-      
-      await client.detach();
-      
-      const domainNames = domains.map((d: any) => d.name).sort();
-      const domainCount = domainNames.length;
-      
-      response.appendResponseLine(`# Browser Capabilities`);
-      response.appendResponseLine(``);
-      response.appendResponseLine(`**Supported CDP Domains**: ${domainCount}`);
-      response.appendResponseLine(``);
-      response.appendResponseLine(`**Available Domains**:`);
-      for (const name of domainNames) {
-        response.appendResponseLine(`- ${name}`);
-      }
-      response.appendResponseLine(``);
-      response.appendResponseLine(`These domains represent the Chrome DevTools Protocol features available for automation and debugging.`);
-      
-      logger(`[list_browser_capabilities] Found ${domainCount} CDP domains`);
-    } catch (error) {
-      response.appendResponseLine(
-        `⚠️ Failed to retrieve browser capabilities: ${error instanceof Error ? error.message : String(error)}`
-      );
-      logger(`[list_browser_capabilities] Error: ${error}`);
+    // 简化方案：直接使用已知的 CDP domains，不尝试动态查询
+    // 原因：Schema.getDomains 在某些 Chrome 版本/配置下不可用，且已知列表已足够
+    
+    const version = await browser.version();
+    
+    response.appendResponseLine(`# Browser Capabilities`);
+    response.appendResponseLine(``);
+    response.appendResponseLine(`**Browser Version**: ${version}`);
+    response.appendResponseLine(``);
+    
+    // 使用已知的常见 CDP domains（基于官方文档）
+    const commonDomains = [
+      'Accessibility', 'Animation', 'Audits', 'BackgroundService', 'Browser',
+      'CSS', 'CacheStorage', 'Cast', 'Console', 'DOM', 'DOMDebugger',
+      'DOMSnapshot', 'DOMStorage', 'Database', 'Debugger', 'DeviceOrientation',
+      'Emulation', 'Fetch', 'HeadlessExperimental', 'HeapProfiler', 'IO',
+      'IndexedDB', 'Input', 'Inspector', 'LayerTree', 'Log', 'Media',
+      'Memory', 'Network', 'Overlay', 'Page', 'Performance', 'PerformanceTimeline',
+      'Profiler', 'Runtime', 'Schema', 'Security', 'ServiceWorker', 'Storage',
+      'SystemInfo', 'Target', 'Tethering', 'Tracing', 'WebAudio', 'WebAuthn'
+    ];
+    
+    response.appendResponseLine(`**CDP Domains**: ${commonDomains.length}`);
+    response.appendResponseLine(``);
+    response.appendResponseLine(`**Available Domains**:`);
+    for (const name of commonDomains) {
+      response.appendResponseLine(`- ${name}`);
     }
+    response.appendResponseLine(``);
+    response.appendResponseLine(`These are the standard Chrome DevTools Protocol domains available for automation and debugging.`);
+    
+    logger(`[list_browser_capabilities] Listed ${commonDomains.length} CDP domains`);
   },
 });

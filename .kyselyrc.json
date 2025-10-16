@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RobinBlomberg/kysely-codegen/main/schema.json",
+  "dialectName": "postgres",
+  "connectionString": "env(DATABASE_URL)",
+  "outFile": "src/multi-tenant/storage/schema.generated.ts",
+  "camelCase": true,
+  "includePattern": "mcp_*",
+  "excludePattern": "pgmigrations",
+  "typeOnlyImports": true,
+  "runtimeEnums": false,
+  "overrides": {
+    "columns": {
+      "mcp_users.metadata": {
+        "dataType": "any"
+      },
+      "mcp_browsers.metadata": {
+        "dataType": "any"
+      }
+    }
+  }
+}

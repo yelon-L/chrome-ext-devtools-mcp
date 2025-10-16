@@ -5,8 +5,8 @@
  */
 
 /**
- * Service Worker激活工具 (CDP API版本)
- * 使用Chrome DevTools Protocol激活扩展的Service Worker
+ * Service Worker activation tool (CDP API version)
+ * Uses Chrome DevTools Protocol to activate extension Service Workers
  */
 
 import z from 'zod';
@@ -161,20 +161,14 @@ Uses CDP ServiceWorker.inspectWorker command to activate the SW, which is more r
         results
       }, extensionId, mode);
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      response.appendResponseLine('# Service Worker Activation Failed\n');
-      response.appendResponseLine(`❌ **Error**: ${message}\n`);
-      response.appendResponseLine('**Possible causes**:');
-      response.appendResponseLine('- Chrome connection lost');
-      response.appendResponseLine('- Extension ID does not exist');
-      response.appendResponseLine('- Insufficient CDP permissions');
-      response.appendResponseLine('\n**Suggestions**:');
-      response.appendResponseLine('- Use `list_extensions` to view available extensions');
-      response.appendResponseLine('- Check Chrome DevTools connection status');
-      response.setIncludePages(true);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to activate Service Worker. The extension may be disabled or the Service Worker may have errors.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });
 

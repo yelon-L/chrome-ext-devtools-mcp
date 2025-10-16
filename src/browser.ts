@@ -19,6 +19,7 @@ import puppeteer from 'puppeteer-core';
 
 let browser: Browser | undefined;
 let isExternalBrowser = false; // 标记是否为外部浏览器（不应关闭）
+let initialBrowserURL: string | undefined; // 保存初始连接的 browserURL
 
 function makeTargetFilter(devtools: boolean) {
   const ignoredPrefixes = new Set([
@@ -42,27 +43,98 @@ function makeTargetFilter(devtools: boolean) {
   };
 }
 
+/**
+ * 验证浏览器URL是否可达
+ * @throws Error 如果浏览器URL不可达
+ */
+export async function validateBrowserURL(browserURL: string): Promise<void> {
+  try {
+    const url = new URL('/json/version', browserURL);
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(5000), // 5秒超时
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Browser returned HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (!data.Browser && !data.webSocketDebuggerUrl) {
+      throw new Error('Invalid browser response: missing required fields');
+    }
+    
+    console.log(`[Browser] ✅ Validated browser connection: ${data.Browser || 'Unknown'}`);
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(
+        `Cannot connect to browser at ${browserURL}. ` +
+        `Please ensure Chrome is running with --remote-debugging-port. ` +
+        `Error: ${error.message}`
+      );
+    }
+    throw error;
+  }
+}
+
 export async function ensureBrowserConnected(options: {
   browserURL: string;
   devtools: boolean;
 }) {
+  // 验证现有连接是否有效
   if (browser?.connected) {
-    return browser;
+    try {
+      // ✅ 测试连接是否真的有效
+      await browser.version();
+      
+      // URL 不匹配警告
+      if (initialBrowserURL && initialBrowserURL !== options.browserURL) {
+        console.warn('[Browser] ⚠️  Already connected to:', initialBrowserURL);
+        console.warn('[Browser] ⚠️  Ignoring new browserURL:', options.browserURL);
+        console.warn('[Browser] 💡 Tip: Restart the service to connect to a different browser');
+      }
+      
+      // 连接有效，直接返回
+      return browser;
+    } catch (error) {
+      // ✅ 连接已失效，需要重连
+      console.warn('[Browser] ⚠️  Connection lost, attempting to reconnect...');
+      console.warn('[Browser] Error:', error instanceof Error ? error.message : String(error));
+      
+      // 清理旧连接
+      try {
+        await browser.disconnect();
+      } catch {
+        // 忽略断开错误
+      }
+      
+      browser = undefined;
+      // 继续执行重连逻辑
+    }
   }
   
-  console.log('[Browser] 📡 连接到已有浏览器: ' + options.browserURL);
+  // 执行连接（首次或重连）
+  console.log('[Browser] 📡 Connecting to browser:', options.browserURL);
   console.log('');
   
-  browser = await puppeteer.connect({
-    targetFilter: makeTargetFilter(options.devtools),
-    browserURL: options.browserURL,
-    defaultViewport: null,
-    handleDevToolsAsPage: options.devtools,
-  });
-  
-  isExternalBrowser = true; // 标记为外部浏览器
-  
-  return browser;
+  try {
+    browser = await puppeteer.connect({
+      targetFilter: makeTargetFilter(options.devtools),
+      browserURL: options.browserURL,
+      defaultViewport: null,
+      handleDevToolsAsPage: options.devtools,
+    });
+    
+    isExternalBrowser = true; // 标记为外部浏览器
+    initialBrowserURL = options.browserURL; // 保存初始 URL
+    
+    console.log('[Browser] ✅ Connected successfully to:', initialBrowserURL);
+    
+    return browser;
+  } catch (error) {
+    console.error('[Browser] ❌ Failed to connect to browser:', options.browserURL);
+    console.error('[Browser] Error:', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
 }
 
 interface McpLaunchOptions {
@@ -183,6 +255,61 @@ export async function ensureBrowserLaunched(
  */
 export function shouldCloseBrowser(): boolean {
   return !isExternalBrowser;
+}
+
+/**
+ * 验证浏览器连接状态
+ * @param expectedURL 预期的浏览器 URL（可选）
+ * @returns 连接是否有效
+ */
+export async function verifyBrowserConnection(expectedURL?: string): Promise<boolean> {
+  if (!browser?.connected) {
+    console.log('[Browser] ✗ Not connected');
+    return false;
+  }
+  
+  try {
+    const version = await browser.version();
+    const wsEndpoint = browser.wsEndpoint();
+    
+    console.log('[Browser] ✓ Connection verified:', {
+      version,
+      endpoint: wsEndpoint,
+      initialURL: initialBrowserURL,
+      expectedURL: expectedURL || '(not specified)',
+    });
+    
+    // 如果提供了 expectedURL，验证是否一致
+    if (expectedURL && initialBrowserURL && initialBrowserURL !== expectedURL) {
+      console.warn('[Browser] ⚠️  URL mismatch:');
+      console.warn('  Initial:', initialBrowserURL);
+      console.warn('  Expected:', expectedURL);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[Browser] ✗ Connection lost:', error);
+    return false;
+  }
+}
+
+/**
+ * 获取当前连接的浏览器 URL
+ * @returns 初始连接的浏览器 URL，如果未连接则返回 undefined
+ */
+export function getBrowserURL(): string | undefined {
+  return initialBrowserURL;
+}
+
+/**
+ * 重置浏览器连接状态（用于测试或强制重连）
+ */
+export function resetBrowserConnection(): void {
+  browser = undefined;
+  initialBrowserURL = undefined;
+  isExternalBrowser = false;
+  console.log('[Browser] 🔄 Connection state reset');
 }
 
 export type Channel = 'stable' | 'canary' | 'beta' | 'dev';

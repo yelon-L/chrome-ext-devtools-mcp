@@ -57,11 +57,11 @@ export class JSONLStorageAdapter implements StorageAdapter {
   }
 
   async updateUsername(userId: string, username: string): Promise<void> {
-    this.store.updateUsername(userId, username);
+    await this.store.updateUsername(userId, username);
   }
 
   async deleteUser(userId: string): Promise<void> {
-    this.store.deleteUser(userId);
+    await this.store.deleteUser(userId);
   }
 
   // ============================================================================
@@ -69,7 +69,7 @@ export class JSONLStorageAdapter implements StorageAdapter {
   // ============================================================================
 
   async bindBrowser(browser: BrowserRecordV2): Promise<void> {
-    this.store.bindBrowser(
+    await this.store.bindBrowser(
       browser.userId,
       browser.browserURL,
       browser.tokenName,
@@ -102,19 +102,19 @@ export class JSONLStorageAdapter implements StorageAdapter {
     browserId: string,
     updates: { browserURL?: string; description?: string }
   ): Promise<void> {
-    this.store.updateBrowser(browserId, updates);
+    await this.store.updateBrowser(browserId, updates);
   }
 
   async updateLastConnected(browserId: string): Promise<void> {
-    this.store.updateLastConnected(browserId);
+    await this.store.updateLastConnected(browserId);
   }
 
   async incrementToolCallCount(browserId: string): Promise<void> {
-    this.store.incrementToolCallCount(browserId);
+    await this.store.incrementToolCallCount(browserId);
   }
 
   async unbindBrowser(browserId: string): Promise<void> {
-    this.store.unbindBrowser(browserId);
+    await this.store.unbindBrowser(browserId);
   }
 
   // ============================================================================

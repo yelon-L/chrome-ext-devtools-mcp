@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension-debug-mcp",
-  "version": "0.8.10",
+  "version": "0.8.12",
   "description": "MCP server for Chrome Extension Debugging",
   "type": "module",
   "bin": "./build/src/index.js",
@@ -25,7 +25,16 @@
     "prepare": "node --experimental-strip-types scripts/prepare.ts",
     "sync-server-json-version": "node  --experimental-strip-types scripts/sync-server-json-version.ts && npm run format",
     "generate-config": "node scripts/generate-ide-config.js",
-    "postinstall": "npm run generate-config"
+    "postinstall": "npm run generate-config",
+    "migrate": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/db-migrate.ts",
+    "migrate:up": "npm run migrate up",
+    "migrate:down": "npm run migrate down",
+    "migrate:status": "npm run migrate status",
+    "codegen": "kysely-codegen --out-file src/multi-tenant/storage/schema.generated.ts",
+    "codegen:watch": "kysely-codegen --out-file src/multi-tenant/storage/schema.generated.ts --watch",
+    "generate-mappers": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/generate-mappers.ts",
+    "db:sync": "npm run migrate:up && npm run codegen && npm run generate-mappers",
+    "db:reset": "npm run migrate:down && npm run migrate:up && npm run codegen && npm run generate-mappers"
   },
   "files": [
     "build/src",
@@ -46,7 +55,9 @@
     "core-js": "3.45.1",
     "debug": "4.4.3",
     "eventsource": "^4.0.0",
+    "kysely": "^0.28.8",
     "node-fetch": "^3.3.2",
+    "node-pg-migrate": "^8.0.3",
     "pg": "^8.16.3",
     "puppeteer-core": "^24.24.0",
     "yargs": "18.0.0",
@@ -63,6 +74,7 @@
     "@typescript-eslint/eslint-plugin": "^8.43.0",
     "@typescript-eslint/parser": "^8.43.0",
     "chrome-devtools-frontend": "1.0.1524741",
+    "dotenv": "^17.2.3",
     "eslint": "^9.35.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",

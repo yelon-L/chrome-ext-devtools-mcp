@@ -10,6 +10,7 @@ import {logger} from '../logger.js';
 
 import {ToolCategories} from './categories.js';
 import {CLOSE_PAGE_ERROR, defineTool, timeoutSchema} from './ToolDefinition.js';
+import {reportNoDialog} from './utils/ErrorReporting.js';
 
 export const listPages = defineTool({
   name: 'list_pages',
@@ -100,7 +101,12 @@ export const newPage = defineTool({
 
 export const navigatePage = defineTool({
   name: 'navigate_page',
-  description: `Navigates the currently selected page to a URL.`,
+  description: `Navigates the currently selected page to a URL. 
+
+Note: This operation depends on network conditions and page complexity. If navigation fails due to timeout, consider:
+1. Using a simpler/faster website for testing
+2. Checking network connectivity
+3. The target page may be slow to load or blocked`,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
@@ -112,11 +118,42 @@ export const navigatePage = defineTool({
   handler: async (request, response, context) => {
     const page = context.getSelectedPage();
 
-    await context.waitForEventsAfterAction(async () => {
-      await page.goto(request.params.url, {
-        timeout: request.params.timeout,
+    try {
+      await context.waitForEventsAfterAction(async () => {
+        await page.goto(request.params.url, {
+          timeout: request.params.timeout,
+          waitUntil: 'domcontentloaded', // 更快：不等待所有资源
+        });
       });
-    });
+    } catch (error) {
+      // 友好的错误提示
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('Timeout') || errorMessage.includes('timeout')) {
+        response.appendResponseLine(`⚠️ Navigation timeout: The page took too long to load.`);
+        response.appendResponseLine(``);
+        response.appendResponseLine(`**URL**: ${request.params.url}`);
+        response.appendResponseLine(``);
+        response.appendResponseLine(`**Possible reasons**:`);
+        response.appendResponseLine(`- Network is slow or blocked`);
+        response.appendResponseLine(`- Website is complex and loads slowly`);
+        response.appendResponseLine(`- URL may be incorrect or inaccessible`);
+        response.appendResponseLine(``);
+        response.appendResponseLine(`**Suggestions**:`);
+        response.appendResponseLine(`- Try a simpler website (e.g., https://example.com)`);
+        response.appendResponseLine(`- Check your network connection`);
+        response.appendResponseLine(`- Verify the URL is correct`);
+        response.appendResponseLine(`- The page may still be partially loaded - check with take_snapshot`);
+        
+        logger(`[navigate_page] Timeout navigating to ${request.params.url}`);
+      } else {
+        response.appendResponseLine(`⚠️ Navigation failed: ${errorMessage}`);
+        response.appendResponseLine(``);
+        response.appendResponseLine(`**URL**: ${request.params.url}`);
+        
+        logger(`[navigate_page] Error: ${error}`);
+      }
+    }
 
     response.setIncludePages(true);
   },
@@ -200,8 +237,11 @@ export const handleDialog = defineTool({
   },
   handler: async (request, response, context) => {
     const dialog = context.getDialog();
+    // ✅ Following close_page pattern: return info instead of throwing
     if (!dialog) {
-      throw new Error('No open dialog found');
+      reportNoDialog(response);
+      response.setIncludePages(true);
+      return;
     }
 
     switch (request.params.action) {

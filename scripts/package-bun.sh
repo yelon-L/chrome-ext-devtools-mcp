@@ -68,12 +68,22 @@ for platform in "${!targets[@]}"; do
   
   echo "   📦 打包 $platform ($target)..."
   
-  bun build --compile ./build/src/index.js \
+  # 捕获输出并过滤 CodeMirror 警告
+  output=$(bun build --compile ./build/src/index.js \
     --outfile "$outfile" \
     --target="$target" \
-    --minify
+    --minify 2>&1)
   
-  if [ $? -eq 0 ]; then
+  build_status=$?
+  
+  # 过滤掉 CodeMirror 相关的警告
+  # 过滤包含关键字的行以及它们相关的上下文行（箭头和路径）
+  filtered_output=$(echo "$output" | grep -v "cssStreamParser\|StringStream\|css\.cssLanguage\|CodeMirrorUtils\.js\|CSSPropertyParser\.js" | grep -v "^ *\^$")
+  
+  # 只输出编译进度信息（minify, bundle, compile 行）
+  echo "$filtered_output" | grep -E "minify|bundle|compile|error|Error" || true
+  
+  if [ $build_status -eq 0 ]; then
     echo "   ✅ $platform 完成"
   else
     echo "   ❌ $platform 失败"

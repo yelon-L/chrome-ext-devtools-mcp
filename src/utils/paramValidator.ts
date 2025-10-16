@@ -295,7 +295,7 @@ ${BOLD}建议：${RESET}
       console.error('');
       result.errors.forEach(error => console.error(error));
       console.error('');
-      console.error(`${RED}${BOLD}启动失败${RESET}: 请修正上述配置错误\n`);
+      console.error(`${RED}${BOLD}Startup failed${RESET}: Please fix the configuration errors above\n`);
     }
 
     // 显示警告
@@ -312,31 +312,31 @@ ${BOLD}建议：${RESET}
   static displayConfigSummary(args: ParsedArgs): void {
     const transport = args.transport || 'stdio';
     
-    console.log(`${BOLD}📋 配置摘要${RESET}`);
+    console.log(`${BOLD}📋 Configuration Summary${RESET}`);
     console.log('');
     
     // 传输模式
-    console.log(`${BOLD}传输模式:${RESET} ${GREEN}${transport}${RESET}`);
+    console.log(`${BOLD}Transport:${RESET} ${GREEN}${transport}${RESET}`);
     if (transport !== 'stdio' && args.port) {
-      console.log(`${BOLD}端口:${RESET} ${GREEN}${args.port}${RESET}`);
+      console.log(`${BOLD}Port:${RESET} ${GREEN}${args.port}${RESET}`);
     }
     
     // 浏览器配置
     console.log('');
-    console.log(`${BOLD}浏览器配置:${RESET}`);
+    console.log(`${BOLD}Browser Configuration:${RESET}`);
     if (args.browserUrl) {
-      console.log(`  ${BLUE}连接到:${RESET} ${args.browserUrl}`);
+      console.log(`  ${BLUE}Connect to:${RESET} ${args.browserUrl}`);
     } else if (args.executablePath) {
-      console.log(`  ${BLUE}使用:${RESET} ${args.executablePath}`);
+      console.log(`  ${BLUE}Using:${RESET} ${args.executablePath}`);
     } else {
       const channel = args.channel || 'stable';
-      console.log(`  ${BLUE}启动:${RESET} Chrome ${channel}`);
+      console.log(`  ${BLUE}Launch:${RESET} Chrome ${channel}`);
       
       if (args.headless) {
-        console.log(`  ${BLUE}模式:${RESET} headless`);
+        console.log(`  ${BLUE}Mode:${RESET} headless`);
       }
       if (args.isolated) {
-        console.log(`  ${BLUE}配置文件:${RESET} 临时（自动清理）`);
+        console.log(`  ${BLUE}Profile:${RESET} Temporary (auto-cleanup)`);
       }
       if (args.viewport) {
         console.log(`  ${BLUE}viewport:${RESET} ${args.viewport.width}x${args.viewport.height}`);

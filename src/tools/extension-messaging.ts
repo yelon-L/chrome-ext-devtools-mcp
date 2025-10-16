@@ -5,11 +5,11 @@
  */
 
 /**
- * 扩展消息追踪工具
+ * Extension message tracing tool
  * 
- * 提供两个工具：
- * 1. monitor_extension_messages - 监控消息传递
- * 2. trace_extension_api_calls - 追踪 API 调用（简化版）
+ * Provides two tools:
+ * 1. monitor_extension_messages - Monitor message passing
+ * 2. trace_extension_api_calls - Trace API calls (simplified version)
  */
 
 import {z} from 'zod';
@@ -18,7 +18,7 @@ import {ToolCategories} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
 /**
- * 消息事件类型定义（匹配 Context 返回类型）
+ * Message event type definition (matches Context return type)
  */
 interface ExtensionMessage {
   timestamp: number;
@@ -30,7 +30,7 @@ interface ExtensionMessage {
 }
 
 /**
- * 监控扩展消息传递
+ * Monitor extension message passing
  * 捕获 runtime.sendMessage, tabs.sendMessage 和 runtime.onMessage 事件
  */
 export const monitorExtensionMessages = defineTool({
@@ -118,7 +118,7 @@ Useful for debugging communication between different parts of an extension (back
           response.appendResponseLine('');
         });
 
-        // 统计信息
+        // Statistics
         const sentCount = messages.filter((m: ExtensionMessage) => m.type === 'sent').length;
         const receivedCount = messages.filter((m: ExtensionMessage) => m.type === 'received').length;
         
@@ -128,17 +128,20 @@ Useful for debugging communication between different parts of an extension (back
         response.appendResponseLine(`- **Received**: ${receivedCount}`);
       }
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to monitor messages: ${message}`);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to monitor extension messages. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });
 
 /**
- * 追踪扩展 API 调用（简化版）
- * 当前实现：通过消息监控推断 API 使用情况
+ * Trace extension API calls (simplified version)
+ * Current implementation: Infer API usage through message monitoring
  */
 export const traceExtensionApiCalls = defineTool({
   name: 'trace_extension_api_calls',
@@ -198,7 +201,7 @@ For full API tracing, use browser DevTools Performance profiler.
         messageTypes.length > 0 ? messageTypes : ['runtime', 'tabs'],
       );
 
-      // 统计 API 调用
+      // Count API calls
       const apiCalls: Record<string, number> = {};
       messages.forEach((msg: ExtensionMessage) => {
         apiCalls[msg.method] = (apiCalls[msg.method] || 0) + 1;
@@ -220,7 +223,7 @@ For full API tracing, use browser DevTools Performance profiler.
 
         response.appendResponseLine(`\n**Total API Calls**: ${messages.length}`);
         
-        // 分析高频调用
+        // Analyze high frequency calls
         const highFrequency = Object.entries(apiCalls).filter(([, count]) => count > 10);
         if (highFrequency.length > 0) {
           response.appendResponseLine(`\n⚠️  **High Frequency APIs** (>10 calls):`);
@@ -231,10 +234,13 @@ For full API tracing, use browser DevTools Performance profiler.
         }
       }
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to trace API calls: ${message}`);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to trace API calls. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });

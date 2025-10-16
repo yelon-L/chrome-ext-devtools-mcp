@@ -5,9 +5,9 @@
  */
 
 /**
- * 扩展发现工具
+ * Extension discovery tool
  * 
- * 提供扩展列表和详情查询功能
+ * Provides extension listing and details query functionality
  */
 
 import z from 'zod';
@@ -55,65 +55,65 @@ export const listExtensions = defineTool({
     );
 
     if (extensions.length === 0) {
-      response.appendResponseLine('# 未检测到扩展\n');
-      response.appendResponseLine('当前 Chrome 会话中没有检测到已启用的扩展。\n');
+      response.appendResponseLine('# No Extensions Detected\n');
+      response.appendResponseLine('No enabled extensions detected in the current Chrome session.\n');
       
-      response.appendResponseLine('## 💡 可能原因\n');
-      response.appendResponseLine('1. **未安装扩展** - 这是一个全新的 Chrome 配置文件');
-      response.appendResponseLine('2. **所有扩展都已禁用** - 扩展已安装但处于关闭状态');
-      response.appendResponseLine('3. **Chrome 启动时机问题** - Chrome 在扩展加载前就启动了远程调试');
-      response.appendResponseLine('4. **连接到错误的配置文件** - 请验证连接的是正确的 Chrome 实例\n');
+      response.appendResponseLine('## 💡 Possible Reasons\n');
+      response.appendResponseLine('1. **No Extensions Installed** - This is a fresh Chrome profile');
+      response.appendResponseLine('2. **All Extensions Disabled** - Extensions are installed but turned off');
+      response.appendResponseLine('3. **Chrome Startup Timing** - Chrome remote debugging started before extensions loaded');
+      response.appendResponseLine('4. **Wrong Profile** - Verify you are connected to the correct Chrome instance\n');
       
-      response.appendResponseLine('## 🔍 推荐排查步骤\n');
+      response.appendResponseLine('## 🔍 Recommended Troubleshooting Steps\n');
       
-      response.appendResponseLine('### 方案 1: 可视化检查 (⭐ 推荐)');
-      response.appendResponseLine('使用工具导航到扩展管理页面，直观查看所有扩展（包括禁用的）：');
+      response.appendResponseLine('### Option 1: Visual Inspection (⭐ Recommended)');
+      response.appendResponseLine('Navigate to the extensions management page to visually see all extensions (including disabled ones):');
       response.appendResponseLine('```javascript');
-      response.appendResponseLine('// 步骤 1: 导航到扩展管理页面');
+      response.appendResponseLine('// Step 1: Navigate to extensions page');
       response.appendResponseLine('navigate_to({ url: "chrome://extensions/" })');
       response.appendResponseLine('');
-      response.appendResponseLine('// 步骤 2: 截图查看');
+      response.appendResponseLine('// Step 2: Take a screenshot');
       response.appendResponseLine('screenshot()');
       response.appendResponseLine('');
-      response.appendResponseLine('// 步骤 3: 分析截图');
-      response.appendResponseLine('// - 查看是否有已安装但禁用的扩展');
-      response.appendResponseLine('// - 如果有禁用的扩展，点击开关启用');
-      response.appendResponseLine('// - 启用后，如果是 MV3 扩展，还需点击 "Service worker" 链接激活');
+      response.appendResponseLine('// Step 3: Analyze the screenshot');
+      response.appendResponseLine('// - Check if there are installed but disabled extensions');
+      response.appendResponseLine('// - If disabled extensions exist, toggle the switch to enable');
+      response.appendResponseLine('// - For MV3 extensions, also click "Service worker" link to activate');
       response.appendResponseLine('```');
-      response.appendResponseLine('**优势**: 可以看到 Chrome 实际的扩展列表，包括 API 无法检测的禁用扩展。\n');
+      response.appendResponseLine('**Advantage**: Shows the actual Chrome extensions list, including disabled extensions that API cannot detect.\n');
       
-      response.appendResponseLine('### 方案 2: 查询包含禁用扩展');
-      response.appendResponseLine('尝试列出所有扩展（包括已禁用的）：');
+      response.appendResponseLine('### Option 2: Query Including Disabled Extensions');
+      response.appendResponseLine('Try listing all extensions (including disabled ones):');
       response.appendResponseLine('```javascript');
       response.appendResponseLine('list_extensions({ includeDisabled: true })');
       response.appendResponseLine('```');
-      response.appendResponseLine('如果返回结果包含 "❌ Disabled" 状态的扩展，说明扩展已安装但被禁用。\n');
+      response.appendResponseLine('If the result includes extensions with "❌ Disabled" status, they are installed but disabled.\n');
       
-      response.appendResponseLine('### 方案 3: 手动启用扩展');
-      response.appendResponseLine('如果确认扩展已安装但被禁用：');
-      response.appendResponseLine('1. 导航到 `chrome://extensions/`');
-      response.appendResponseLine('2. 找到目标扩展');
-      response.appendResponseLine('3. **点击开关启用扩展** (这是关键步骤)');
-      response.appendResponseLine('4. 如果是 Manifest V3 扩展：');
-      response.appendResponseLine('   - 启用后，点击 "Service worker" 文字链接');
-      response.appendResponseLine('   - 这会激活 Service Worker (必须步骤)');
-      response.appendResponseLine('5. 重新运行 `list_extensions` 验证扩展已启用且 SW 为 🟢 Active\n');
+      response.appendResponseLine('### Option 3: Manually Enable Extensions');
+      response.appendResponseLine('If extensions are confirmed to be installed but disabled:');
+      response.appendResponseLine('1. Navigate to `chrome://extensions/`');
+      response.appendResponseLine('2. Find the target extension');
+      response.appendResponseLine('3. **Click the toggle to enable** (critical step)');
+      response.appendResponseLine('4. For Manifest V3 extensions:');
+      response.appendResponseLine('   - After enabling, click the "Service worker" text link');
+      response.appendResponseLine('   - This activates the Service Worker (required)');
+      response.appendResponseLine('5. Re-run `list_extensions` to verify the extension is enabled and SW is 🟢 Active\n');
       
-      response.appendResponseLine('### 方案 4: 安装测试扩展');
-      response.appendResponseLine('如果确实没有扩展：');
-      response.appendResponseLine('1. 打开 chrome://extensions/');
-      response.appendResponseLine('2. 启用"开发者模式"（右上角开关）');
-      response.appendResponseLine('3. 点击"加载已解压的扩展程序"或从 Chrome 网上应用店安装');
-      response.appendResponseLine('4. 安装后重新运行 `list_extensions`\n');
+      response.appendResponseLine('### Option 4: Install a Test Extension');
+      response.appendResponseLine('If no extensions are installed:');
+      response.appendResponseLine('1. Open chrome://extensions/');
+      response.appendResponseLine('2. Enable "Developer mode" (toggle in top-right corner)');
+      response.appendResponseLine('3. Click "Load unpacked" or install from Chrome Web Store');
+      response.appendResponseLine('4. Re-run `list_extensions` after installation\n');
       
-      response.appendResponseLine('## ⚠️  常见问题');
-      response.appendResponseLine('**扩展被禁用的常见原因**:');
-      response.appendResponseLine('- 用户手动禁用');
-      response.appendResponseLine('- Chrome 策略自动禁用（企业环境）');
-      response.appendResponseLine('- 扩展更新失败导致自动禁用');
-      response.appendResponseLine('- 扩展崩溃次数过多被 Chrome 禁用\n');
+      response.appendResponseLine('## ⚠️  Common Issues');
+      response.appendResponseLine('**Common reasons for disabled extensions**:');
+      response.appendResponseLine('- Manually disabled by user');
+      response.appendResponseLine('- Automatically disabled by Chrome policy (enterprise environment)');
+      response.appendResponseLine('- Update failure causing automatic disable');
+      response.appendResponseLine('- Too many crashes causing Chrome to disable it\n');
       
-      response.appendResponseLine('💡 **AI 提示**: 始终先使用 `navigate_to` 工具跳转到 chrome://extensions/ 页面并截图，这样可以直观看到所有扩展的状态，包括禁用的扩展。');
+      response.appendResponseLine('💡 **AI Tip**: Always use the `navigate_to` tool to jump to chrome://extensions/ and take a screenshot first. This provides a visual view of all extension states, including disabled ones.');
       
       response.setIncludePages(true);
       return;
@@ -137,32 +137,32 @@ export const listExtensions = defineTool({
         `- **Status**: ${ext.enabled ? '✅ Enabled' : '❌ Disabled'}`,
       );
       
-      // 禁用扩展的详细提示
+      // Detailed hint for disabled extensions
       if (!ext.enabled) {
         response.appendResponseLine(
-          `  - ⚠️  **扩展已禁用**: 所有调试工具无法使用`
+          `  - ⚠️  **Extension Disabled**: All debugging tools unavailable`
         );
         response.appendResponseLine(
-          `  - **启用步骤**:`
+          `  - **Enable Steps**:`
         );
         response.appendResponseLine(
-          `    1. 导航到 chrome://extensions/ 页面 (使用 \`navigate_to\` 工具)`
+          `    1. Navigate to chrome://extensions/ page (use \`navigate_to\` tool)`
         );
         response.appendResponseLine(
-          `    2. 找到 "${ext.name}" 扩展`
+          `    2. Find "${ext.name}" extension`
         );
         response.appendResponseLine(
-          `    3. 点击开关启用该扩展`
+          `    3. Click the toggle to enable the extension`
         );
         response.appendResponseLine(
-          `    4. 如果是 MV3 扩展，启用后需要激活 Service Worker`
+          `    4. For MV3 extensions, activate Service Worker after enabling`
         );
         response.appendResponseLine(
-          `    5. 重新运行 \`list_extensions\` 验证状态`
+          `    5. Re-run \`list_extensions\` to verify status`
         );
       }
 
-      // Service Worker 状态（仅 MV3 且已启用）
+      // Service Worker status (MV3 and enabled only)
       if (ext.enabled && ext.manifestVersion === 3 && ext.serviceWorkerStatus) {
         const statusEmoji = {
           active: '🟢',
@@ -181,29 +181,29 @@ export const listExtensions = defineTool({
         // Add helpful note for inactive SW
         if (ext.serviceWorkerStatus === 'inactive') {
           response.appendResponseLine(
-            `  - ⚠️  **Service Worker 未激活**: 影响工具调用`,
+            `  - ⚠️  **Service Worker Not Activated**: Affects tool calls`,
           );
           response.appendResponseLine(
-            `  - **影响范围**: evaluate_in_extension, inspect_extension_storage, get_extension_logs 等工具将无法使用`,
+            `  - **Affected Tools**: evaluate_in_extension, inspect_extension_storage, get_extension_logs, etc.`,
           );
           response.appendResponseLine(
-            `  - **推荐方案**:`,
+            `  - **Recommended Solutions**:`,
           );
           response.appendResponseLine(
-            `    1. 使用 \`activate_extension_service_worker\` 工具 (extensionId="${ext.id}")`,
+            `    1. Use \`activate_extension_service_worker\` tool (extensionId="${ext.id}")`,
           );
           response.appendResponseLine(
-            `    2. 或者导航到 chrome://extensions/，找到该扩展，点击 "Service worker" 链接激活`,
+            `    2. Or navigate to chrome://extensions/, find the extension, click "Service worker" link`,
           );
           response.appendResponseLine(
-            `    3. 激活后再次运行 \`list_extensions\` 验证状态为 🟢 Active`,
+            `    3. Re-run \`list_extensions\` to verify status is 🟢 Active`,
           );
         } else if (ext.serviceWorkerStatus === 'not_found') {
           response.appendResponseLine(
-            `  - ⚠️  **Service Worker 未找到**: 可能是 manifest.json 配置问题`,
+            `  - ⚠️  **Service Worker Not Found**: Possible manifest.json configuration issue`,
           );
           response.appendResponseLine(
-            `  - **建议**: 检查扩展的 manifest.json 中 background.service_worker 配置`,
+            `  - **Suggestion**: Check the background.service_worker configuration in manifest.json`,
           );
         }
       }

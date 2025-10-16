@@ -204,9 +204,16 @@ export const uploadFile = defineTool({
           ]);
           await fileChooser.accept([filePath]);
         } catch {
-          throw new Error(
-            `Failed to upload file. The element could not accept the file directly, and clicking it did not trigger a file chooser.`,
-          );
+          // ✅ Following close_page pattern: return info instead of throwing
+          response.appendResponseLine('❌ **Error**: Failed to upload file\n');
+          response.appendResponseLine('**Details**: The element could not accept the file directly, and clicking it did not trigger a file chooser.\n');
+          response.appendResponseLine('**Suggestions**:');
+          response.appendResponseLine('1. Verify the element is a file input (<input type="file">)');
+          response.appendResponseLine('2. Check if the element is visible and clickable');
+          response.appendResponseLine('3. Try clicking the element manually to see if it triggers a file chooser');
+          response.appendResponseLine('4. Inspect the element\'s onclick handler in DevTools');
+          response.setIncludeSnapshot(true);
+          return;
         }
       }
       response.setIncludeSnapshot(true);

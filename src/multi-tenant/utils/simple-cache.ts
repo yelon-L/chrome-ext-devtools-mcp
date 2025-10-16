@@ -1,5 +1,11 @@
 /**
- * 简单的内存缓存，带TTL支持
+ * 简单的内存缓存，带TTL支持和LRU淘汰策略
+ * 
+ * 特性：
+ * - TTL（生存时间）支持
+ * - LRU（最近最少使用）淘汰
+ * - 命中率统计
+ * - 自动过期清理
  */
 
 export interface CacheEntry<T> {
@@ -11,6 +17,10 @@ export class SimpleCache<T = any> {
   private cache = new Map<string, CacheEntry<T>>();
   private defaultTTL: number;
   private maxSize: number;
+  
+  // 命中率统计
+  private hits = 0;
+  private misses = 0;
 
   /**
    * @param defaultTTL 默认过期时间（毫秒）
@@ -23,15 +33,23 @@ export class SimpleCache<T = any> {
 
   /**
    * 设置缓存
+   * 
+   * 如果key已存在，会先删除再插入（更新LRU顺序）
+   * 如果缓存已满，删除最早插入的条目（Map的第一个元素）
    */
   set(key: string, value: T, ttl?: number): void {
     const expires = Date.now() + (ttl ?? this.defaultTTL);
 
-    // 如果超过最大大小，删除最旧的条目
+    // 如果已存在，先删除（这样重新插入会移到末尾，实现LRU）
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+
+    // 如果超过最大大小，删除最早插入的条目（Map的第一个）
     if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) {
-        this.cache.delete(oldestKey);
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
       }
     }
 
@@ -40,18 +58,27 @@ export class SimpleCache<T = any> {
 
   /**
    * 获取缓存
+   * 
+   * 如果命中且未过期，会更新访问顺序（LRU）
    */
   get(key: string): T | null {
     const entry = this.cache.get(key);
-    if (!entry || Date.now() > entry.expires) {
-      // 清理过期项
-      if (entry) {
-        this.cache.delete(key);
-      }
+    if (!entry) {
+      this.misses++;
       return null;
     }
     
+    // 检查是否过期
+    if (Date.now() > entry.expires) {
+      this.cache.delete(key);
+      this.misses++;
+      return null;
+    }
+    
+    this.hits++;
+    
     // 删除后重新插入，维护LRU访问顺序
+    // Map保证插入顺序，删除后重新插入会移到末尾
     this.cache.delete(key);
     this.cache.set(key, entry);
     
@@ -111,17 +138,34 @@ export class SimpleCache<T = any> {
   }
 
   /**
-   * 获取缓存命中率统计
+   * 获取缓存统计信息
    */
   getStats(): {
     size: number;
     maxSize: number;
     utilization: number;
+    hits: number;
+    misses: number;
+    hitRate: number;
+    total: number;
   } {
+    const total = this.hits + this.misses;
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
       utilization: (this.cache.size / this.maxSize) * 100,
+      hits: this.hits,
+      misses: this.misses,
+      hitRate: total > 0 ? (this.hits / total) * 100 : 0,
+      total,
     };
+  }
+  
+  /**
+   * 重置统计信息
+   */
+  resetStats(): void {
+    this.hits = 0;
+    this.misses = 0;
   }
 }

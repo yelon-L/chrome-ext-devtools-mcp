@@ -202,6 +202,25 @@ export const hostConfig = {};
       }
     }
   }
+
+  // 复制数据库迁移文件
+  const migrationsSrcDir = path.join(process.cwd(), 'src', 'multi-tenant', 'storage', 'migrations');
+  const migrationsDestDir = path.join(BUILD_DIR, 'src', 'multi-tenant', 'storage', 'migrations');
+  
+  if (fs.existsSync(migrationsSrcDir)) {
+    fs.mkdirSync(migrationsDestDir, { recursive: true });
+    
+    const migrationFiles = fs.readdirSync(migrationsSrcDir);
+    for (const file of migrationFiles) {
+      const srcFile = path.join(migrationsSrcDir, file);
+      const destFile = path.join(migrationsDestDir, file);
+      
+      if (fs.statSync(srcFile).isFile() && file.endsWith('.sql')) {
+        fs.copyFileSync(srcFile, destFile);
+        console.log(`✅ Copied migration file: ${file}`);
+      }
+    }
+  }
 }
 
 main();

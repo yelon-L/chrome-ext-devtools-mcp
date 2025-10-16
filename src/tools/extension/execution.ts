@@ -5,13 +5,23 @@
  */
 
 /**
- * 扩展执行和重载工具
+ * Extension execution and reload tools
  */
 
 import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {
+  EXTENSION_NOT_FOUND,
+  NO_BACKGROUND_CONTEXT,
+  RELOAD_TIMEOUT,
+} from './errors.js';
+import {
+  reportExtensionNotFound,
+  reportNoBackgroundContext,
+  reportTimeout,
+} from '../utils/ErrorReporting.js';
 
 export const reloadExtension = defineTool({
   name: 'reload_extension',
@@ -77,43 +87,68 @@ export const reloadExtension = defineTool({
       captureErrors = true,
     } = request.params;
 
-    // 全局超时保护 - 防止无限卡住
-    const TOTAL_TIMEOUT = 20000; // 20秒总超时
+    // Detailed logging: record tool invocation
+    const sessionInfo = (context as any).sessionId || 'unknown-session';
+    const tokenInfo = (context as any).token || 'unknown-token';
+    const timestamp = new Date().toISOString();
+    
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`[reload_extension] ${timestamp}`);
+    console.log(`Session: ${sessionInfo}`);
+    console.log(`Token: ${tokenInfo}`);
+    console.log(`Extension ID: ${extensionId}`);
+    console.log(`Options: preserveStorage=${preserveStorage}, waitForReady=${waitForReady}, captureErrors=${captureErrors}`);
+    console.log(`${'='.repeat(80)}\n`);
+
+    // Global timeout protection - prevent infinite hang
+    const TOTAL_TIMEOUT = 20000; // 20 seconds total timeout
     const startTime = Date.now();
     let timeoutCheckInterval: NodeJS.Timeout | null = null;
     
     const checkTimeout = () => {
       const elapsed = Date.now() - startTime;
       if (elapsed > TOTAL_TIMEOUT) {
+        console.error(`[reload_extension] TIMEOUT after ${elapsed}ms!`);
+        console.error(`  Session: ${sessionInfo}`);
+        console.error(`  Token: ${tokenInfo}`);
+        console.error(`  Extension: ${extensionId}`);
         if (timeoutCheckInterval) {
           clearInterval(timeoutCheckInterval);
         }
-        throw new Error(`Reload operation timeout after ${elapsed}ms (limit: ${TOTAL_TIMEOUT}ms)`);
+        reportTimeout(response, 'Reload operation', elapsed, TOTAL_TIMEOUT);
+        response.setIncludePages(true);
+        return;
       }
     };
     
-    // 每秒检查一次超时
+    // Check timeout every second
     timeoutCheckInterval = setInterval(checkTimeout, 1000);
 
+    // ✅ Following navigate_page_history pattern: minimize try block scope
+    console.log(`[reload_extension] Step 1: Starting reload process...`);
+    response.appendResponseLine(`# Smart Extension Reload\n`);
+    response.appendResponseLine(`**Extension ID**: ${extensionId}`);
+    response.appendResponseLine(`**Preserve Storage**: ${preserveStorage ? '✅ Yes' : '❌ No'}`);
+    response.appendResponseLine(`**Wait for Ready**: ${waitForReady ? '✅ Yes' : '❌ No'}`);
+
+    // 1. Get extension information (outside try block)
+    const extensions = await context.getExtensions();
+    const extension = extensions.find((ext: any) => ext.id === extensionId);
+
+    // ✅ Following close_page pattern: return info instead of throwing
+    if (!extension) {
+      reportExtensionNotFound(response, extensionId, extensions);
+      response.setIncludePages(true);
+      return;
+    }
+
     try {
-      response.appendResponseLine(`# Smart Extension Reload\n`);
-      response.appendResponseLine(`**Extension ID**: ${extensionId}`);
-      response.appendResponseLine(`**Preserve Storage**: ${preserveStorage ? '✅ Yes' : '❌ No'}`);
-      response.appendResponseLine(`**Wait for Ready**: ${waitForReady ? '✅ Yes' : '❌ No'}`);
-
-      // 1. 获取扩展信息
-      const extensions = await context.getExtensions();
-      const extension = extensions.find((ext: any) => ext.id === extensionId);
-
-      if (!extension) {
-        throw new Error(`Extension ${extensionId} not found`);
-      }
 
       response.appendResponseLine(`## Step 1: Pre-Reload State\n`);
       response.appendResponseLine(`**Extension**: ${extension.name} (v${extension.version})`);
       response.appendResponseLine(`**Manifest Version**: ${extension.manifestVersion}`);
 
-      // 2. 检查并激活 Service Worker（MV3）
+      // 2. Check and activate Service Worker (MV3)
       if (extension.manifestVersion === 3) {
         response.appendResponseLine(`**Service Worker**: ${extension.serviceWorkerStatus || 'unknown'}\n`);
         
@@ -121,11 +156,11 @@ export const reloadExtension = defineTool({
           response.appendResponseLine('🔄 Service Worker is inactive. Activating...\n');
           
           try {
-            // 激活 Service Worker
+            // Activate Service Worker
             await context.activateServiceWorker(extensionId);
             response.appendResponseLine('✅ Service Worker activated successfully\n');
             
-            // 等待一下让 SW 完全启动
+            // Wait for SW to fully start
             await new Promise(resolve => setTimeout(resolve, 1000));
           } catch (activationError) {
             response.appendResponseLine('⚠️ Could not activate Service Worker automatically');
@@ -134,7 +169,7 @@ export const reloadExtension = defineTool({
         }
       }
 
-      // 3. 保存 Storage 数据（如果需要）
+      // 3. Save Storage data (if needed)
       let savedStorage: any = null;
       if (preserveStorage) {
         response.appendResponseLine('## Step 2: Preserving Storage\n');
@@ -147,39 +182,50 @@ export const reloadExtension = defineTool({
         }
       }
 
-      // 4. 获取 reload 前的上下文
+      // 4. Get contexts before reload
       const contextsBefore = await context.getExtensionContexts(extensionId);
       response.appendResponseLine(`## Step ${preserveStorage ? '3' : '2'}: Reloading Extension\n`);
       response.appendResponseLine(`**Active contexts before**: ${contextsBefore.length}\n`);
 
-      // 5. 执行 reload
+      // 5. Execute reload
+      console.log(`[reload_extension] Step 3: Executing reload...`);
       const backgroundContext = contextsBefore.find((ctx: any) => ctx.isPrimary);
       
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!backgroundContext) {
-        throw new Error(
-          `No background context found. Extension may not be running.`,
-        );
+        console.error(`[reload_extension] ERROR: No background context found`);
+        reportNoBackgroundContext(response, extensionId, extension);
+        response.setIncludePages(true);
+        return;
       }
 
-      await context.evaluateInExtensionContext(
-        backgroundContext.targetId,
-        `
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-          chrome.runtime.reload();
-        } else {
-          throw new Error('chrome.runtime.reload() is not available');
-        }
-        `,
-        false, // Don't wait as extension will terminate
-      );
+      console.log(`[reload_extension] Background context ID: ${backgroundContext.targetId}`);
+      
+      try {
+        await context.evaluateInExtensionContext(
+          backgroundContext.targetId,
+          `
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+            chrome.runtime.reload();
+          } else {
+            throw new Error('chrome.runtime.reload() is not available');
+          }
+          `,
+          false, // Don't wait as extension will terminate
+        );
+        console.log(`[reload_extension] Reload command sent successfully`);
+      } catch (evalError) {
+        console.error(`[reload_extension] ERROR executing reload:`, evalError);
+        throw evalError;
+      }
 
       response.appendResponseLine('🔄 Reload command sent...\n');
 
-      // 6. 等待并验证 reload 完成
+      // 6. Wait and verify reload completion
       if (waitForReady) {
         response.appendResponseLine(`## Step ${preserveStorage ? '4' : '3'}: Verifying Reload\n`);
         
-        // 等待扩展重新启动
+        // Wait for extension restart
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         try {
@@ -198,11 +244,11 @@ export const reloadExtension = defineTool({
         }
       }
 
-      // 7. 恢复 Storage 数据（如果需要）
+      // 7. Restore Storage data (if needed)
       if (preserveStorage && savedStorage) {
         response.appendResponseLine(`## Step ${waitForReady ? '5' : '4'}: Restoring Storage\n`);
         try {
-          // 等待 background context 就绪
+          // Wait for background context ready
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           const contextsAfter = await context.getExtensionContexts(extensionId);
@@ -223,17 +269,17 @@ export const reloadExtension = defineTool({
         }
       }
 
-      // 8. 捕获启动错误（优化：减少等待时间）
+      // 8. Capture startup errors (optimized: reduce wait time)
       if (captureErrors) {
         response.appendResponseLine(`## Step ${preserveStorage ? (waitForReady ? '6' : '5') : (waitForReady ? '4' : '3')}: Error Check\n`);
         
         try {
-          // 减少等待时间，避免卡住
+          // Reduce wait time to avoid hanging
           await new Promise(resolve => setTimeout(resolve, 500));
           
           const logsResult = await context.getExtensionLogs(extensionId, {
             capture: true,
-            duration: 1000,  // 从3000ms减少到1000ms
+            duration: 1000,  // Reduced from 3000ms to 1000ms
             includeStored: true,
           });
           
@@ -255,7 +301,7 @@ export const reloadExtension = defineTool({
         }
       }
 
-      // 9. 总结
+      // 9. Summary
       response.appendResponseLine(`## ✅ Reload Complete\n`);
       response.appendResponseLine('**What happened**:');
       response.appendResponseLine('- Background script/service worker has been restarted');
@@ -275,33 +321,54 @@ export const reloadExtension = defineTool({
 
       response.setIncludePages(true);
       
-      // 清理超时检查
+      // Clean up timeout check
       if (timeoutCheckInterval) {
         clearInterval(timeoutCheckInterval);
       }
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`[reload_extension] SUCCESS in ${elapsed}ms`);
+      console.log(`  Session: ${sessionInfo}`);
+      console.log(`  Token: ${tokenInfo}`);
+      console.log(`  Extension: ${extensionId}\n`);
     } catch (error) {
-      // 清理超时检查
+      // Clean up timeout check
       if (timeoutCheckInterval) {
         clearInterval(timeoutCheckInterval);
       }
       
+      const elapsed = Date.now() - startTime;
       const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : '';
       
-      // 添加超时相关的提示
-      if (message.includes('timeout')) {
-        response.appendResponseLine(`\n⏱️  **Timeout Error**: ${message}\n`);
-        response.appendResponseLine('**Possible causes**:');
-        response.appendResponseLine('- Extension is taking too long to restart');
-        response.appendResponseLine('- Extension crashed during reload');
-        response.appendResponseLine('- Service Worker failed to activate\n');
-        response.appendResponseLine('**Suggestions**:');
-        response.appendResponseLine('- Try again with `waitForReady=false` and `captureErrors=false`');
-        response.appendResponseLine('- Check if extension can be manually reloaded in chrome://extensions/');
-        response.appendResponseLine('- Use `diagnose_extension_errors` to check for startup errors');
+      // Detailed error logging
+      console.error(`\n${'!'.repeat(80)}`);
+      console.error(`[reload_extension] ERROR after ${elapsed}ms`);
+      console.error(`Session: ${sessionInfo}`);
+      console.error(`Token: ${tokenInfo}`);
+      console.error(`Extension: ${extensionId}`);
+      console.error(`Error: ${message}`);
+      if (stack) {
+        console.error(`Stack trace:\n${stack}`);
       }
+      console.error(`${'!'.repeat(80)}\n`);
       
-      throw new Error(`Failed to reload extension: ${message}`);
+      // ✅ Following navigate_page_history pattern: simple user message
+      // (Detailed error已记录到console用于调试)
+      response.appendResponseLine(
+        'Unable to reload extension. The operation failed or timed out. Check console logs for details.'
+      );
+    } finally {
+      // ✅ Use finally to ensure cleanup, will execute regardless
+      if (timeoutCheckInterval) {
+        clearInterval(timeoutCheckInterval);
+        timeoutCheckInterval = null;
+        console.log(`[reload_extension] Timeout interval cleared`);
+      }
     }
+    
+    // ✅ Following navigate_page_history pattern: setIncludePages outside try-catch-finally
+    response.setIncludePages(true);
   },
 });
 
@@ -348,10 +415,13 @@ The code runs with full extension permissions and has access to all chrome.* API
       const contexts = await context.getExtensionContexts(extensionId);
       const backgroundContext = contexts.find(ctx => ctx.isPrimary);
 
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!backgroundContext) {
-        throw new Error(
-          `No background context found for extension ${extensionId}`,
-        );
+        const extensions = await context.getExtensions();
+        const extension = extensions.find(ext => ext.id === extensionId);
+        reportNoBackgroundContext(response, extensionId, extension);
+        response.setIncludePages(true);
+        return;
       }
 
       const targetId = contextId || backgroundContext.targetId;
@@ -377,53 +447,13 @@ The code runs with full extension permissions and has access to all chrome.* API
       response.appendResponseLine(`\n**Code**:\n\`\`\`javascript\n${code}\n\`\`\``);
       response.appendResponseLine(`\n**Result**:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``);
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      
-      response.appendResponseLine(`# ❌ Code Evaluation Failed\n`);
-      response.appendResponseLine(`**Extension ID**: ${extensionId}`);
-      if (contextId) {
-        response.appendResponseLine(`**Context ID**: ${contextId}`);
-      }
-      response.appendResponseLine(`\n**Code**:\n\`\`\`javascript\n${code}\n\`\`\``);
-      response.appendResponseLine(`\n**Error**: ${message}\n`);
-      
-      // Smart detection of Service Worker related errors
-      if (
-        message.includes('No background context found') ||
-        message.includes('No background context') ||
-        message.includes('Service Worker') ||
-        message.includes('inactive') ||
-        message.includes('not running') ||
-        message.includes('context') && message.includes('not found')
-      ) {
-        response.appendResponseLine(`## 🔴 Service Worker Not Active\n`);
-        response.appendResponseLine(`This error occurs when trying to execute code in an inactive Service Worker.\n`);
-        response.appendResponseLine(`**Solution** (3 simple steps):`);
-        response.appendResponseLine(`1. Verify SW status: \`list_extensions\``);
-        response.appendResponseLine(`   - Look for 🔴 Inactive or 🟢 Active status`);
-        response.appendResponseLine(`2. Activate SW: \`activate_extension_service_worker\` with extensionId="${extensionId}"`);
-        response.appendResponseLine(`   - This wakes up the Service Worker`);
-        response.appendResponseLine(`3. Retry code execution: \`evaluate_in_extension\` with same code\n`);
-        response.appendResponseLine(`**Why this happens**: MV3 Service Workers are ephemeral and sleep after ~30s of inactivity.`);
-      } else if (message.includes('SyntaxError') || message.includes('Unexpected token')) {
-        response.appendResponseLine(`## 🐛 JavaScript Syntax Error\n`);
-        response.appendResponseLine(`**Possible issues**:`);
-        response.appendResponseLine(`- Check for typos in variable/function names`);
-        response.appendResponseLine(`- Ensure proper quotes and brackets`);
-        response.appendResponseLine(`- Verify the code is valid JavaScript`);
-        response.appendResponseLine(`- Try wrapping expressions in parentheses: \`(expression)\``);
-      } else {
-        response.appendResponseLine(`**Possible causes**:`);
-        response.appendResponseLine('- Syntax error in JavaScript code');
-        response.appendResponseLine('- Extension context is not active');
-        response.appendResponseLine('- Missing permissions for the API being used');
-        response.appendResponseLine('- The extension doesn\'t have access to the chrome.* API you\'re calling');
-        response.appendResponseLine('\n💡 **Debugging tip**: Check extension console in DevTools for more details');
-      }
-
-      response.setIncludePages(true);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to evaluate code in extension. The extension may be inactive or the code has syntax errors.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });

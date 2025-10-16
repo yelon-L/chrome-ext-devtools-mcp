@@ -5,15 +5,17 @@
  */
 
 /**
- * Content Script 注入状态检查工具
+ * Content Script injection status checker tool
  * 
- * 检查 Content Script 是否成功注入到页面
+ * Check if Content Scripts are successfully injected into pages
  */
 
 import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {EXTENSION_NOT_FOUND, MANIFEST_NOT_AVAILABLE} from './errors.js';
+import {reportExtensionNotFound, reportResourceUnavailable} from '../utils/ErrorReporting.js';
 
 export const checkContentScriptInjection = defineTool({
   name: 'check_content_script_injection',
@@ -71,18 +73,29 @@ export const checkContentScriptInjection = defineTool({
     } = request.params;
 
     try {
-      // 1. 获取扩展信息
+      // 1. Get extension information
       const extensions = await context.getExtensions();
       const extension = extensions.find(ext => ext.id === extensionId);
 
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!extension) {
-        throw new Error(`Extension ${extensionId} not found`);
+        reportExtensionNotFound(response, extensionId, extensions);
+        response.setIncludePages(true);
+        return;
       }
 
       const manifest = extension.manifest;
       
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!manifest) {
-        throw new Error(`Manifest data not available for extension ${extensionId}`);
+        reportResourceUnavailable(
+          response,
+          'Manifest',
+          extensionId,
+          'Extension manifest data is being loaded or unavailable'
+        );
+        response.setIncludePages(true);
+        return;
       }
       
       const contentScripts = manifest.content_scripts || [];
@@ -104,7 +117,7 @@ export const checkContentScriptInjection = defineTool({
         response.appendResponseLine(`**Mode**: Pattern analysis only\n`);
       }
 
-      // 2. 检查每个 content script 规则
+      // 2. Check each content script rule
       response.appendResponseLine(`## Content Script Rules (${contentScripts.length})\n`);
 
       const matchResults: Array<{
@@ -247,11 +260,14 @@ export const checkContentScriptInjection = defineTool({
       response.appendResponseLine(`window.MY_EXTENSION_LOADED === true`);
       response.appendResponseLine('```');
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to check content script injection: ${message}`);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to check content script injection. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });
 

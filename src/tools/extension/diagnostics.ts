@@ -5,15 +5,17 @@
  */
 
 /**
- * 扩展错误诊断工具
+ * Extension error diagnosis tool
  * 
- * 提供一键诊断扩展健康状况的功能
+ * Provides one-click extension health diagnosis
  */
 
 import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {EXTENSION_NOT_FOUND} from './errors.js';
+import {reportExtensionNotFound} from '../utils/ErrorReporting.js';
 
 export const diagnoseExtensionErrors = defineTool({
   name: 'diagnose_extension_errors',
@@ -64,12 +66,15 @@ export const diagnoseExtensionErrors = defineTool({
     } = request.params;
 
     try {
-      // 1. 获取扩展详情
+      // 1. Get extension details
       const extensions = await context.getExtensions();
       const extension = extensions.find(ext => ext.id === extensionId);
 
+      // ✅ Following close_page pattern: return info instead of throwing
       if (!extension) {
-        throw new Error(`Extension ${extensionId} not found`);
+        reportExtensionNotFound(response, extensionId, extensions);
+        response.setIncludePages(true);
+        return;
       }
 
       response.appendResponseLine(`# Extension Health Diagnosis\n`);
@@ -78,7 +83,7 @@ export const diagnoseExtensionErrors = defineTool({
       response.appendResponseLine(`**Manifest Version**: ${extension.manifestVersion}`);
       response.appendResponseLine(`**Status**: ${extension.enabled ? '✅ Enabled' : '❌ Disabled'}\n`);
 
-      // 2. 收集错误日志
+      // 2. Collect error logs
       const sinceTime = Date.now() - timeRange * 60 * 1000;
       const logsResult = await context.getExtensionLogs(extensionId, {
         capture: true,
@@ -88,7 +93,7 @@ export const diagnoseExtensionErrors = defineTool({
 
       const logs = logsResult.logs.filter(log => log.timestamp >= sinceTime);
       
-      // 过滤错误和警告
+      // Filter errors and warnings
       const levels = includeWarnings ? ['error', 'warn'] : ['error'];
       const errorLogs = logs.filter(log => levels.includes(log.level || 'log'));
 
@@ -98,7 +103,7 @@ export const diagnoseExtensionErrors = defineTool({
         response.appendResponseLine('✅ **No errors detected!**\n');
         response.appendResponseLine('The extension appears to be running correctly.');
         
-        // 检查其他潜在问题
+        // Check other potential issues
         await checkPotentialIssues(extension, context, response);
         response.setIncludePages(true);
         return;
@@ -106,7 +111,7 @@ export const diagnoseExtensionErrors = defineTool({
 
       response.appendResponseLine(`**Total Issues Found**: ${errorLogs.length}`);
       
-      // 3. 按类型分类错误
+      // 3. Classify errors by type
       const errorsByType = classifyErrors(errorLogs);
       
       response.appendResponseLine(`\n### Error Breakdown\n`);
@@ -115,7 +120,7 @@ export const diagnoseExtensionErrors = defineTool({
         response.appendResponseLine(`- ${icon} **${type}**: ${errors.length} occurrences`);
       }
 
-      // 4. 显示最频繁的错误
+      // 4. Show most frequent errors
       response.appendResponseLine(`\n## Most Frequent Errors\n`);
       const errorFrequency = getErrorFrequency(errorLogs);
       const topErrors = errorFrequency.slice(0, 5);
@@ -129,7 +134,7 @@ export const diagnoseExtensionErrors = defineTool({
         response.appendResponseLine('');
       });
 
-      // 5. 错误详情
+      // 5. Error details
       response.appendResponseLine(`## Detailed Error Log\n`);
       errorLogs.slice(0, 20).forEach(log => {
         const time = new Date(log.timestamp).toLocaleTimeString();
@@ -153,7 +158,7 @@ export const diagnoseExtensionErrors = defineTool({
         response.appendResponseLine(`\n*...and ${errorLogs.length - 20} more errors*\n`);
       }
 
-      // 6. 诊断建议
+      // 6. Diagnostic recommendations
       response.appendResponseLine(`## 🔧 Diagnostic Recommendations\n`);
       const recommendations = generateRecommendations(extension, errorsByType, errorLogs);
       recommendations.forEach(rec => {
@@ -165,21 +170,24 @@ export const diagnoseExtensionErrors = defineTool({
         response.appendResponseLine('');
       });
 
-      // 7. 健康评分
+      // 7. Health score
       const healthScore = calculateHealthScore(errorLogs.length, timeRange);
       response.appendResponseLine(`## Health Score: ${getHealthScoreEmoji(healthScore)} ${healthScore}/100\n`);
       response.appendResponseLine(getHealthScoreDescription(healthScore));
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to diagnose extension: ${message}`);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to diagnose extension. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });
 
 /**
- * 检查其他潜在问题（即使没有错误日志）
+ * Check other potential issues (even without error logs)
  */
 async function checkPotentialIssues(
   extension: any,
@@ -188,7 +196,7 @@ async function checkPotentialIssues(
 ): Promise<void> {
   response.appendResponseLine(`\n## Potential Issues Check\n`);
   
-  // 检查 Service Worker 状态（MV3）
+  // Check Service Worker status (MV3)
   if (extension.manifestVersion === 3) {
     if (extension.serviceWorkerStatus === 'inactive') {
       response.appendResponseLine('⚠️ **Service Worker Inactive**');
@@ -199,7 +207,7 @@ async function checkPotentialIssues(
     }
   }
 
-  // 检查上下文
+  // Check contexts
   try {
     const contexts = await context.getExtensionContexts(extension.id);
     if (contexts.length === 0) {
@@ -214,7 +222,7 @@ async function checkPotentialIssues(
 }
 
 /**
- * 按类型分类错误
+ * Classify errors by type
  */
 function classifyErrors(logs: any[]): Record<string, any[]> {
   const classified: Record<string, any[]> = {
@@ -241,14 +249,14 @@ function classifyErrors(logs: any[]): Record<string, any[]> {
     }
   }
 
-  // 移除空分类
+  // Remove empty classifications
   return Object.fromEntries(
     Object.entries(classified).filter(([_, errors]) => errors.length > 0)
   );
 }
 
 /**
- * 获取错误类型图标
+ * Get error type icon
  */
 function getErrorIcon(type: string): string {
   const icons: Record<string, string> = {
@@ -262,7 +270,7 @@ function getErrorIcon(type: string): string {
 }
 
 /**
- * 统计错误频率
+ * Calculate error frequency
  */
 function getErrorFrequency(logs: any[]): Array<{message: string; source?: string; count: number}> {
   const frequency = new Map<string, {message: string; source?: string; count: number}>();
@@ -286,7 +294,7 @@ function getErrorFrequency(logs: any[]): Array<{message: string; source?: string
 }
 
 /**
- * 生成诊断建议
+ * Generate diagnostic recommendations
  */
 function generateRecommendations(
   extension: any,
@@ -295,7 +303,7 @@ function generateRecommendations(
 ): Array<{icon: string; title: string; description: string; solution?: string}> {
   const recommendations: Array<{icon: string; title: string; description: string; solution?: string}> = [];
 
-  // Service Worker 建议
+  // Service Worker recommendations
   if (extension.manifestVersion === 3 && extension.serviceWorkerStatus !== 'active') {
     recommendations.push({
       icon: '🔄',
@@ -305,7 +313,7 @@ function generateRecommendations(
     });
   }
 
-  // JavaScript 错误建议
+  // JavaScript error recommendations
   if (errorsByType['JavaScript Errors']?.length > 0) {
     recommendations.push({
       icon: '🐛',
@@ -315,7 +323,7 @@ function generateRecommendations(
     });
   }
 
-  // API 错误建议
+  // API error recommendations
   if (errorsByType['Chrome API Errors']?.length > 0) {
     recommendations.push({
       icon: '🔌',
@@ -325,7 +333,7 @@ function generateRecommendations(
     });
   }
 
-  // 权限错误建议
+  // Permission error recommendations
   if (errorsByType['Permission Errors']?.length > 0) {
     recommendations.push({
       icon: '🔒',
@@ -335,7 +343,7 @@ function generateRecommendations(
     });
   }
 
-  // 网络错误建议
+  // Network error recommendations
   if (errorsByType['Network Errors']?.length > 0) {
     recommendations.push({
       icon: '🌐',
@@ -345,7 +353,7 @@ function generateRecommendations(
     });
   }
 
-  // 高频错误建议
+  // High frequency error recommendations
   if (allErrors.length > 50) {
     recommendations.push({
       icon: '🔥',
@@ -355,7 +363,7 @@ function generateRecommendations(
     });
   }
 
-  // 默认建议
+  // Default recommendations
   if (recommendations.length === 0 && allErrors.length > 0) {
     recommendations.push({
       icon: '💡',
@@ -369,13 +377,13 @@ function generateRecommendations(
 }
 
 /**
- * 计算健康评分
+ * Calculate health score
  */
 function calculateHealthScore(errorCount: number, timeRangeMinutes: number): number {
-  // 基础分数 100
+  // Base score 100
   let score = 100;
   
-  // 每个错误扣分（根据时间范围调整）
+  // Deduct points per error (adjusted by time range)
   const errorPenalty = Math.min(errorCount * (10 / timeRangeMinutes), 80);
   score -= errorPenalty;
   
@@ -383,7 +391,7 @@ function calculateHealthScore(errorCount: number, timeRangeMinutes: number): num
 }
 
 /**
- * 获取健康评分表情
+ * Get health score emoji
  */
 function getHealthScoreEmoji(score: number): string {
   if (score >= 90) return '🟢';
@@ -393,7 +401,7 @@ function getHealthScoreEmoji(score: number): string {
 }
 
 /**
- * 获取健康评分描述
+ * Get health score description
  */
 function getHealthScoreDescription(score: number): string {
   if (score >= 90) {

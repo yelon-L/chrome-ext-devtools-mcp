@@ -5,9 +5,9 @@
  */
 
 /**
- * 扩展 Storage 监控工具
+ * Extension Storage monitoring tool
  * 
- * 实时监控扩展 Storage 的变化
+ * Monitor extension Storage changes in real-time
  */
 
 import {z} from 'zod';
@@ -16,7 +16,7 @@ import {ToolCategories} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
 /**
- * Storage 变化事件类型定义（匹配 Context 返回类型）
+ * Storage change event type definition (matches Context return type)
  */
 interface ExtensionStorageChange {
   timestamp: number;
@@ -25,7 +25,7 @@ interface ExtensionStorageChange {
 }
 
 /**
- * 监控扩展 Storage 变化
+ * Monitor extension Storage changes
  * 实时捕获 chrome.storage.onChanged 事件
  */
 export const watchExtensionStorage = defineTool({
@@ -108,7 +108,7 @@ Useful for debugging data persistence, state management, and synchronization iss
           response.appendResponseLine(`**Time**: ${time}`);
           response.appendResponseLine(`**Keys Changed**: ${changedKeys.join(', ')}\n`);
 
-          // 详细显示每个键的变化
+          // Show detailed changes for each key
           changedKeys.forEach(key => {
             const {oldValue, newValue} = change.changes[key];
             
@@ -136,7 +136,7 @@ Useful for debugging data persistence, state management, and synchronization iss
           });
         });
 
-        // 统计信息
+        // Statistics
         const byStorageType: Record<string, number> = {};
         changes.forEach((change: ExtensionStorageChange) => {
           byStorageType[change.storageArea] = (byStorageType[change.storageArea] || 0) + 1;
@@ -149,7 +149,7 @@ Useful for debugging data persistence, state management, and synchronization iss
           response.appendResponseLine(`  - ${type}: ${count} changes`);
         });
 
-        // 分析频繁变化
+        // Analyze frequent changes
         const allKeys: Record<string, number> = {};
         changes.forEach((change: ExtensionStorageChange) => {
           Object.keys(change.changes).forEach((key: string) => {
@@ -169,10 +169,13 @@ Useful for debugging data persistence, state management, and synchronization iss
         }
       }
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to watch storage: ${message}`);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to watch storage changes. The extension may be inactive or disabled.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });

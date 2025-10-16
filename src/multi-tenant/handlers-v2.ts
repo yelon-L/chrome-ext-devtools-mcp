@@ -6,13 +6,23 @@
 import type http from 'node:http';
 import {URL} from 'node:url';
 import type {PersistentStoreV2, BrowserRecordV2, UserRecordV2} from './storage/PersistentStoreV2.js';
+import type {UnifiedStorage} from './storage/UnifiedStorageAdapter.js';
 import {detectBrowser} from './utils/browser-detector.js';
+
+/**
+ * 多租户服务器上下文接口
+ * 定义处理函数所需的依赖
+ */
+export interface MultiTenantServerContext {
+  readRequestBody(req: http.IncomingMessage): Promise<string>;
+  getUnifiedStorage(): UnifiedStorage;
+}
 
 /**
  * 注册用户 V2（使用邮箱）
  */
 export async function handleRegisterUserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
@@ -67,7 +77,7 @@ export async function handleRegisterUserV2(
  * 获取用户信息 V2
  */
 export async function handleGetUserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -111,7 +121,7 @@ export async function handleGetUserV2(
  * 更新用户名 V2
  */
 export async function handleUpdateUsernameV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -137,6 +147,11 @@ export async function handleUpdateUsernameV2(
     await this.getUnifiedStorage().updateUsername(userId, username);
     
     const user = await this.getUnifiedStorage().getUserByIdAsync(userId);
+    if (!user) {
+      res.writeHead(404, {'Content-Type': 'application/json'});
+      res.end(JSON.stringify({error: 'User not found after update'}));
+      return;
+    }
     
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -157,7 +172,7 @@ export async function handleUpdateUsernameV2(
  * 删除用户 V2
  */
 export async function handleDeleteUserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -191,7 +206,7 @@ export async function handleDeleteUserV2(
  * 列出所有用户 V2
  */
 export async function handleListUsersV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
@@ -219,7 +234,7 @@ export async function handleListUsersV2(
  * 绑定浏览器 V2
  */
 export async function handleBindBrowserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -304,7 +319,7 @@ export async function handleBindBrowserV2(
  * 列出用户的浏览器 V2
  */
 export async function handleListBrowsersV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -344,7 +359,7 @@ export async function handleListBrowsersV2(
  * 获取单个浏览器信息 V2
  */
 export async function handleGetBrowserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -388,7 +403,7 @@ export async function handleGetBrowserV2(
  * 更新浏览器信息 V2
  */
 export async function handleUpdateBrowserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL
@@ -417,7 +432,7 @@ export async function handleUpdateBrowserV2(
     
     // 如果更新 browserURL，需要验证连接
     if (browserURL && browserURL !== browser.browserURL) {
-      const browserDetection = await this.detectBrowser(browserURL);
+      const browserDetection = await detectBrowser(browserURL);
       
       if (!browserDetection.connected) {
         res.writeHead(400, {'Content-Type': 'application/json'});
@@ -442,6 +457,11 @@ export async function handleUpdateBrowserV2(
     });
     
     const updatedBrowser = await this.getUnifiedStorage().getBrowserAsync(browser.browserId);
+    if (!updatedBrowser) {
+      res.writeHead(404, {'Content-Type': 'application/json'});
+      res.end(JSON.stringify({error: 'Browser not found after update'}));
+      return;
+    }
     
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -464,7 +484,7 @@ export async function handleUpdateBrowserV2(
  * 解绑浏览器 V2
  */
 export async function handleUnbindBrowserV2(
-  this: any,
+  this: MultiTenantServerContext,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL

@@ -5,9 +5,9 @@
  */
 
 /**
- * 扩展上下文管理工具
+ * Extension context management tool
  * 
- * 提供上下文列表和切换功能
+ * Provides context listing and switching functionality
  */
 
 import z from 'zod';
@@ -153,19 +153,13 @@ Use list_extension_contexts first to get available Target IDs.`,
       response.appendResponseLine('- Use inspect_extension_storage to check storage');
       response.appendResponseLine('- Use get_extension_logs to view logs from this context');
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      response.appendResponseLine(`# Error Switching Context\n`);
-      response.appendResponseLine(`❌ Failed to switch to context \`${targetId}\`\n`);
-      response.appendResponseLine(`**Error**: ${message}\n`);
-      response.appendResponseLine(`**Possible Causes**:`);
-      response.appendResponseLine('- Invalid Target ID');
-      response.appendResponseLine('- Context has been closed');
-      response.appendResponseLine('- Extension has been disabled or reloaded');
-      response.appendResponseLine('\nUse list_extension_contexts to see current available contexts.');
-      
-      response.setIncludePages(true);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to switch extension context. The context may no longer exist or the extension was reloaded.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });

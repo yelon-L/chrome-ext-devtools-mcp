@@ -10,10 +10,21 @@
  * 使用 PostgreSQL 数据库作为存储后端
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+import type {Kysely} from 'kysely';
 import type * as pg from 'pg';
-import {logger} from '../../logger.js';
 import type {StorageAdapter} from './StorageAdapter.js';
 import type {UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
+import {createLogger} from '../utils/Logger.js';
+import {StorageOperationError} from '../errors/index.js';
+import {createDB} from './db.js';
+import type {Database} from './schema.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // @ts-ignore - pg module loaded at runtime
 let Pool: typeof pg.Pool;
@@ -45,6 +56,10 @@ export interface PostgreSQLConfig {
 export class PostgreSQLStorageAdapter implements StorageAdapter {
   private pool: pg.Pool;
   private config: PostgreSQLConfig;
+  private logger = createLogger('PostgreSQL');
+  private migrationsDir = path.join(__dirname, 'migrations');
+  private migrationsTable = 'pgmigrations';
+  private db: Kysely<Database>;
 
   constructor(config: PostgreSQLConfig) {
     this.config = config;
@@ -58,31 +73,142 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
       idleTimeoutMillis: config.idleTimeoutMillis || 30000,
       connectionTimeoutMillis: config.connectionTimeoutMillis || 5000,
     });
+    
+    // 创建Kysely实例
+    this.db = createDB(this.pool);
   }
 
   /**
-   * 初始化存储（创建表）
+   * 初始化存储（运行迁移）
    */
   async initialize(): Promise<void> {
-    logger('[PostgreSQLAdapter] 初始化数据库连接');
+    this.logger.info('初始化数据库连接', {
+      host: this.config.host,
+      port: this.config.port,
+      database: this.config.database,
+    });
 
     try {
       // 测试连接
       const client = await this.pool.connect();
-      logger('[PostgreSQLAdapter] 数据库连接成功');
+      this.logger.info('数据库连接成功');
       client.release();
 
-      // 创建表
-      await this.createTables();
-      logger('[PostgreSQLAdapter] 表结构初始化完成');
+      // 运行迁移（替代createTables）
+      await this.runMigrations();
+      this.logger.info('数据库迁移完成');
     } catch (error) {
-      logger(`[PostgreSQLAdapter] ❌ 初始化失败: ${error}`);
-      throw error;
+      this.logger.error('初始化失败', error as Error);
+      throw new StorageOperationError('initialize', (error as Error).message, {
+        host: this.config.host,
+        database: this.config.database,
+      });
     }
   }
 
   /**
-   * 创建数据库表
+   * 运行数据库迁移
+   */
+  private async runMigrations(): Promise<void> {
+    // 确保迁移历史表存在
+    await this.ensureMigrationsTable();
+
+    // 获取已应用的迁移
+    const appliedMigrations = await this.getAppliedMigrations();
+
+    // 获取所有迁移文件
+    const allFiles = this.getMigrationFiles();
+
+    // 过滤待应用的迁移
+    const pendingMigrations = allFiles.filter(f => !appliedMigrations.has(f));
+
+    if (pendingMigrations.length === 0) {
+      this.logger.info('没有待应用的迁移');
+      return;
+    }
+
+    this.logger.info(`发现 ${pendingMigrations.length} 个待应用的迁移`);
+
+    // 应用每个待应用的迁移
+    for (const file of pendingMigrations) {
+      await this.runMigration(file);
+    }
+  }
+
+  /**
+   * 确保迁移历史表存在
+   */
+  private async ensureMigrationsTable(): Promise<void> {
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS ${this.migrationsTable} (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        run_on TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+  }
+
+  /**
+   * 获取已应用的迁移
+   */
+  private async getAppliedMigrations(): Promise<Set<string>> {
+    const result = await this.pool.query(
+      `SELECT name FROM ${this.migrationsTable} ORDER BY id`
+    );
+    return new Set(result.rows.map(row => row.name));
+  }
+
+  /**
+   * 获取所有迁移文件
+   */
+  private getMigrationFiles(): string[] {
+    if (!fs.existsSync(this.migrationsDir)) {
+      this.logger.warn(`迁移目录不存在: ${this.migrationsDir}`);
+      return [];
+    }
+
+    const files = fs.readdirSync(this.migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
+    return files;
+  }
+
+  /**
+   * 运行单个迁移
+   */
+  private async runMigration(filename: string): Promise<void> {
+    const filePath = path.join(this.migrationsDir, filename);
+    const sql = fs.readFileSync(filePath, 'utf-8');
+
+    this.logger.info(`应用迁移: ${filename}`);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 执行迁移SQL
+      await client.query(sql);
+
+      // 记录迁移历史
+      await client.query(
+        `INSERT INTO ${this.migrationsTable} (name) VALUES ($1)`,
+        [filename]
+      );
+
+      await client.query('COMMIT');
+      this.logger.info(`迁移成功: ${filename}`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.logger.error(`迁移失败: ${filename}`, error as Error);
+      throw new StorageOperationError('migration', `Failed to apply ${filename}`, error);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 创建数据库表（废弃，仅用于向后兼容）
+   * @deprecated 使用 runMigrations() 替代
    */
   private async createTables(): Promise<void> {
     const client = await this.pool.connect();
@@ -137,10 +263,10 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
       `);
 
       await client.query('COMMIT');
-      logger('[PostgreSQLAdapter] 表创建成功');
+      this.logger.warn('⚠️  使用了废弃的createTables方法，请使用迁移框架');
     } catch (error) {
       await client.query('ROLLBACK');
-      logger(`[PostgreSQLAdapter] ⚠️  表创建失败: ${error}`);
+      this.logger.warn('表创建失败（可能已存在）', error as Error);
       // 不抛出错误，表可能已存在
     } finally {
       client.release();
@@ -151,7 +277,7 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
    * 关闭连接池
    */
   async close(): Promise<void> {
-    logger('[PostgreSQLAdapter] 关闭数据库连接');
+    this.logger.info('关闭数据库连接');
     await this.pool.end();
   }
 
@@ -160,82 +286,74 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
   // ============================================================================
 
   async registerUser(user: UserRecordV2): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO mcp_users (user_id, email, username, registered_at, updated_at, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        user.userId,
-        user.email,
-        user.username,
-        user.registeredAt,
-        user.updatedAt || null,
-        JSON.stringify(user.metadata || {}),
-      ]
-    );
+    await this.db
+      .insertInto('mcp_users')
+      .values({
+        user_id: user.userId,
+        email: user.email,
+        username: user.username,
+        registered_at: user.registeredAt,
+        updated_at: user.updatedAt || null,
+        metadata: JSON.stringify(user.metadata || {}),
+      })
+      .execute();
   }
 
   async getUser(userId: string): Promise<UserRecordV2 | null> {
-    const result = await this.pool.query(
-      'SELECT * FROM mcp_users WHERE user_id = $1',
-      [userId]
-    );
+    const row = await this.db
+      .selectFrom('mcp_users')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
 
-    if (result.rows.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.mapUserRow(result.rows[0]);
+    return this.mapUserRow(row);
   }
 
   async getUserByEmail(email: string): Promise<UserRecordV2 | null> {
-    const result = await this.pool.query(
-      'SELECT * FROM mcp_users WHERE email = $1',
-      [email]
-    );
+    const row = await this.db
+      .selectFrom('mcp_users')
+      .selectAll()
+      .where('email', '=', email)
+      .executeTakeFirst();
 
-    if (result.rows.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.mapUserRow(result.rows[0]);
+    return this.mapUserRow(row);
   }
 
   async getAllUsers(): Promise<UserRecordV2[]> {
-    const result = await this.pool.query(
-      'SELECT * FROM mcp_users ORDER BY registered_at DESC'
-    );
+    const rows = await this.db
+      .selectFrom('mcp_users')
+      .selectAll()
+      .orderBy('registered_at', 'desc')
+      .execute();
 
-    return result.rows.map((row: any) => this.mapUserRow(row));
+    return rows.map(row => this.mapUserRow(row));
   }
 
   async updateUsername(userId: string, username: string): Promise<void> {
-    await this.pool.query(
-      `UPDATE mcp_users 
-       SET username = $1, updated_at = $2 
-       WHERE user_id = $3`,
-      [username, Date.now(), userId]
-    );
+    await this.db
+      .updateTable('mcp_users')
+      .set({
+        username,
+        updated_at: Date.now(),
+      })
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   async deleteUser(userId: string): Promise<void> {
-    // 使用显式事务确保数据一致性
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // CASCADE 会自动删除关联的浏览器，但使用显式事务更安全
-      await client.query(
-        'DELETE FROM mcp_users WHERE user_id = $1',
-        [userId]
-      );
-      
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    // CASCADE 会自动删除关联的浏览器
+    await this.db
+      .deleteFrom('mcp_users')
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   // ============================================================================
@@ -243,48 +361,48 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
   // ============================================================================
 
   async bindBrowser(browser: BrowserRecordV2): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO mcp_browsers 
-       (browser_id, user_id, browser_url, token_name, token, created_at_ts, last_connected_at, tool_call_count, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        browser.browserId,
-        browser.userId,
-        browser.browserURL,
-        browser.tokenName,
-        browser.token,
-        browser.createdAt,
-        browser.lastConnectedAt || null,
-        browser.toolCallCount || 0,
-        JSON.stringify(browser.metadata || {}),
-      ]
-    );
+    await this.db
+      .insertInto('mcp_browsers')
+      .values({
+        browser_id: browser.browserId,
+        user_id: browser.userId,
+        browser_url: browser.browserURL,
+        token_name: browser.tokenName,
+        token: browser.token,
+        created_at_ts: browser.createdAt,
+        last_connected_at: browser.lastConnectedAt || null,
+        tool_call_count: browser.toolCallCount || 0,
+        metadata: JSON.stringify(browser.metadata || {}),
+      })
+      .execute();
   }
 
   async getBrowser(browserId: string): Promise<BrowserRecordV2 | null> {
-    const result = await this.pool.query(
-      'SELECT * FROM mcp_browsers WHERE browser_id = $1',
-      [browserId]
-    );
+    const row = await this.db
+      .selectFrom('mcp_browsers')
+      .selectAll()
+      .where('browser_id', '=', browserId)
+      .executeTakeFirst();
 
-    if (result.rows.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.mapBrowserRow(result.rows[0]);
+    return this.mapBrowserRow(row);
   }
 
   async getBrowserByToken(token: string): Promise<BrowserRecordV2 | null> {
-    const result = await this.pool.query(
-      'SELECT * FROM mcp_browsers WHERE token = $1',
-      [token]
-    );
+    const row = await this.db
+      .selectFrom('mcp_browsers')
+      .selectAll()
+      .where('token', '=', token)
+      .executeTakeFirst();
 
-    if (result.rows.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.mapBrowserRow(result.rows[0]);
+    return this.mapBrowserRow(row);
   }
 
   async getUserBrowsers(userId: string): Promise<BrowserRecordV2[]> {

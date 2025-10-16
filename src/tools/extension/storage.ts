@@ -5,7 +5,7 @@
  */
 
 /**
- * 扩展存储检查工具
+ * Extension storage inspection tool
  */
 
 import z from 'zod';
@@ -96,40 +96,13 @@ export const inspectExtensionStorage = defineTool({
         response.appendResponseLine('```');
       }
 
-      response.setIncludePages(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      
-      response.appendResponseLine(`# ❌ Storage Inspection Failed\n`);
-      response.appendResponseLine(`**Extension ID**: ${extensionId}`);
-      response.appendResponseLine(`**Storage Type**: ${storageType}\n`);
-      response.appendResponseLine(`**Error**: ${message}\n`);
-      
-      // Smart detection of Service Worker related errors
-      if (
-        message.includes('No background context') ||
-        message.includes('Service Worker') ||
-        message.includes('inactive') ||
-        message.includes('not running') ||
-        message.includes('context') ||
-        message.toLowerCase().includes('sw')
-      ) {
-        response.appendResponseLine(`## 🔴 Service Worker Issue Detected\n`);
-        response.appendResponseLine(`For MV3 extensions, chrome.storage API requires an active Service Worker.\n`);
-        response.appendResponseLine(`**Solution**:`);
-        response.appendResponseLine(`1. Check SW status: \`list_extensions\` (look for 🔴 Inactive)`);
-        response.appendResponseLine(`2. Activate SW: \`activate_extension_service_worker\` with extensionId="${extensionId}"`);
-        response.appendResponseLine(`3. Retry: \`inspect_extension_storage\` with extensionId="${extensionId}"\n`);
-        response.appendResponseLine(`**Why this happens**: MV3 Service Workers become inactive after ~30 seconds of inactivity.`);
-      } else {
-        response.appendResponseLine(`**Possible causes**:`);
-        response.appendResponseLine(`- Extension is disabled or uninstalled`);
-        response.appendResponseLine(`- Extension ID is incorrect`);
-        response.appendResponseLine(`- Storage type "${storageType}" is not supported by this extension`);
-        response.appendResponseLine(`- Extension lacks storage permissions in manifest`);
-      }
-      
-      response.setIncludePages(true);
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to inspect extension storage. The extension may be inactive or lack storage permission.'
+      );
     }
+    
+    response.setIncludePages(true);
   },
 });

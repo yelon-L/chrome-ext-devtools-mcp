@@ -26,7 +26,7 @@ import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 
-import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser} from './browser.js';
+import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser, validateBrowserURL} from './browser.js';
 import type {Channel} from './browser.js';
 import {parseArguments} from './cli.js';
 import {logger} from './logger.js';
@@ -48,6 +48,28 @@ async function startSSEServer() {
   const args = parseArguments(VERSION);
   const port = parseInt(process.env.PORT || '32122', 10);
 
+  // 如果配置了 --browserUrl，先验证浏览器连接
+  if (args.browserUrl) {
+    try {
+      console.log('[SSE] Validating browser connection...');
+      await validateBrowserURL(args.browserUrl);
+      console.log('[SSE] Browser validation successful');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('\n❌ Browser Connection Validation Failed');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error(`Error: ${errorMessage}`);
+      console.error('');
+      console.error('📝 Please check:');
+      console.error('  1. Chrome is running with remote debugging enabled');
+      console.error(`  2. The browser URL is correct: ${args.browserUrl}`);
+      console.error('  3. No firewall is blocking the connection');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('');
+      process.exit(1);
+    }
+  }
+  
   // 启动浏览器
   console.log('[SSE] Initializing browser...');
   
@@ -57,7 +79,7 @@ async function startSSEServer() {
   }
   
   const devtools = args.experimentalDevtools ?? false;
-  const browser = args.browserUrl
+  let browser = args.browserUrl
     ? await ensureBrowserConnected({
         browserURL: args.browserUrl,
         devtools,
@@ -138,7 +160,7 @@ async function startSSEServer() {
 
     // SSE 连接
     if (url.pathname === '/sse' && req.method === 'GET') {
-      console.log('[SSE] 📡 新的 SSE 连接');
+      console.log('[SSE] 📡 New SSE connection');
 
       // 使用 SSEServerTransport - 它会自动发送 endpoint 事件
       const transport = new SSEServerTransport('/message', res);
@@ -151,6 +173,48 @@ async function startSSEServer() {
         {name: 'chrome-devtools-mcp', version: VERSION},
         {capabilities: {tools: {}}},
       );
+
+      // ✅ 验证并重连浏览器（如果配置了 browserURL）
+      if (args.browserUrl) {
+        try {
+          // 测试连接有效性
+          await browser.version();
+        } catch (error) {
+          console.warn('[SSE] ⚠️  Browser connection lost, attempting to reconnect...');
+          console.warn('[SSE] Error:', error instanceof Error ? error.message : String(error));
+          
+          try {
+            // ✅ 尝试重连浏览器
+            browser = await ensureBrowserConnected({
+              browserURL: args.browserUrl,
+              devtools,
+            });
+            
+            console.log('[SSE] ✅ Browser reconnected successfully');
+          } catch (reconnectError) {
+            // 重连失败，关闭连接
+            console.error('[SSE] ❌ Failed to reconnect to browser');
+            console.error('[SSE] Error:', reconnectError instanceof Error ? reconnectError.message : String(reconnectError));
+            
+            res.writeHead(503, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+            });
+            res.write('event: error\n');
+            res.write(`data: ${JSON.stringify({
+              code: -32000,
+              message: 'Browser connection lost and reconnection failed',
+              data: {
+                browserURL: args.browserUrl,
+                error: reconnectError instanceof Error ? reconnectError.message : String(reconnectError),
+              },
+            })}\n\n`);
+            res.end();
+            return;
+          }
+        }
+      }
 
       // 创建 Context
       const context = await McpContext.from(browser, logger);
@@ -166,10 +230,10 @@ async function startSSEServer() {
       const sessionId = transport.sessionId;
       sessions.set(sessionId, {transport, server: mcpServer, context});
 
-      console.log(`[SSE] ✅ 会话建立: ${sessionId}`);
+      console.log(`[SSE] ✅ Session established: ${sessionId}`);
 
       transport.onclose = () => {
-        console.log(`[SSE] 📴 会话关闭: ${sessionId}`);
+        console.log(`[SSE] 📴 Session closed: ${sessionId}`);
         sessions.delete(sessionId);
       };
 
@@ -200,7 +264,7 @@ async function startSSEServer() {
           const message = JSON.parse(body);
           await session.transport.handlePostMessage(req, res, message);
         } catch (error) {
-          console.error('[SSE] ❌ 错误:', error);
+          console.error('[SSE] ❌ Error:', error);
           res.writeHead(500, {'Content-Type': 'application/json'});
           res.end(JSON.stringify({
             error: error instanceof Error ? error.message : String(error),
@@ -217,36 +281,36 @@ async function startSSEServer() {
 
   // 错误处理
   httpServer.on('error', (error: NodeJS.ErrnoException) => {
-    console.error('\n[SSE] ❌ 服务器启动失败');
+    console.error('\n[SSE] ❌ Server failed to start');
     console.error('');
     
     if (error.code === 'EADDRINUSE') {
-      console.error(`❌ 端口 ${port} 已被占用`);
+      console.error(`❌ Port ${port} is already in use`);
       console.error('');
-      console.error('解决方案：');
-      console.error(`  1. 使用其他端口: --port ${port + 1}`);
-      console.error(`  2. 查找占用端口的进程:`);
+      console.error('Solutions:');
+      console.error(`  1. Use another port: --port ${port + 1}`);
+      console.error(`  2. Find the process using the port:`);
       console.error(`     Windows: netstat -ano | findstr ${port}`);
       console.error(`     Linux/Mac: lsof -i :${port}`);
-      console.error(`  3. 关闭占用端口的程序`);
+      console.error(`  3. Stop the program using the port`);
     } else if (error.code === 'EACCES') {
-      console.error(`❌ 权限不足，无法绑定端口 ${port}`);
+      console.error(`❌ Permission denied to bind port ${port}`);
       console.error('');
-      console.error('解决方案：');
-      console.error(`  1. 使用非特权端口 (>1024): --port 8080`);
-      console.error(`  2. Windows: 以管理员身份运行`);
-      console.error(`  3. Linux/Mac: 使用 sudo 或更改端口`);
+      console.error('Solutions:');
+      console.error(`  1. Use non-privileged port (>1024): --port 8080`);
+      console.error(`  2. Windows: Run as administrator`);
+      console.error(`  3. Linux/Mac: Use sudo or change port`);
     } else if (error.code === 'EADDRNOTAVAIL') {
-      console.error(`❌ 地址不可用`);
+      console.error(`❌ Address unavailable`);
       console.error('');
-      console.error('可能原因：');
-      console.error('  - 网络接口未启用');
-      console.error('  - 防火墙阻止');
+      console.error('Possible reasons:');
+      console.error('  - Network interface not enabled');
+      console.error('  - Firewall blocking');
     } else {
-      console.error(`❌ 错误: ${error.message}`);
-      console.error(`   错误码: ${error.code || '未知'}`);
+      console.error(`❌ Error: ${error.message}`);
+      console.error(`   Error code: ${error.code || 'unknown'}`);
       console.error('');
-      console.error('详细信息：');
+      console.error('Details:');
       console.error(error.stack || error);
     }
     
@@ -262,15 +326,15 @@ async function startSSEServer() {
   });
 
   process.on('SIGINT', async () => {
-    console.log('\n[SSE] 🛑 正在关闭...');
+    console.log('\n[SSE] 🛑 Shutting down...');
     for (const [id, session] of sessions) {
       await session.transport.close();
     }
     if (browser && shouldCloseBrowser()) {
-      console.log('[SSE] 🔒 关闭浏览器...');
+      console.log('[SSE] 🔒 Closing browser...');
       await browser.close();
     } else if (browser) {
-      console.log('[SSE] ✅ 保持外部浏览器运行（使用 --browserUrl 连接）');
+      console.log('[SSE] ✅ Keeping external browser running (connected via --browserUrl)');
     }
     httpServer.close(() => process.exit(0));
   });
@@ -459,6 +523,6 @@ function getTestPage(): string {
 }
 
 startSSEServer().catch(error => {
-  console.error('[SSE] ❌ 启动失败:', error);
+  console.error('[SSE] ❌ Failed to start:', error);
   process.exit(1);
 });

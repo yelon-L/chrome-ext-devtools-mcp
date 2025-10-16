@@ -25,7 +25,7 @@ import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 
 import type {Channel} from './browser.js';
-import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser} from './browser.js';
+import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser, validateBrowserURL, verifyBrowserConnection, getBrowserURL} from './browser.js';
 import {parseArguments} from './cli.js';
 import {logger} from './logger.js';
 import {McpContext} from './McpContext.js';
@@ -43,9 +43,45 @@ const sessions = new Map<string, {
   context: McpContext;
 }>();
 
+// 保存服务器配置（用于验证浏览器连接）
+const SERVER_CONFIG: {
+  browserURL?: string;
+  port: number;
+} = {
+  port: 32123,
+};
+
 async function startHTTPServer() {
   const args = parseArguments(VERSION);
   const port = parseInt(process.env.PORT || '32123', 10);
+  SERVER_CONFIG.port = port;
+  
+  // 保存 browserURL 配置
+  if (args.browserUrl) {
+    SERVER_CONFIG.browserURL = args.browserUrl;
+  }
+
+  // 如果配置了 --browserUrl，先验证浏览器连接
+  if (args.browserUrl) {
+    try {
+      console.log('[HTTP] Validating browser connection...');
+      await validateBrowserURL(args.browserUrl);
+      console.log('[HTTP] Browser validation successful');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('\n❌ Browser Connection Validation Failed');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error(`Error: ${errorMessage}`);
+      console.error('');
+      console.error('📝 Please check:');
+      console.error('  1. Chrome is running with remote debugging enabled');
+      console.error(`  2. The browser URL is correct: ${args.browserUrl}`);
+      console.error('  3. No firewall is blocking the connection');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('');
+      process.exit(1);
+    }
+  }
 
   // 启动浏览器
   console.log('[HTTP] Initializing browser...');
@@ -56,7 +92,7 @@ async function startHTTPServer() {
   }
   
   const devtools = args.experimentalDevtools ?? false;
-  const browser = args.browserUrl
+  let browser = args.browserUrl
     ? await ensureBrowserConnected({
         browserURL: args.browserUrl,
         devtools,
@@ -153,15 +189,15 @@ async function startHTTPServer() {
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: async (sessionId) => {
-            console.log(`[HTTP] ✅ 会话初始化: ${sessionId}`);
+            console.log(`[HTTP] ✅ Session initialized: ${sessionId}`);
             // 在会话初始化后保存 session
             if (sessionToStore) {
               sessions.set(sessionId, sessionToStore);
-              console.log(`[HTTP] 📦 会话已保存: ${sessionId}, 总会话数: ${sessions.size}`);
+              console.log(`[HTTP] 📦 Session saved: ${sessionId}, total sessions: ${sessions.size}`);
             }
           },
           onsessionclosed: async (sessionId) => {
-            console.log(`[HTTP] 📴 会话关闭: ${sessionId}`);
+            console.log(`[HTTP] 📴 Session closed: ${sessionId}`);
             sessions.delete(sessionId);
           },
         });
@@ -174,6 +210,44 @@ async function startHTTPServer() {
           {name: 'chrome-devtools-mcp', version: VERSION},
           {capabilities: {tools: {}}},
         );
+        
+        // ✅ 验证并重连浏览器（如果配置了 browserURL）
+        if (SERVER_CONFIG.browserURL) {
+          const isConnected = await verifyBrowserConnection(SERVER_CONFIG.browserURL);
+          if (!isConnected) {
+            console.warn('[HTTP] ⚠️  Browser connection verification failed');
+            console.warn('[HTTP] 🔄 Attempting to reconnect...');
+            
+            try {
+              // ✅ 尝试重连浏览器
+              browser = await ensureBrowserConnected({
+                browserURL: SERVER_CONFIG.browserURL,
+                devtools,
+              });
+              
+              console.log('[HTTP] ✅ Browser reconnected successfully');
+            } catch (reconnectError) {
+              // 重连失败，返回错误响应
+              console.error('[HTTP] ❌ Failed to reconnect to browser');
+              console.error('[HTTP] Error:', reconnectError instanceof Error ? reconnectError.message : String(reconnectError));
+              
+              res.writeHead(503, {'Content-Type': 'application/json'});
+              res.end(JSON.stringify({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32000,
+                  message: 'Browser connection lost and reconnection failed',
+                  data: {
+                    browserURL: SERVER_CONFIG.browserURL,
+                    error: reconnectError instanceof Error ? reconnectError.message : String(reconnectError),
+                    suggestion: 'Please ensure Chrome is running with --remote-debugging-port and restart the service if needed',
+                  },
+                },
+              }));
+              return;
+            }
+          }
+        }
         
         // 创建 Context
         const context = await McpContext.from(browser, logger);
@@ -201,36 +275,36 @@ async function startHTTPServer() {
 
   // 错误处理
   httpServer.on('error', (error: NodeJS.ErrnoException) => {
-    console.error('\n[HTTP] ❌ 服务器启动失败');
+    console.error('\n[HTTP] ❌ Server failed to start');
     console.error('');
     
     if (error.code === 'EADDRINUSE') {
-      console.error(`❌ 端口 ${port} 已被占用`);
+      console.error(`❌ Port ${port} is already in use`);
       console.error('');
-      console.error('解决方案：');
-      console.error(`  1. 使用其他端口: --port ${port + 1}`);
-      console.error(`  2. 查找占用端口的进程:`);
+      console.error('Solutions:');
+      console.error(`  1. Use another port: --port ${port + 1}`);
+      console.error(`  2. Find the process using the port:`);
       console.error(`     Windows: netstat -ano | findstr ${port}`);
       console.error(`     Linux/Mac: lsof -i :${port}`);
-      console.error(`  3. 关闭占用端口的程序`);
+      console.error(`  3. Stop the program using the port`);
     } else if (error.code === 'EACCES') {
-      console.error(`❌ 权限不足，无法绑定端口 ${port}`);
+      console.error(`❌ Permission denied to bind port ${port}`);
       console.error('');
-      console.error('解决方案：');
-      console.error(`  1. 使用非特权端口 (>1024): --port 8080`);
-      console.error(`  2. Windows: 以管理员身份运行`);
-      console.error(`  3. Linux/Mac: 使用 sudo 或更改端口`);
+      console.error('Solutions:');
+      console.error(`  1. Use non-privileged port (>1024): --port 8080`);
+      console.error(`  2. Windows: Run as administrator`);
+      console.error(`  3. Linux/Mac: Use sudo or change port`);
     } else if (error.code === 'EADDRNOTAVAIL') {
-      console.error(`❌ 地址不可用`);
+      console.error(`❌ Address unavailable`);
       console.error('');
-      console.error('可能原因：');
-      console.error('  - 网络接口未启用');
-      console.error('  - 防火墙阻止');
+      console.error('Possible reasons:');
+      console.error('  - Network interface not enabled');
+      console.error('  - Firewall blocking');
     } else {
-      console.error(`❌ 错误: ${error.message}`);
-      console.error(`   错误码: ${error.code || '未知'}`);
+      console.error(`❌ Error: ${error.message}`);
+      console.error(`   Error code: ${error.code || 'unknown'}`);
       console.error('');
-      console.error('详细信息：');
+      console.error('Details:');
       console.error(error.stack || error);
     }
     
@@ -246,15 +320,15 @@ async function startHTTPServer() {
   });
 
   process.on('SIGINT', async () => {
-    console.log('\n[HTTP] 🛑 正在关闭...');
+    console.log('\n[HTTP] 🛑 Shutting down...');
     for (const [id, session] of sessions) {
       await session.transport.close();
     }
     if (browser && shouldCloseBrowser()) {
-      console.log('[HTTP] 🔒 关闭浏览器...');
+      console.log('[HTTP] 🔒 Closing browser...');
       await browser.close();
     } else if (browser) {
-      console.log('[HTTP] ✅ 保持外部浏览器运行（使用 --browserUrl 连接）');
+      console.log('[HTTP] ✅ Keeping external browser running (connected via --browserUrl)');
     }
     httpServer.close(() => process.exit(0));
   });
@@ -401,6 +475,6 @@ function getTestPage(): string {
 }
 
 startHTTPServer().catch(error => {
-  console.error('[HTTP] ❌ 启动失败:', error);
+  console.error('[HTTP] ❌ Failed to start:', error);
   process.exit(1);
 });

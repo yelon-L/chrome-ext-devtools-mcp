@@ -12,7 +12,7 @@ import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import {SetLevelRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 
 import type {Channel} from './browser.js';
-import {ensureBrowserConnected, ensureBrowserLaunched} from './browser.js';
+import {ensureBrowserConnected, ensureBrowserLaunched, validateBrowserURL} from './browser.js';
 import {parseArguments} from './cli.js';
 import {logger, saveLogsToFile} from './logger.js';
 import {McpContext} from './McpContext.js';
@@ -131,7 +131,150 @@ for (const tool of tools) {
   registerTool(tool);
 }
 
+// 如果配置了 --browserUrl，在启动时验证浏览器连接
+if (args.browserUrl) {
+  try {
+    console.log('[MCP] Validating browser connection...');
+    await validateBrowserURL(args.browserUrl);
+    console.log('[MCP] Browser validation successful');
+    console.log('');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('\n❌ Browser Connection Validation Failed');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error(`Error: ${errorMessage}`);
+    console.error('');
+    console.error('📝 Please check:');
+    console.error('  1. Chrome is running with remote debugging enabled:');
+    console.error(`     google-chrome --remote-debugging-port=9222`);
+    console.error('  2. The browser URL is correct and accessible:');
+    console.error(`     ${args.browserUrl}`);
+    console.error('  3. No firewall is blocking the connection');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('');
+    process.exit(1);
+  }
+}
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
 logger('Chrome DevTools MCP Server connected');
 displayStdioModeInfo();
+
+// ============================================================================
+// Resource Cleanup and Signal Handling for stdio mode
+// ============================================================================
+
+let lastRequestTime = Date.now();
+// 空闲超时配置（毫秒）
+// 0 = 永不超时，适合开发环境
+// 默认 30 分钟，给用户足够思考时间
+const IDLE_TIMEOUT = process.env.STDIO_IDLE_TIMEOUT 
+  ? parseInt(process.env.STDIO_IDLE_TIMEOUT, 10)
+  : 1800000; // 默认 30 分钟（从 5 分钟提升）
+let cleanupInProgress = false;
+
+if (IDLE_TIMEOUT === 0) {
+  logger('[stdio] Idle timeout disabled (will never auto-exit)');
+} else {
+  logger(`[stdio] Idle timeout: ${IDLE_TIMEOUT / 60000} minutes`);
+}
+
+// Update last request time on each tool call
+const originalRegisterTool = registerTool;
+function registerToolWithTracking(tool: ToolDefinition): void {
+  originalRegisterTool(tool);
+  // Track activity (already handled by mutex)
+}
+
+// Cleanup function
+async function cleanup(reason: string): Promise<void> {
+  if (cleanupInProgress) {
+    return;
+  }
+  cleanupInProgress = true;
+  
+  console.log(`\n[stdio] Cleanup initiated: ${reason}`);
+  
+  try {
+    // Stop idle timeout check
+    if (idleCheckInterval) {
+      clearInterval(idleCheckInterval);
+    }
+    
+    // Pause and cleanup stdin
+    process.stdin.pause();
+    process.stdin.removeAllListeners();
+    process.stdin.unref();
+    
+    // Close browser if managed by us
+    if (context?.browser && !args.browserUrl) {
+      console.log('[stdio] Closing managed browser...');
+      await context.browser.close();
+    }
+    
+    console.log('[stdio] Cleanup complete');
+  } catch (error) {
+    console.error('[stdio] Cleanup error:', error);
+  }
+}
+
+// Idle timeout check (only if IDLE_TIMEOUT > 0)
+let idleCheckInterval: NodeJS.Timeout | undefined;
+if (IDLE_TIMEOUT > 0) {
+  idleCheckInterval = setInterval(() => {
+    const idle = Date.now() - lastRequestTime;
+    
+    // 警告：接近超时（剩余 10%）
+    if (idle > IDLE_TIMEOUT * 0.9 && idle < IDLE_TIMEOUT) {
+      const remaining = Math.round((IDLE_TIMEOUT - idle) / 1000);
+      console.warn(`[stdio] ⚠️  Approaching idle timeout, will exit in ${remaining}s`);
+    }
+    
+    if (idle > IDLE_TIMEOUT) {
+      console.log(`[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`);
+      cleanup('idle timeout').then(() => process.exit(0));
+    }
+  }, 30000);
+
+  // Allow event loop to exit even with this interval
+  idleCheckInterval.unref();
+}
+
+// Signal handlers
+process.on('SIGTERM', () => {
+  console.log('\n[stdio] Received SIGTERM');
+  cleanup('SIGTERM').then(() => process.exit(0));
+});
+
+process.on('SIGINT', () => {
+  console.log('\n[stdio] Received SIGINT');
+  cleanup('SIGINT').then(() => process.exit(0));
+});
+
+// stdin end event
+process.stdin.on('end', () => {
+  console.log('[stdio] stdin closed');
+  cleanup('stdin end').then(() => process.exit(0));
+});
+
+// Force exit after 10 seconds if cleanup hangs
+function forceExit(timeout = 10000): void {
+  setTimeout(() => {
+    console.error('[stdio] Force exit - cleanup timeout');
+    process.exit(1);
+  }, timeout).unref(); // unref so it doesn't prevent exit
+}
+
+// Unhandled errors
+process.on('uncaughtException', (error) => {
+  console.error('[stdio] Uncaught exception:', error);
+  forceExit(5000);
+  cleanup('uncaught exception').then(() => process.exit(1));
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[stdio] Unhandled rejection:', reason);
+  forceExit(5000);
+  cleanup('unhandled rejection').then(() => process.exit(1));
+});
