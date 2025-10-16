@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.11] - 2025-10-16
 
 ### Added
+- **Robust Reconnection Mechanism**: Comprehensive browser reconnection across all MCP modes
+  - **Streamable HTTP Mode**: Automatic reconnection with session persistence
+    - 100% tool recovery after browser restart (4/4 tools tested)
+    - Session-aware reconnection
+  - **SSE Mode**: Event stream reconnection
+    - 100% tool recovery after browser restart (4/4 tools tested)
+    - Maintains event stream continuity
+  - **Stdio Mode**: Process-based reconnection
+    - 100% tool recovery (5/5 tools tested)
+    - Each tool call creates a fresh connection
+  - **Multi-Tenant Mode**: Advanced connection pool with:
+    - Exponential backoff with jitter (5s, 10s, 20s)
+    - Connection pooling for multi-user support
+    - Automatic health checks and reconnection
+    - 3 retry attempts with smart backoff
+    - 10-second connection timeout
+
 - **Error Verbosity Configuration**: Smart error detail levels based on environment
   - `MINIMAL` mode for production (user-friendly messages only)
   - `STANDARD` mode for testing (+ error types)
