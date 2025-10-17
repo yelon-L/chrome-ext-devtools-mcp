@@ -27,6 +27,7 @@ export const listExtensionContexts = defineTool({
 - **options_page**: Options/settings pages
 - **devtools_page**: DevTools extension pages
 - **content_script**: Scripts injected into web pages
+- **offscreen**: Offscreen Document (MV3, background processing)
 
 **What you get**:
 - Context type and URL

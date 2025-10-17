@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension-debug-mcp",
-  "version": "0.8.12",
+  "version": "0.8.13",
   "description": "MCP server for Chrome Extension Debugging",
   "type": "module",
   "bin": "./build/src/index.js",

@@ -116,6 +116,8 @@ export class SessionManager {
       browser,
       createdAt: now,
       lastActivity: now,
+      // 单客户端模式下标记为持久连接
+      persistent: this.#config.persistentMode,
     };
 
     this.#sessions.set(sessionId, session);
@@ -126,7 +128,11 @@ export class SessionManager {
     }
     this.#userSessions.get(userId)!.add(sessionId);
 
-    this.#logger.info('会话已创建', {sessionId, userId});
+    this.#logger.info('会话已创建', {
+      sessionId, 
+      userId, 
+      persistent: session.persistent
+    });
 
     return session;
   }
@@ -256,12 +262,21 @@ export class SessionManager {
 
   /**
    * 清理过期会话
+   * 
+   * 持久连接会话永不超时，跳过清理
    */
   async cleanupExpiredSessions(): Promise<void> {
     const now = Date.now();
     const expiredSessions: string[] = [];
+    let skippedPersistent = 0;
 
     for (const [sessionId, session] of this.#sessions) {
+      // 跳过持久连接会话
+      if (session.persistent) {
+        skippedPersistent++;
+        continue;
+      }
+
       const inactive = now - session.lastActivity.getTime();
       if (inactive > this.#config.timeout) {
         expiredSessions.push(sessionId);
@@ -269,10 +284,18 @@ export class SessionManager {
     }
 
     if (expiredSessions.length === 0) {
+      if (skippedPersistent > 0) {
+        this.#logger.debug('跳过持久连接会话清理', {
+          persistent: skippedPersistent
+        });
+      }
       return;
     }
 
-    this.#logger.info('清理过期会话', {count: expiredSessions.length});
+    this.#logger.info('清理过期会话', {
+      count: expiredSessions.length,
+      persistent: skippedPersistent
+    });
 
     const deletePromises = expiredSessions.map(id => this.deleteSession(id));
     await Promise.all(deletePromises);

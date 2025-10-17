@@ -55,6 +55,8 @@ export interface SessionConfig {
   cleanupInterval: number;
   /** 最大会话数 */
   maxSessions?: number;
+  /** 持久连接模式（用于单客户端场景，禁用超时断连） */
+  persistentMode?: boolean;
 }
 
 /**
@@ -176,6 +178,9 @@ export function loadConfigFromEnv(version: string): MultiTenantConfig {
       maxSessions: process.env.MAX_SESSIONS 
         ? parseInt(process.env.MAX_SESSIONS, 10)
         : undefined,
+      // 默认逻辑：未设置 maxSessions 则自动启用持久连接模式（单客户端场景）
+      persistentMode: process.env.PERSISTENT_MODE === 'true' 
+        || (process.env.PERSISTENT_MODE !== 'false' && !process.env.MAX_SESSIONS),
     },
     
     browserPool: {
@@ -261,7 +266,10 @@ export function printConfig(config: MultiTenantConfig): void {
     console.log(`     - password: ${'*'.repeat(8)}`);
   }
   
-  console.log(`   Session: timeout=${config.session.timeout}ms, cleanup=${config.session.cleanupInterval}ms`);
+  console.log(`   Session: timeout=${config.session.timeout}ms, cleanup=${config.session.cleanupInterval}ms, persistent=${config.session.persistentMode}`);
+  if (config.session.maxSessions) {
+    console.log(`     - maxSessions: ${config.session.maxSessions}`);
+  }
   console.log(`   BrowserPool: healthCheck=${config.browserPool.healthCheckInterval}ms, maxReconnect=${config.browserPool.maxReconnectAttempts}`);
   
   if (config.security.allowedIPs) {

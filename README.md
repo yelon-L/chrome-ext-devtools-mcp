@@ -40,7 +40,7 @@ Enhanced from Google's [chrome-devtools-mcp](https://github.com/google/chrome-de
 - **Page Management** - Navigate, refresh, close
 - **Input Interaction** - Click, type, select
 - **Performance Analysis** - Lighthouse insights
-- **Network Monitoring** - Request interception and modification
+- **Network Monitoring** - HTTP requests & WebSocket frame inspection
 - **Screenshot & Snapshot** - Full page, element, PDF
 - **Script Execution** - Safe code injection
 
@@ -206,8 +206,9 @@ bash scripts/start-http-mcp.sh
 - `performance_start_trace`, `performance_stop_trace`
 - `performance_analyze_insight`
 
-**Network Monitoring (2 tools)**
+**Network Monitoring (3 tools)**
 - `list_network_requests`, `emulate_network`
+- `monitor_websocket_traffic` - Real-time WebSocket frame monitoring
 
 **Screenshot & Snapshot (2 tools)**
 - `take_screenshot`, `take_snapshot`

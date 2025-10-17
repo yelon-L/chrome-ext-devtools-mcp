@@ -30,6 +30,8 @@ export interface Session {
   createdAt: Date;
   /** 最后活跃时间 */
   lastActivity: Date;
+  /** 是否为持久连接（单客户端模式，永不超时） */
+  persistent?: boolean;
 }
 
 /**
@@ -54,4 +56,6 @@ export interface SessionConfig {
   cleanupInterval: number;
   /** 最大会话数 */
   maxSessions?: number;
+  /** 持久连接模式（用于单客户端场景，禁用超时断连） */
+  persistentMode?: boolean;
 }

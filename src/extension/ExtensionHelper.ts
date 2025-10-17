@@ -204,7 +204,7 @@ export class ExtensionHelper {
 
     // 3. 检查 offscreen document（MV3 新特性）
     if (url.includes('/offscreen')) {
-      return 'content_script'; // 暂时归类为 content_script，未来可以添加 'offscreen' 类型
+      return 'offscreen';
     }
 
     // 4. 回退到基于 URL 的推断

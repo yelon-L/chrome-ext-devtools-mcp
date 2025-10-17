@@ -105,6 +105,11 @@ export const diagnoseExtensionErrors = defineTool({
         
         // Check other potential issues
         await checkPotentialIssues(extension, context, response);
+        
+        // Suggest enhancement if needed
+        response.appendResponseLine('\n💡 **Tip**: If issues persist but no errors appear:');
+        response.appendResponseLine('Use `enhance_extension_error_capture` to catch uncaught errors and Promise rejections\n');
+        
         response.setIncludePages(true);
         return;
       }

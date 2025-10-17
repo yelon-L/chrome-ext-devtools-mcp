@@ -19,3 +19,4 @@ export {activateExtensionServiceWorker} from './service-worker-activation.js';
 export {diagnoseExtensionErrors} from './diagnostics.js';
 export {inspectExtensionManifest} from './manifest-inspector.js';
 export {checkContentScriptInjection} from './content-script-checker.js';
+export {enhanceExtensionErrorCapture} from './error-capture-enhancer.js';

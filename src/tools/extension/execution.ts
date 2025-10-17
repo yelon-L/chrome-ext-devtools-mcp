@@ -289,12 +289,15 @@ export const reloadExtension = defineTool({
           
           if (recentErrors.length === 0) {
             response.appendResponseLine('✅ No errors detected after reload\n');
+            response.appendResponseLine('💡 **Tip**: For comprehensive error monitoring, use `enhance_extension_error_capture`\n');
           } else {
             response.appendResponseLine(`⚠️ **${recentErrors.length} error(s) detected after reload**:\n`);
             recentErrors.forEach((log: any) => {
               response.appendResponseLine(`- ${log.text}`);
             });
-            response.appendResponseLine('\n💡 Use `diagnose_extension_errors` for detailed analysis\n');
+            response.appendResponseLine('\n💡 **Next steps**:');
+            response.appendResponseLine('1. Use `diagnose_extension_errors` for detailed analysis');
+            response.appendResponseLine('2. Use `enhance_extension_error_capture` to catch uncaught errors and Promise rejections\n');
           }
         } catch (e) {
           response.appendResponseLine('ℹ️ Error check skipped (completed quickly to avoid blocking)\n');

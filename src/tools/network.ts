@@ -86,3 +86,6 @@ export const getNetworkRequest = defineTool({
     response.attachNetworkRequest(request.params.url);
   },
 });
+
+// Re-export WebSocket monitoring tool
+export {monitorWebSocketTraffic} from './websocket-monitor.js';
