@@ -5,9 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.11] - 2025-10-16
+## [0.8.14] - 2025-10-18
 
 ### Added
+- **Test Extension v2.2.0**: Enhanced test extension with WebSocket testing capabilities
+  - **WebSocket Test Page**: Dedicated page for testing WebSocket connections
+  - **Message Types**: Support for text, JSON, and ping messages
+  - **Connection Management**: Connect/disconnect controls with status indicators
+  - **Message Logging**: Detailed logging of sent and received messages
+  - **Statistics**: Message counters and byte tracking
+  - **CSP Compliance**: Fixed Content Security Policy issues
+  - **Documentation**: Added comprehensive test report `test-extension-enhanced/WEBSOCKET_TEST_REPORT.md`
+
+## [0.8.13] - 2025-10-17
+
+### Added
+- **WebSocket Traffic Monitor** (`monitor_websocket_traffic`): Real-time WebSocket frame data inspection
+  - **Real-time Frame Capture**: Monitors sent and received WebSocket frames using CDP
+  - **Payload Inspection**: View full message content with automatic JSON formatting
+  - **Frame Type Detection**: Identifies text, binary, ping, pong, and close frames
+  - **URL Filtering**: Focus on specific WebSocket connections
+  - **Control Frame Support**: Optional monitoring of ping/pong heartbeats
+  - **Performance Safe**: Automatic payload truncation and frame count limits
+  - **Statistics**: Frame type distribution and send/receive counts
+  - **Use Cases**: Debug chat apps, gaming, real-time data streams
+  - Documentation:
+    - `WEBSOCKET_SUPPORT_ANALYSIS.md` - Complete technical analysis (250+ lines)
+    - `docs/WEBSOCKET_MONITOR_PROTOTYPE.md` - Implementation guide and examples (440+ lines)
+
+- **Enhanced Error Capture Tool** (`enhance_extension_error_capture`): Inject error listeners for comprehensive error monitoring
+  - **Captures Uncaught Errors**: Catches JavaScript errors that bypass console.error()
+  - **Promise Rejection Tracking**: Captures unhandled Promise rejections
+  - **Stack Trace Support**: Full stack traces with file location and line numbers
+  - **Persistent Monitoring**: Listeners remain active until extension reload
+  - **Idempotent**: Safe to call multiple times (auto-detection prevents duplicate injection)
+  - **MV3 Compatible**: Works with Service Worker architecture
+  - **Zero Performance Impact**: Minimal overhead on extension runtime
+  - **Complements Diagnosis**: Works with `diagnose_extension_errors` for complete error analysis
+  - Documentation:
+    - `docs/EXTENSION_ERROR_TOOLS_RELATIONSHIP.md` - Tool comparison and collaboration patterns (600+ lines)
+    - `docs/ERROR_TOOLS_QUICK_REFERENCE.md` - Quick reference guide (300+ lines)
+    - `docs/EXTENSION_ERRORS_ACCESS_DESIGN.md` - Technical design and implementation
+
+### Fixed
+- **Offscreen Document Context Recognition**: Fixed incorrect context type identification for MV3 Offscreen Documents
+  - **Root Cause**: `ExtensionHelper.inferContextType()` was incorrectly classifying offscreen documents as 'content_script'
+  - **Impact**: All extension tools now correctly identify offscreen contexts:
+    - `list_extension_contexts` - Shows accurate context type
+    - `evaluate_in_extension` - Can target offscreen documents
+    - `reload_extension` - Correct context counting (4 call sites)
+    - `diagnose_extension_errors` - Accurate context analysis
+    - `enhance_extension_error_capture` - Proper context selection
+  - **Technical Details**: 
+    - Changed `return 'content_script'` to `return 'offscreen'` in context type inference
+    - Updated tool descriptions to include offscreen document explanation
+    - Type definition was already correct in `types.ts`, only implementation needed fix
+  - **Backward Compatible**: No breaking changes, only improves accuracy
+  - **Documentation**: `OFFSCREEN_DOCUMENT_FIX.md` - Complete analysis and fix report
+
+### Changed
+- **Enhanced Tool Suggestions**: Added `enhance_extension_error_capture` recommendations to error-related tools
+  - `reload_extension`: Suggests enhancement when errors detected after reload
+  - `diagnose_extension_errors`: Suggests enhancement when no errors found but issues persist
+  - `activate_extension_service_worker`: Notes enhancement availability for monitoring
+
+## [0.8.11] - 2025-10-17
+
+### Added
+- **Persistent Connection Mode**: Prevent automatic session timeout for single-client scenarios
+  - **Smart Default Behavior**: Automatically enabled when `MAX_SESSIONS` is not set
+  - **Zero Configuration**: Single-client development environments work out of the box
+  - **Explicit Control**: `PERSISTENT_MODE` environment variable for manual override
+  - **Multi-Tenant Compatible**: Automatically disabled when `MAX_SESSIONS` is configured
+  - **Skip Cleanup**: Persistent sessions are never cleared by timeout mechanism
+  - **Logging Support**: All session operations log persistent status
+  - **100% Test Coverage**: 16 automated tests validating all scenarios
+  - **Documentation**: Complete usage guide in `docs/PERSISTENT_CONNECTION_MODE.md`
+
 - **Robust Reconnection Mechanism**: Comprehensive browser reconnection across all MCP modes
   - **Streamable HTTP Mode**: Automatic reconnection with session persistence
     - 100% tool recovery after browser restart (4/4 tools tested)
