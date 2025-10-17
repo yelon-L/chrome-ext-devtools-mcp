@@ -18,43 +18,53 @@ import {reportExtensionNotFound} from '../utils/ErrorReporting.js';
 
 export const enhanceExtensionErrorCapture = defineTool({
   name: 'enhance_extension_error_capture',
-  description: `Inject error listeners into extension to capture uncaught errors.
+  description: `Inject global error listeners to catch future uncaught errors (preventive measure).
 
-**Purpose**: Enhance error detection by capturing errors that may not be logged to console.
+**This is the tool you need when:**
+- ✅ You want to catch errors BEFORE they happen (inject before testing)
+- ✅ You're debugging hard-to-reproduce async errors
+- ✅ Other tools show "no errors" but you know there are problems
+- ✅ You need to capture Promise rejections that aren't logged
 
-**What it does**:
-- Injects global error listeners into extension background context
-- Captures uncaught JavaScript errors
-- Captures unhandled Promise rejections
-- Automatically logs them to console for later analysis
+**What it does**: Injects code into extension to catch all future errors
 
-**How it works**:
-1. Evaluates code in extension's background/Service Worker context
-2. Adds event listeners for 'error' and 'unhandledrejection'
-3. Logs captured errors with [EXTENSION_ERROR] prefix
-4. These errors are then visible to diagnose_extension_errors
+**What you get**:
+- Captures all uncaught JavaScript errors (from injection time forward)
+- Captures all unhandled Promise rejections
+- Automatically logs them to console with [EXTENSION_ERROR] prefix
+- These logged errors then become visible to other tools
 
-**When to use**:
-- Before running diagnose_extension_errors for comprehensive analysis
-- When debugging hard-to-catch errors (Promise rejections, async errors)
-- For production monitoring (inject once, monitor continuously)
+**NOT for**:
+- ❌ Historical errors (already happened) → use \`get_extension_runtime_errors\`
+- ❌ Existing console logs → use \`get_extension_logs\`
+- ❌ Error analysis → use \`diagnose_extension_errors\`
 
-**Lifecycle**:
-- Once injected, listeners remain active until extension reload
-- Safe to call multiple times (checks if already injected)
-- No performance impact on extension
+**Lifecycle**: Active until extension reload or Service Worker restart
 
-**Example workflow**:
+**Example scenarios**:
+1. Before testing: "Catch any errors during my test"
+   → Inject first, then trigger actions, then check logs
+   
+2. Production monitoring: "Monitor for unexpected errors"
+   → Inject once, leave active
+   
+3. No errors showing but extension broken: "Why no error logs?"
+   → Inject to catch errors that aren't being logged
+
+**Typical workflow**:
 \`\`\`
-1. enhance_extension_error_capture({extensionId: "xxx"})
-2. (trigger extension actions)
-3. diagnose_extension_errors({extensionId: "xxx"})
+1. enhance_extension_error_capture → Inject listeners
+2. [Perform actions that may cause errors]
+3. get_extension_logs → See [EXTENSION_ERROR] entries
+4. diagnose_extension_errors → Get analysis and recommendations
 \`\`\`
 
-**⚠️ MV3 Service Worker caveat**:
-- Service Worker must be active before injection
-- Use activate_extension_service_worker first if needed
-- Listeners are lost when Service Worker becomes inactive`,
+**⚠️ MV3 prerequisite**: Service Worker must be active. Use \`activate_extension_service_worker\` if needed.
+
+**Related tools**:
+- \`get_extension_logs\` - Monitor logs after injection
+- \`diagnose_extension_errors\` - Analyze captured errors
+- \`get_extension_runtime_errors\` - For historical Chrome errors`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,

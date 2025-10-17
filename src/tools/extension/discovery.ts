@@ -17,26 +17,39 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const listExtensions = defineTool({
   name: 'list_extensions',
-  description: `List all installed Chrome extensions with their metadata.
+  description: `List all installed extensions (your starting point for extension debugging).
 
-**Purpose**: Discover and enumerate all extensions in the current Chrome instance.
+**This is the tool you need when:**
+- ✅ You want to see which extensions are installed
+- ✅ You need to get the extension ID (32-character code for other tools)
+- ✅ You want to check if an extension is enabled or disabled
+- ✅ You need to verify Service Worker status (MV3 extensions: 🟢 Active / 🔴 Inactive)
 
-**What it shows**:
-- Extension ID (32-character identifier needed for other tools)
+**This is typically your FIRST TOOL** - Start here to discover available extensions
+
+**What you get**:
+- Extension ID (required for all other extension tools)
 - Name, version, and description
-- Manifest version (MV2 or MV3)
 - Enabled/disabled status
-- Service Worker status (for MV3 extensions: Active 🟢 / Inactive 🔴)
-- Permissions and host permissions
+- Manifest version (MV2 or MV3)
+- Service Worker status (MV3 only)
+- Permissions summary
 - Background script URL
 
-**When to use**: This is typically the FIRST tool to call when working with extensions. Use it to:
-- Get the extension ID for other debugging tools
-- Check which extensions are installed
-- Verify extension is enabled and Service Worker is active (MV3)
-- Quick overview of extension permissions
+**Example scenarios**:
+1. Starting extension debugging: "What extensions are installed?"
+   → Use this tool first to see all extensions
+   
+2. Need extension ID: "I want to debug MyExtension"
+   → Use this tool to find the 32-character extension ID
 
-**Example**: list_extensions returns "MyExtension" with ID "abcd..." and shows Service Worker is 🔴 Inactive, indicating you need to activate it first.`,
+3. Service Worker check: "Is the Service Worker running?"
+   → Use this tool to see SW status (🟢 Active / 🔴 Inactive)
+
+**Related tools**:
+- \`get_extension_details\` - Get detailed information about a specific extension
+- \`activate_extension_service_worker\` - Wake up inactive Service Worker (if 🔴)
+- \`diagnose_extension_errors\` - Check extension health after finding the ID`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -233,25 +246,40 @@ export const listExtensions = defineTool({
 
 export const getExtensionDetails = defineTool({
   name: 'get_extension_details',
-  description: `Get detailed information about a specific Chrome extension.
+  description: `Get complete details about a specific extension (manifest, permissions, configuration).
 
-**Purpose**: Retrieve comprehensive metadata and configuration for a single extension.
+**This is the tool you need when:**
+- ✅ You need to see all permissions an extension has
+- ✅ You want to inspect the manifest.json configuration
+- ✅ You need to verify content script setup
+- ✅ You want background script/Service Worker details
 
-**What it provides**:
-- Complete manifest information
-- All permissions (API permissions + host permissions)
-- Background script/Service Worker details
+**What you get**:
+- Complete manifest.json information
+- All permissions (API + host permissions)
+- Background script/Service Worker URL
 - Content script configurations
 - Extension pages (popup, options, devtools)
-- Installation and update information
+- Installation and version information
 
-**When to use**:
-- After list_extensions to get full details about one extension
-- To inspect permission requirements
-- To verify manifest configuration
-- To check background script setup
+**NOT for**:
+- ❌ Listing all extensions → use \`list_extensions\`
+- ❌ Running extension code → use \`evaluate_in_extension\`
 
-**Example**: get_extension_details with extensionId="abcd..." shows all 15 permissions, 3 content scripts, and Service Worker URL.`,
+**Example scenarios**:
+1. Check permissions: "What permissions does this extension have?"
+   → Use this tool to see all API and host permissions
+   
+2. Verify setup: "Is the manifest configured correctly?"
+   → Use this tool to inspect manifest.json details
+   
+3. Content scripts: "Which pages have content scripts?"
+   → Use this tool to see match patterns and injection rules
+
+**Related tools**:
+- \`list_extensions\` - Get extension ID first (required parameter)
+- \`inspect_extension_manifest\` - Deep manifest analysis with recommendations
+- \`check_content_script_injection\` - Test content script injection`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

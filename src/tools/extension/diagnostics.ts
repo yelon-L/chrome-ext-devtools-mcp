@@ -19,26 +19,38 @@ import {reportExtensionNotFound} from '../utils/ErrorReporting.js';
 
 export const diagnoseExtensionErrors = defineTool({
   name: 'diagnose_extension_errors',
-  description: `Comprehensive health check and error diagnosis for Chrome extensions.
+  description: `Get intelligent error analysis with fix recommendations (analyzes console logs).
 
-**Purpose**: One-click diagnostic scan to identify and analyze all extension errors and issues.
+**This is the tool you need when:**
+- ✅ You want quick health check with actionable recommendations
+- ✅ You need errors classified by type (JavaScript, API, Permission, Network)
+- ✅ You want a health score (0-100) for the extension
+- ✅ You need fix suggestions for detected errors
 
-**What it analyzes**:
-- Error messages across all contexts (background, content scripts, popup, devtools)
-- JavaScript runtime errors and exceptions  
-- Chrome API errors (permissions, API failures, quota exceeded)
-- Service Worker activation failures (MV3 extensions)
-- Common misconfigurations and anti-patterns
+**Data source**: Console logs from all extension contexts (background, content scripts, popup)
 
-**Output includes**:
-- Error classification by type (API, runtime, permission, etc.) and severity
-- Error frequency statistics and patterns
-- Actionable solutions for each detected issue
-- Overall health score (0-100) with improvement recommendations
+**What you get**:
+- Error classification (🐛 JavaScript, 🔌 Chrome API, 🔒 Permission, 🌐 Network)
+- Error frequency analysis (which errors happen most often)
+- Health score (0-100) with severity assessment
+- Diagnostic recommendations with actionable solutions
+- Service Worker status check
 
-**When to use**: This should be your FIRST tool when debugging extension problems or investigating user reports.
+**This tool analyzes console logs, NOT chrome://extensions errors**:
+- For chrome://extensions errors → use \`get_extension_runtime_errors\`
+- This tool complements \`get_extension_runtime_errors\` by providing analysis
 
-**Example**: diagnose_extension_errors with extensionId="abcd..." finds 3 permission errors and suggests adding "tabs" permission to manifest.`,
+**Example scenarios**:
+1. Quick health check: "Is my extension working correctly?"
+   → Use this tool for overview and recommendations
+   
+2. Need fix suggestions: "How do I fix these errors?"
+   → Use this tool for intelligent analysis and solutions
+
+**Related tools**:
+- \`get_extension_runtime_errors\` - See errors from chrome://extensions (different data source)
+- \`get_extension_logs\` - Get raw console logs (this tool analyzes them)
+- \`enhance_extension_error_capture\` - Inject listeners before using this tool`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

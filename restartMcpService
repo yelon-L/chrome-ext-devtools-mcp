@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Script to restart the MCP Chrome Extension Debug service
+# Usage: ./restartMcpService
+
+SERVICE_NAME="mcp-chrome-ext-debug.service"
+LOG_FILE="/var/log/mcp-chrome-ext-devtools-mcp/restart.log"
+
+# Check if script is run with sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "Restarting with sudo..."
+    exec sudo "$0" "$@"
+    exit $?
+fi
+
+# Create log directory if it doesn't exist
+mkdir -p "$(dirname "$LOG_FILE" 2>/dev/null)" || {
+    LOG_FILE="/tmp/mcp-chrome-ext-debug-restart.log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+}
+
+# Function to log messages
+log() {
+    local message="[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+    echo "$message"
+    echo "$message" >> "$LOG_FILE"
+}
+
+# Main execution
+log "=== Starting MCP Chrome Extension Debug service restart ==="
+
+# Check if systemctl is available
+if ! command -v systemctl &> /dev/null; then
+    log "Error: systemctl command not found. This script requires systemd."
+    exit 1
+fi
+
+# Check if service exists
+if ! systemctl list-unit-files --type=service 2>/dev/null | grep -q "^$SERVICE_NAME"; then
+    log "Error: Service '$SERVICE_NAME' not found."
+    log "Available services:"
+    systemctl list-unit-files --type=service | grep -i "mcp\|chrome" 2>/dev/null || {
+        log "Could not list services. Make sure you have sufficient privileges."
+    }
+    exit 1
+fi
+
+# Get current status
+log "Current status of $SERVICE_NAME:"
+systemctl status $SERVICE_NAME --no-pager
+
+# Restart the service
+log "Restarting $SERVICE_NAME..."
+if ! systemctl restart $SERVICE_NAME; then
+    log "Error: Failed to restart $SERVICE_NAME"
+    log "Trying to start the service instead..."
+    if ! systemctl start $SERVICE_NAME; then
+        log "Error: Failed to start $SERVICE_NAME"
+        log "Please check the service status with: systemctl status $SERVICE_NAME"
+        exit 1
+    fi
+fi
+
+# Verify service is running
+sleep 2  # Give it a moment to start
+if ! systemctl is-active --quiet $SERVICE_NAME; then
+    log "Error: $SERVICE_NAME is not running after restart attempt"
+    log "Last 20 lines of journal logs:"
+    journalctl -u $SERVICE_NAME -n 20 --no-pager
+    exit 1
+fi
+
+# Show final status
+log "$SERVICE_NAME restarted successfully"
+log "Current status:"
+systemctl status $SERVICE_NAME --no-pager
+log "=== MCP Chrome Extension Debug service restart completed ==="
+
+exit 0

@@ -15,43 +15,44 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const getExtensionLogs = defineTool({
   name: 'get_extension_logs',
-  description: `Get console logs from a Chrome extension.
+  description: `Monitor real-time console output from extension (live log streaming).
 
-**Purpose**: Capture and retrieve console output from all extension contexts without opening DevTools.
+**This is the tool you need when:**
+- ✅ You want to see what the extension is logging RIGHT NOW
+- ✅ You need to capture console.log(), console.error(), console.warn() output
+- ✅ You want to monitor extension activity as it happens
+- ✅ You need incremental log collection (get only new logs since last check)
 
-**Log sources**:
-- Background script / Service Worker (MV3)
-- Content scripts running in web pages
-- Popup windows
-- Options pages
-- DevTools pages
+**Data source**: Live console output from all extension contexts (captured via Puppeteer)
 
-**What it provides**:
-- Log message text
-- Log level (error, warn, info, log, debug)
-- Timestamp
-- Source context (background, content_script, etc.)
-- Stack traces for errors
+**What you get**:
+- Real-time console messages (log, info, warn, error, debug)
+- Timestamps for each log entry
+- Source context (background, content_script, popup, etc.)
+- Stack traces for errors (if available)
+- Filtering by log level and time range
 
-**Filtering options**:
-- By log level (error, warn, info, etc.)
-- By time range (since timestamp)
-- Limit number of entries
+**NOT for**:
+- ❌ chrome://extensions errors → use \`get_extension_runtime_errors\`
+- ❌ Error analysis and recommendations → use \`diagnose_extension_errors\`
+- ❌ Historical errors from hours ago → use \`get_extension_runtime_errors\`
 
-**When to use**:
-- Debug extension without opening DevTools
-- Monitor extension activity in real-time
-- Capture error messages and stack traces
-- Verify console.log() statements are working
-- Diagnose issues reported by users
+**Example scenarios**:
+1. Development debugging: "What is my extension logging?"
+   → Use this tool to see live console output
+   
+2. Test verification: "Did my console.log() work?"
+   → Use this tool to verify logging statements
+   
+3. Incremental monitoring: "Show me new logs since 5 minutes ago"
+   → Use this tool with \`since\` parameter
 
-**⚠️ MV3 Service Worker logs**:
-- SW logs only available when SW is active
-- Inactive SW = no background logs
-- Use activate_extension_service_worker to wake SW
-- Content script logs available regardless of SW status
+**⚠️ MV3 Service Worker**: Logs only available when SW is active. Use \`activate_extension_service_worker\` if needed.
 
-**Example**: get_extension_logs with level=["error", "warn"] returns 5 errors from Service Worker and 2 warnings from content scripts.`,
+**Related tools**:
+- \`enhance_extension_error_capture\` - Inject first, then monitor logs here
+- \`diagnose_extension_errors\` - This provides raw data, diagnose provides analysis
+- \`get_extension_runtime_errors\` - For Chrome's internal error records`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

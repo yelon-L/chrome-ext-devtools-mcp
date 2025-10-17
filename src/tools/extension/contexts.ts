@@ -17,38 +17,44 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const listExtensionContexts = defineTool({
   name: 'list_extension_contexts',
-  description: `List all execution contexts for a Chrome extension.
+  description: `List all running contexts (execution environments) of an extension.
 
-**Purpose**: Enumerate all running contexts (execution environments) of an extension.
+**This is the tool you need when:**
+- ✅ You want to see where the extension code is currently running
+- ✅ You need to verify Service Worker is active (before running code)
+- ✅ You want to check if popup/options pages are open
+- ✅ You need context IDs for code execution
 
-**Context types shown**:
+**Context types you'll see**:
 - **background**: Service Worker (MV3) or Background Page (MV2)
 - **popup**: Extension popup windows
 - **options_page**: Options/settings pages
+- **content_script**: Scripts running in web pages
+- **offscreen**: Offscreen Document (MV3)
 - **devtools_page**: DevTools extension pages
-- **content_script**: Scripts injected into web pages
-- **offscreen**: Offscreen Document (MV3, background processing)
 
 **What you get**:
 - Context type and URL
-- Target ID (for switching contexts)
-- Frame information
+- Target ID (needed for \`evaluate_in_extension\`)
 - Active/inactive status
+- Frame information
 
-**When to use**:
-- Before calling evaluate_in_extension to see available contexts
-- To verify Service Worker is running (MV3)
-- To check if popup/options pages are open
-- To inspect content script injection status
+**⚠️ MV3 Service Worker**: If you see "No active contexts", the SW is likely inactive. Use \`activate_extension_service_worker\` first.
 
-**⚠️ MV3 Service Worker behavior**:
-- Inactive SW won't appear in the list
-- "No active contexts" often means SW is inactive
-- SW becomes inactive after ~30 seconds of inactivity
-- Use activate_extension_service_worker to wake it up
-- Check SW status with list_extensions first
+**Example scenarios**:
+1. Before running code: "Where can I execute code?"
+   → Use this tool to see available contexts
+   
+2. Service Worker check: "Is the background script running?"
+   → Use this tool to verify SW is active
 
-**Example**: list_extension_contexts shows 1 background context (Service Worker active) and 2 content_script contexts on different tabs.`,
+3. Content script check: "Is my script injected?"
+   → Use this tool to see content_script contexts
+
+**Related tools**:
+- \`activate_extension_service_worker\` - Wake up inactive SW (if no contexts)
+- \`evaluate_in_extension\` - Run code in a specific context
+- \`switch_extension_context\` - Change active context for code execution`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
