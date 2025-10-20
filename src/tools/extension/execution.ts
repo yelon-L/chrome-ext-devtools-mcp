@@ -23,22 +23,280 @@ import {
   reportTimeout,
 } from '../utils/ErrorReporting.js';
 
+/**
+ * Cache management helper functions for smart extension reload
+ */
+
+/**
+ * Clear all browser caches for an extension using reliable CDP commands
+ * This approach doesn't require chrome.browsingData API permissions
+ * Clears: HTTP cache, Service Worker caches, CacheStorage, Storage
+ */
+async function clearExtensionCache(extensionId: string, context: any): Promise<{success: boolean; details: string[]}> {
+  const details: string[] = [];
+  const browser = context.getBrowser();
+  
+  try {
+    const pages = await browser.pages();
+    let successCount = 0;
+    let totalOperations = 0;
+    
+    // 1. Clear HTTP browser cache using CDP
+    try {
+      const page = pages[0]; // Use first available page
+      const cdpSession = await page.target().createCDPSession();
+      
+      // Clear browser HTTP cache
+      await cdpSession.send('Network.clearBrowserCache');
+      details.push('✅ Cleared HTTP browser cache');
+      successCount++;
+      totalOperations++;
+      
+      await cdpSession.detach();
+    } catch (err: any) {
+      details.push(`⚠️ HTTP cache: ${err.message}`);
+      totalOperations++;
+    }
+    
+    // 2. Clear CacheStorage using CDP (via Storage API)
+    // Note: CacheStorage.requestCacheNames requires frame context, 
+    // using Storage.clearDataForOrigin is more reliable
+    try {
+      const page = pages[0];
+      const cdpSession = await page.target().createCDPSession();
+      
+      // Clear cache_storage via Storage domain
+      await cdpSession.send('Storage.clearDataForOrigin', {
+        origin: `chrome-extension://${extensionId}`,
+        storageTypes: 'cache_storage'
+      });
+      
+      details.push('✅ Cleared CacheStorage');
+      successCount++;
+      totalOperations++;
+      
+      await cdpSession.detach();
+    } catch (err: any) {
+      details.push(`⚠️ CacheStorage: ${err.message}`);
+      totalOperations++;
+    }
+    
+    // 3. Clear Service Worker registrations
+    // Note: Service Worker clearing is handled by Storage.clearDataForOrigin
+    // with 'service_workers' type, but we add explicit handling for completeness
+    try {
+      const page = pages[0];
+      const cdpSession = await page.target().createCDPSession();
+      
+      // Clear service workers via Storage domain (most reliable method)
+      await cdpSession.send('Storage.clearDataForOrigin', {
+        origin: `chrome-extension://${extensionId}`,
+        storageTypes: 'service_workers'
+      });
+      
+      details.push('✅ Cleared Service Worker registrations');
+      successCount++;
+      totalOperations++;
+      
+      await cdpSession.detach();
+    } catch (err: any) {
+      details.push(`⚠️ Service Workers: ${err.message}`);
+      totalOperations++;
+    }
+    
+    // 4. Clear Storage (localStorage, sessionStorage, IndexedDB, etc.)
+    try {
+      const page = pages[0];
+      const cdpSession = await page.target().createCDPSession();
+      
+      // Clear all storage types for the extension origin
+      await cdpSession.send('Storage.clearDataForOrigin', {
+        origin: `chrome-extension://${extensionId}`,
+        storageTypes: 'local_storage,session_storage,indexeddb,websql,service_workers,cache_storage'
+      });
+      
+      details.push('✅ Cleared localStorage, sessionStorage, IndexedDB');
+      successCount++;
+      totalOperations++;
+      
+      await cdpSession.detach();
+    } catch (err: any) {
+      details.push(`⚠️ Storage: ${err.message}`);
+      totalOperations++;
+    }
+    
+    // 5. Force reload all extension pages to clear in-memory caches
+    try {
+      const extensionPages = pages.filter((p: any) => 
+        p.url().includes(`chrome-extension://${extensionId}`)
+      );
+      
+      for (const page of extensionPages) {
+        try {
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: 3000 });
+        } catch (e) {
+          // Some pages might be closing, ignore errors
+        }
+      }
+      
+      if (extensionPages.length > 0) {
+        details.push(`✅ Force-reloaded ${extensionPages.length} extension pages`);
+        successCount++;
+      }
+      totalOperations++;
+    } catch (err: any) {
+      details.push(`⚠️ Page reload: ${err.message}`);
+      totalOperations++;
+    }
+    
+    // Summary
+    const successRate = totalOperations > 0 ? (successCount / totalOperations * 100).toFixed(0) : 0;
+    details.unshift(`📊 Cache clearing: ${successCount}/${totalOperations} operations successful (${successRate}%)`);
+    
+    return {
+      success: successCount >= totalOperations / 2, // Consider success if > 50% operations worked
+      details,
+    };
+  } catch (error: any) {
+    console.error('[clearExtensionCache] Fatal error:', error.message);
+    details.push(`❌ Fatal error: ${error.message}`);
+    return { success: false, details };
+  }
+}
+
+/**
+ * Disable caching for extension resources during reload
+ * Uses CDP Network.setCacheDisabled command
+ */
+async function disableExtensionCache(extensionId: string, context: any): Promise<{success: boolean; details: string[]}> {
+  const details: string[] = [];
+  
+  try {
+    const browser = context.getBrowser();
+    const pages = await browser.pages();
+    
+    // Disable cache for all pages
+    let disabledCount = 0;
+    for (const page of pages) {
+      try {
+        const cdpSession = await page.target().createCDPSession();
+        await cdpSession.send('Network.setCacheDisabled', { cacheDisabled: true });
+        await cdpSession.detach();
+        disabledCount++;
+      } catch (err) {
+        // Some pages may not support CDP, skip them
+        console.warn('[disableExtensionCache] Failed to disable cache for page:', err);
+      }
+    }
+    
+    details.push(`Cache disabled for ${disabledCount} browser pages`);
+    details.push('HTTP cache will be bypassed for extension resources');
+    
+    return { success: disabledCount > 0, details };
+  } catch (error: any) {
+    console.warn('[disableExtensionCache] Failed:', error.message);
+    details.push(`Cache disable failed: ${error.message}`);
+    return { success: false, details };
+  }
+}
+
+/**
+ * Check if extension is using cached version
+ * Detects cache issues by checking reload timestamps
+ */
+async function detectCachedVersion(extensionId: string, context: any): Promise<{isCached: boolean; reason: string}> {
+  try {
+    const extensions = await context.getExtensions();
+    const extension = extensions.find((ext: any) => ext.id === extensionId);
+    
+    if (!extension) {
+      return { isCached: false, reason: 'Extension not found' };
+    }
+    
+    // Check if extension has been reloaded recently (within 10 seconds)
+    // This suggests possible caching issues if files were just modified
+    const installTime = new Date(extension.installTime || 0).getTime();
+    const now = Date.now();
+    const timeSinceInstall = now - installTime;
+    
+    // If extension was installed/reloaded very recently, there might be cache issues
+    if (timeSinceInstall < 10000) {
+      return { 
+        isCached: true, 
+        reason: 'Extension reloaded recently, browser cache may contain stale resources' 
+      };
+    }
+    
+    // Check Service Worker status for MV3 extensions
+    if (extension.manifestVersion === 3) {
+      // If SW is inactive immediately after install, might be cache issue
+      if (extension.serviceWorkerStatus === 'inactive' && timeSinceInstall < 5000) {
+        return {
+          isCached: true,
+          reason: 'Service Worker inactive after recent reload, possible cache issue'
+        };
+      }
+    }
+    
+    return { isCached: false, reason: 'No cache issues detected' };
+  } catch (error: any) {
+    console.warn('[detectCachedVersion] Detection failed:', error.message);
+    // Default to assuming cache issues for safety
+    return { 
+      isCached: true, 
+      reason: 'Cache detection failed, assuming cached version for safety' 
+    };
+  }
+}
+
+/**
+ * Determine the actual cache strategy to use
+ */
+function resolveActualStrategy(
+  requestedStrategy: string,
+  cacheDetection: {isCached: boolean; reason: string}
+): {strategy: string; reason: string} {
+  if (requestedStrategy === 'auto') {
+    // Auto mode: decide based on cache detection
+    const strategy = cacheDetection.isCached ? 'force-clear' : 'preserve';
+    return {
+      strategy,
+      reason: cacheDetection.isCached 
+        ? `Auto-detected cache issue: ${cacheDetection.reason}` 
+        : `No cache issues detected: ${cacheDetection.reason}`
+    };
+  }
+  
+  // Use the requested strategy
+  return {
+    strategy: requestedStrategy,
+    reason: `User-requested strategy: ${requestedStrategy}`
+  };
+}
+
 export const reloadExtension = defineTool({
   name: 'reload_extension',
-  description: `Complete disk reload for Chrome extensions - everything from directory files
+  description: `Complete disk reload for Chrome extensions with smart cache management
 
 **Core Principle**: 
 - **Unload completely → Read from disk → Reload fresh**
 - **Uses chrome.developerPrivate.reload()** - Chrome's official developer reload API
 - **Equivalent to manually clicking the "Reload" button in chrome://extensions**
-- **All files read from disk, no caching whatsoever**
+- **Smart cache management** - Automatically handles browser caching issues
+
+**Cache Strategies**:
+- **auto** (default): Intelligently detects cache issues and applies appropriate strategy
+- **force-clear**: Clear all browser caches before reload (use when experiencing stale code issues)
+- **preserve**: Keep all caches for fastest reload (may use cached resources)
+- **disable**: Disable caching during reload operation
 
 **Complete Reload Process**:
-1. 🔥 Completely unload extension (clear all memory state)
-2. 📂 Re-read manifest.json and all files from disk
-3. 🔄 Re-parse manifest, reload all resources
-4. ✅ Start fresh Service Worker/Background Script
-5. 📝 Everything based on directory files, no exceptions
+1. 🔥 Detect and handle cache strategy
+2. 🧹 Clear browser caches if needed (Service Worker cache, HTTP cache, storage)
+3. 📂 Re-read manifest.json and all files from disk
+4. 🔄 Re-parse manifest, reload all resources
+5. ✅ Start fresh Service Worker/Background Script
+6. 📝 Verify reload with latest code
 
 **Files That Get Reloaded**:
 - ✅ manifest.json (permissions, CSP, version, etc.)
@@ -48,26 +306,29 @@ export const reloadExtension = defineTool({
 - ✅ Icons, images, and static assets
 - ✅ Any file declared in manifest
 
-**Different From Other Methods**:
-- chrome.runtime.reload() - ❌ Doesn't read from disk, only restarts process
-- chrome.management.setEnabled() - ⚠️ Enable/disable toggle
-- chrome.developerPrivate.reload() - ✅ True developer reload
+**Cache Strategy Recommendations**:
+- Use **auto** for most development scenarios (AI will decide automatically)
+- Use **force-clear** when code changes don't appear after reload
+- Use **preserve** for rapid iteration when cache issues are not a concern
+- Use **disable** for final testing to ensure no caching artifacts
 
 **Optional Features**:
-- preserveStorage: true - Keep chrome.storage data (default: false, clear all)
+- cacheStrategy: 'auto' | 'force-clear' | 'preserve' | 'disable' (default: 'auto')
+- preserveStorage: true - Keep chrome.storage data (default: false)
 - waitForReady: true - Wait and verify reload completion (default: true)
 - captureErrors: true - Capture post-reload errors (default: true)
 
 **Typical Workflow**:
-Modify extension files → reload_extension() → Changes take effect → Continue development
+Modify extension files → reload_extension(auto) → Cache handled automatically → Changes take effect
 
 **Important Notes**:
-- 🔥 This is the most thorough reload method, no cache preserved
-- 📂 After calling, everything from disk directory files
+- 🔥 Most thorough reload with intelligent cache management
+- 📂 Everything loaded from disk directory files
 - ✅ Works for unpacked extensions (development environment)
 - ⚠️ All extension pages (popup, options) will be closed
+- 🚀 Smart cache detection prevents stale code issues
 
-**Example**: reload_extension(extensionId) - Complete disk reload, no state preserved`,
+**Example**: reload_extension(extensionId, {cacheStrategy: 'auto'}) - Smart reload with automatic cache handling`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,
@@ -77,6 +338,10 @@ Modify extension files → reload_extension() → Changes take effect → Contin
       .string()
       .regex(/^[a-z]{32}$/)
       .describe('Extension ID to reload. Get this from list_extensions.'),
+    cacheStrategy: z
+      .enum(['auto', 'force-clear', 'preserve', 'disable'])
+      .optional()
+      .describe('Cache handling strategy: auto (smart detection), force-clear (clear all caches), preserve (keep caches), disable (disable caching). Default is auto.'),
     preserveStorage: z
       .boolean()
       .optional()
@@ -93,6 +358,7 @@ Modify extension files → reload_extension() → Changes take effect → Contin
   handler: async (request, response, context) => {
     const {
       extensionId,
+      cacheStrategy = 'auto',
       preserveStorage = false,
       waitForReady = true,
       captureErrors = true,
@@ -108,7 +374,7 @@ Modify extension files → reload_extension() → Changes take effect → Contin
     console.log(`Session: ${sessionInfo}`);
     console.log(`Token: ${tokenInfo}`);
     console.log(`Extension ID: ${extensionId}`);
-    console.log(`Options: preserveStorage=${preserveStorage}, waitForReady=${waitForReady}, captureErrors=${captureErrors}`);
+    console.log(`Options: cacheStrategy=${cacheStrategy}, preserveStorage=${preserveStorage}, waitForReady=${waitForReady}, captureErrors=${captureErrors}`);
     console.log(`${'='.repeat(80)}\n`);
 
     // Global timeout protection - prevent infinite hang
@@ -193,9 +459,71 @@ Modify extension files → reload_extension() → Changes take effect → Contin
         }
       }
 
-      // 4. Get contexts before reload
+      // 4. Smart Cache Management
+      let nextStep = preserveStorage ? 3 : 2;
+      response.appendResponseLine(`## Step ${nextStep}: Smart Cache Management\n`);
+      response.appendResponseLine(`**Requested Strategy**: ${cacheStrategy}\n`);
+      
+      // Detect cache issues if using auto strategy
+      let actualStrategy: 'auto' | 'force-clear' | 'preserve' | 'disable' = cacheStrategy;
+      let strategyReason = '';
+      
+      if (cacheStrategy === 'auto') {
+        response.appendResponseLine('🔍 Detecting cache issues...\n');
+        const cacheDetection = await detectCachedVersion(extensionId, context);
+        const resolved = resolveActualStrategy(cacheStrategy, cacheDetection);
+        actualStrategy = resolved.strategy as 'auto' | 'force-clear' | 'preserve' | 'disable';
+        strategyReason = resolved.reason;
+        response.appendResponseLine(`**Detection Result**: ${cacheDetection.isCached ? '⚠️ Cache issues detected' : '✅ No cache issues'}\n`);
+        response.appendResponseLine(`**Auto-Selected Strategy**: ${actualStrategy}\n`);
+        response.appendResponseLine(`**Reason**: ${strategyReason}\n`);
+      } else {
+        response.appendResponseLine(`**Strategy**: ${actualStrategy} (user-specified)\n`);
+      }
+      
+      // Apply cache strategy
+      if (actualStrategy === 'force-clear') {
+        response.appendResponseLine('\n🧹 Clearing all browser caches...\n');
+        const clearResult = await clearExtensionCache(extensionId, context);
+        if (clearResult.success) {
+          response.appendResponseLine('✅ **Cache cleared successfully**:\n');
+          clearResult.details.forEach(detail => {
+            response.appendResponseLine(`   - ${detail}\n`);
+          });
+        } else {
+          response.appendResponseLine('⚠️ **Cache clearing encountered issues**:\n');
+          clearResult.details.forEach(detail => {
+            response.appendResponseLine(`   - ${detail}\n`);
+          });
+          response.appendResponseLine('Continuing with reload anyway...\n');
+        }
+      } else if (actualStrategy === 'disable') {
+        response.appendResponseLine('\n🚫 Disabling cache for reload...\n');
+        const disableResult = await disableExtensionCache(extensionId, context);
+        if (disableResult.success) {
+          response.appendResponseLine('✅ **Cache disabled successfully**:\n');
+          disableResult.details.forEach(detail => {
+            response.appendResponseLine(`   - ${detail}\n`);
+          });
+        } else {
+          response.appendResponseLine('⚠️ **Cache disable encountered issues**:\n');
+          disableResult.details.forEach(detail => {
+            response.appendResponseLine(`   - ${detail}\n`);
+          });
+          response.appendResponseLine('Continuing with reload anyway...\n');
+        }
+      } else if (actualStrategy === 'preserve') {
+        response.appendResponseLine('💾 Preserving caches for faster reload\n');
+        response.appendResponseLine('   - Browser HTTP cache will be used if available\n');
+        response.appendResponseLine('   - Service Worker cache will be preserved\n');
+      }
+      
+      response.appendResponseLine('');
+
+      // 5. Get contexts before reload
+      nextStep++;
       const contextsBefore = await context.getExtensionContexts(extensionId);
-      response.appendResponseLine(`## Step ${preserveStorage ? '3' : '2'}: Reloading Extension\n`);
+      response.appendResponseLine(`## Step ${nextStep}: Reloading Extension\n`);
       response.appendResponseLine(`**Active contexts before**: ${contextsBefore.length}\n`);
 
       // 5. 🔥 Complete reload using chrome.developerPrivate.reload() 
@@ -272,7 +600,8 @@ Modify extension files → reload_extension() → Changes take effect → Contin
 
       // 6. Wait and verify reload completion
       if (waitForReady) {
-        response.appendResponseLine(`## Step ${preserveStorage ? '4' : '3'}: Verifying Reload\n`);
+        nextStep++;
+        response.appendResponseLine(`## Step ${nextStep}: Verifying Reload\n`);
         
         // Wait for extension restart
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -295,7 +624,8 @@ Modify extension files → reload_extension() → Changes take effect → Contin
 
       // 7. Restore Storage data (if needed)
       if (preserveStorage && savedStorage) {
-        response.appendResponseLine(`## Step ${waitForReady ? '5' : '4'}: Restoring Storage\n`);
+        nextStep++;
+        response.appendResponseLine(`## Step ${nextStep}: Restoring Storage\n`);
         try {
           // Wait for background context ready
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -320,7 +650,8 @@ Modify extension files → reload_extension() → Changes take effect → Contin
 
       // 8. Capture startup errors (optimized: reduce wait time)
       if (captureErrors) {
-        response.appendResponseLine(`## Step ${preserveStorage ? (waitForReady ? '6' : '5') : (waitForReady ? '4' : '3')}: Error Check\n`);
+        nextStep++;
+        response.appendResponseLine(`## Step ${nextStep}: Error Check\n`);
         
         try {
           // Reduce wait time to avoid hanging
@@ -354,8 +685,9 @@ Modify extension files → reload_extension() → Changes take effect → Contin
       }
 
       // 9. Summary
-      response.appendResponseLine(`## ✅ Reload Complete (True Disk Reload)\n`);
+      response.appendResponseLine(`## ✅ Reload Complete (Smart Reload with Cache Management)\n`);
       response.appendResponseLine('**What Happened**:');
+      response.appendResponseLine(`- 🧹 **Cache Strategy**: ${actualStrategy} ${actualStrategy !== cacheStrategy ? '(auto-selected)' : ''}`);
       response.appendResponseLine('- ✅ **All files re-read from disk** (manifest.json, JS, CSS, HTML)');
       response.appendResponseLine('- ✅ **Code changes applied** - Your latest modifications are now in effect');
       response.appendResponseLine('- 🔄 Background script/service worker restarted and loaded new code');
@@ -373,7 +705,7 @@ Modify extension files → reload_extension() → Changes take effect → Contin
       response.appendResponseLine('- Use `get_extension_logs` to monitor extension activity');
       response.appendResponseLine('- Refresh web pages to re-inject content scripts');
       response.appendResponseLine('');
-      response.appendResponseLine('💡 **Tip**: This is a true disk reload (chrome.developerPrivate.reload), equivalent to manually clicking the "Reload" button in chrome://extensions');
+      response.appendResponseLine('💡 **Tip**: This is a true disk reload with smart cache management. The cache strategy ensures your latest code changes are loaded without browser caching issues.');
 
       response.setIncludePages(true);
       
@@ -386,7 +718,8 @@ Modify extension files → reload_extension() → Changes take effect → Contin
       console.log(`[reload_extension] SUCCESS in ${elapsed}ms`);
       console.log(`  Session: ${sessionInfo}`);
       console.log(`  Token: ${tokenInfo}`);
-      console.log(`  Extension: ${extensionId}\n`);
+      console.log(`  Extension: ${extensionId}`);
+      console.log(`  Cache Strategy: ${actualStrategy} (requested: ${cacheStrategy})\n`);
     } catch (error) {
       // Clean up timeout check
       if (timeoutCheckInterval) {

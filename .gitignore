@@ -154,3 +154,6 @@ package-lock.json
 Caddyfile.dev
 test-extension-enhanced
 pnpm-lock*
+restartMcpService
+.mcp-data
+test-extension-enhanced
