@@ -25,38 +25,49 @@ import {
 
 export const reloadExtension = defineTool({
   name: 'reload_extension',
-  description: `Smart reload for Chrome extensions with automatic Service Worker activation and error detection.
+  description: `Complete disk reload for Chrome extensions - everything from directory files
 
-**Purpose**: Intelligent extension reload with verification, error capture, and optional state preservation.
+**Core Principle**: 
+- **Unload completely → Read from disk → Reload fresh**
+- **Uses chrome.developerPrivate.reload()** - Chrome's official developer reload API
+- **Equivalent to manually clicking the "Reload" button in chrome://extensions**
+- **All files read from disk, no caching whatsoever**
 
-**What it does**:
-- Automatically activates inactive Service Workers (MV3) before reload
-- Optionally preserves chrome.storage data across reload
-- Closes all extension contexts (popup, options, devtools pages)
-- Restarts background script/service worker
-- Waits for extension to be ready after reload
-- Captures and reports startup errors
-- Verifies successful reload completion
+**Complete Reload Process**:
+1. 🔥 Completely unload extension (clear all memory state)
+2. 📂 Re-read manifest.json and all files from disk
+3. 🔄 Re-parse manifest, reload all resources
+4. ✅ Start fresh Service Worker/Background Script
+5. 📝 Everything based on directory files, no exceptions
 
-**Reload behavior**:
-- Background/Service Worker: Restarted immediately
-- Extension pages (popup, options): Closed and must be reopened
-- Content scripts: Re-injected on next page navigation/reload
-- Storage: Preserved if preserveStorage=true, cleared otherwise
+**Files That Get Reloaded**:
+- ✅ manifest.json (permissions, CSP, version, etc.)
+- ✅ All JavaScript files (background, content scripts, popup, etc.)
+- ✅ All CSS stylesheets
+- ✅ All HTML pages
+- ✅ Icons, images, and static assets
+- ✅ Any file declared in manifest
 
-**Smart features** (vs manual reload):
-1. Auto-activates inactive Service Workers (no manual activation needed)
-2. Verifies extension is ready before returning
-3. Captures startup errors within first 5 seconds
-4. Reports new context status and health
+**Different From Other Methods**:
+- chrome.runtime.reload() - ❌ Doesn't read from disk, only restarts process
+- chrome.management.setEnabled() - ⚠️ Enable/disable toggle
+- chrome.developerPrivate.reload() - ✅ True developer reload
 
-**When to use**:
-- Hot reload during development (after code changes)
-- Recovering from extension crashes or errors
-- Testing with fresh state (preserveStorage=false)
-- Resetting Service Worker state
+**Optional Features**:
+- preserveStorage: true - Keep chrome.storage data (default: false, clear all)
+- waitForReady: true - Wait and verify reload completion (default: true)
+- captureErrors: true - Capture post-reload errors (default: true)
 
-**Example**: reload_extension with preserveStorage=true reloads extension, keeps user data, auto-activates SW, and reports "No errors detected after reload".`,
+**Typical Workflow**:
+Modify extension files → reload_extension() → Changes take effect → Continue development
+
+**Important Notes**:
+- 🔥 This is the most thorough reload method, no cache preserved
+- 📂 After calling, everything from disk directory files
+- ✅ Works for unpacked extensions (development environment)
+- ⚠️ All extension pages (popup, options) will be closed
+
+**Example**: reload_extension(extensionId) - Complete disk reload, no state preserved`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,
@@ -187,39 +198,77 @@ export const reloadExtension = defineTool({
       response.appendResponseLine(`## Step ${preserveStorage ? '3' : '2'}: Reloading Extension\n`);
       response.appendResponseLine(`**Active contexts before**: ${contextsBefore.length}\n`);
 
-      // 5. Execute reload
-      console.log(`[reload_extension] Step 3: Executing reload...`);
-      const backgroundContext = contextsBefore.find((ctx: any) => ctx.isPrimary);
+      // 5. 🔥 Complete reload using chrome.developerPrivate.reload() 
+      //    This is the only method that truly reloads files from disk
+      console.log(`[reload_extension] Step 3: Executing complete disk reload (developerPrivate.reload)...`);
       
-      // ✅ Following close_page pattern: return info instead of throwing
-      if (!backgroundContext) {
-        console.error(`[reload_extension] ERROR: No background context found`);
-        reportNoBackgroundContext(response, extensionId, extension);
-        response.setIncludePages(true);
-        return;
-      }
-
-      console.log(`[reload_extension] Background context ID: ${backgroundContext.targetId}`);
+      // 🚀 Call developerPrivate.reload() in chrome://extensions page
+      //    This completely reloads the extension, all files read from disk
+      const browser = context.getBrowser();
+      const devPage = await browser.newPage();
       
       try {
-        await context.evaluateInExtensionContext(
-          backgroundContext.targetId,
-          `
-          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-            chrome.runtime.reload();
-          } else {
-            throw new Error('chrome.runtime.reload() is not available');
-          }
-          `,
-          false, // Don't wait as extension will terminate
-        );
-        console.log(`[reload_extension] Reload command sent successfully`);
-      } catch (evalError) {
-        console.error(`[reload_extension] ERROR executing reload:`, evalError);
-        throw evalError;
+        console.log(`[reload_extension] Navigating to chrome://extensions...`);
+        await devPage.goto('chrome://extensions/', {
+          waitUntil: 'networkidle0',
+          timeout: 10000,
+        });
+        
+        // Wait for page to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log(`[reload_extension] 🔥 Calling chrome.developerPrivate.reload() - complete disk reload`);
+        const reloadResult = await devPage.evaluate((extId: string) => {
+          return new Promise((resolve, reject) => {
+            const chromeAPI = (window as any).chrome;
+            
+            if (typeof chromeAPI === 'undefined' || !chromeAPI.developerPrivate) {
+              reject(new Error('chrome.developerPrivate API not available'));
+              return;
+            }
+            
+            if (!chromeAPI.developerPrivate.reload) {
+              reject(new Error('chrome.developerPrivate.reload() method not available'));
+              return;
+            }
+            
+            // 🔥 Complete reload:
+            // - failQuietly: false - Don't fail silently, report all errors immediately
+            // - populateErrorForUnpacked: true - Populate detailed error info for unpacked extensions
+            // 
+            // This call will:
+            // 1. Completely unload extension (clear all memory state)
+            // 2. Re-read manifest.json and all files from disk
+            // 3. Re-parse and reload extension
+            // 4. Start fresh Service Worker/Background Script
+            chromeAPI.developerPrivate.reload(extId, {
+              failQuietly: false,                // 🔥 No error tolerance
+              populateErrorForUnpacked: true     // 🔥 Detailed error info
+            }, () => {
+              if (chromeAPI.runtime.lastError) {
+                reject(new Error(chromeAPI.runtime.lastError.message));
+              } else {
+                resolve({success: true});
+              }
+            });
+          });
+        }, extensionId);
+        
+        console.log(`[reload_extension] ✅ Disk reload successful:`, reloadResult);
+        response.appendResponseLine('✅ Extension completely reloaded from disk\n');
+        response.appendResponseLine('   📂 All files re-read from directory');
+        response.appendResponseLine('   🔄 manifest.json, JS, CSS, HTML all applied with latest versions\n');
+        
+      } catch (reloadError) {
+        console.error(`[reload_extension] ❌ Reload failed:`, reloadError);
+        await devPage.close();
+        throw reloadError;
+      } finally {
+        // Cleanup: close chrome://extensions page
+        await devPage.close().catch(() => {});
       }
 
-      response.appendResponseLine('🔄 Reload command sent...\n');
+      response.appendResponseLine('🔄 Reload complete, extension restarting with latest files...\n');
 
       // 6. Wait and verify reload completion
       if (waitForReady) {
@@ -305,22 +354,26 @@ export const reloadExtension = defineTool({
       }
 
       // 9. Summary
-      response.appendResponseLine(`## ✅ Reload Complete\n`);
-      response.appendResponseLine('**What happened**:');
-      response.appendResponseLine('- Background script/service worker has been restarted');
-      response.appendResponseLine('- All extension pages (popup, options) have been closed');
-      response.appendResponseLine('- Content scripts will be re-injected on next page navigation');
+      response.appendResponseLine(`## ✅ Reload Complete (True Disk Reload)\n`);
+      response.appendResponseLine('**What Happened**:');
+      response.appendResponseLine('- ✅ **All files re-read from disk** (manifest.json, JS, CSS, HTML)');
+      response.appendResponseLine('- ✅ **Code changes applied** - Your latest modifications are now in effect');
+      response.appendResponseLine('- 🔄 Background script/service worker restarted and loaded new code');
+      response.appendResponseLine('- 🔄 All extension pages (popup, options) have been closed');
+      response.appendResponseLine('- 📝 Content scripts will be re-injected on next page navigation');
       if (preserveStorage) {
-        response.appendResponseLine('- Storage data was preserved and restored');
+        response.appendResponseLine('- 💾 Storage data preserved and restored');
       } else {
-        response.appendResponseLine('- Extension in-memory state has been reset');
+        response.appendResponseLine('- 🔄 Extension memory state reset');
       }
       response.appendResponseLine('');
       
-      response.appendResponseLine('**Next Steps**:');
+      response.appendResponseLine('**Verify Changes**:');
       response.appendResponseLine('- Use `list_extension_contexts` to see active contexts');
       response.appendResponseLine('- Use `get_extension_logs` to monitor extension activity');
-      response.appendResponseLine('- Reload pages to re-inject content scripts');
+      response.appendResponseLine('- Refresh web pages to re-inject content scripts');
+      response.appendResponseLine('');
+      response.appendResponseLine('💡 **Tip**: This is a true disk reload (chrome.developerPrivate.reload), equivalent to manually clicking the "Reload" button in chrome://extensions');
 
       response.setIncludePages(true);
       
