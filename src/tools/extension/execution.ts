@@ -428,6 +428,195 @@ Modify extension files → reload_extension() → Changes take effect → Contin
   },
 });
 
+export const clearExtensionErrors = defineTool({
+  name: 'clear_extension_errors',
+  description: `Clear error records for Chrome extensions from chrome://extensions
+
+**Purpose**: Remove all displayed errors to start fresh for new testing
+
+**What it clears**:
+- ✅ Runtime errors shown in chrome://extensions "Errors" button
+- ✅ Manifest errors
+- ✅ Install warnings
+- ✅ Error occurrence counts
+
+**When to use**:
+1. After fixing bugs - clear old errors before testing
+2. Starting new test session - clean slate for error monitoring
+3. Before reload - combine with reload_extension for fresh start
+
+**Common workflows**:
+- Fix code → \`clear_extension_errors\` → \`reload_extension\` → Test
+- \`reload_extension\` → Check errors → Fix → \`clear_extension_errors\` → Test again
+- \`clear_extension_errors\` alone - just clean up error history
+
+**API Used**: chrome.developerPrivate.deleteExtensionErrors()
+
+**Note**: This only clears Chrome's internal error records. It does NOT:
+- ❌ Fix the underlying bugs
+- ❌ Prevent future errors
+- ❌ Clear console logs (use browser's console clear)
+
+**Related tools**:
+- \`get_extension_runtime_errors\` - View errors before clearing
+- \`reload_extension\` - Reload after clearing
+- \`diagnose_extension_errors\` - Analyze errors before clearing`,
+  annotations: {
+    category: ToolCategories.EXTENSION_DEBUGGING,
+    readOnlyHint: false, // Clears data (side effect)
+  },
+  schema: {
+    extensionId: z
+      .string()
+      .regex(/^[a-z]{32}$/)
+      .describe('Extension ID to clear errors for. Get this from list_extensions.'),
+    errorTypes: z
+      .array(z.enum(['runtime', 'manifest']))
+      .optional()
+      .describe('Types of errors to clear. Default: all types (runtime + manifest).'),
+  },
+  handler: async (request, response, context) => {
+    const {extensionId, errorTypes} = request.params;
+
+    // 1. Verify extension exists
+    const extensions = await context.getExtensions();
+    const extension = extensions.find((ext: any) => ext.id === extensionId);
+
+    // ✅ Following close_page pattern: return info instead of throwing
+    if (!extension) {
+      reportExtensionNotFound(response, extensionId, extensions);
+      response.setIncludePages(true);
+      return;
+    }
+
+    response.appendResponseLine(`# Clear Extension Errors\n`);
+    response.appendResponseLine(`**Extension**: ${extension.name} (v${extension.version})`);
+    response.appendResponseLine(`**ID**: ${extensionId}\n`);
+
+    try {
+      // 2. Navigate to chrome://extensions and clear errors
+      const browser = context.getBrowser();
+      const page = await browser.newPage();
+
+      try {
+        // Navigate to chrome://extensions
+        await page.goto('chrome://extensions/', {
+          waitUntil: 'networkidle0',
+          timeout: 10000,
+        });
+
+        // Wait for page to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 3. Call chrome.developerPrivate.deleteExtensionErrors()
+        const clearResult = await page.evaluate(
+          async (extId: string, types: string[] | undefined) => {
+            const chromeAPI = (window as any).chrome;
+
+            if (typeof chromeAPI === 'undefined' || !chromeAPI.developerPrivate) {
+              return {
+                success: false,
+                error: 'chrome.developerPrivate API not available',
+              };
+            }
+
+            if (!chromeAPI.developerPrivate.deleteExtensionErrors) {
+              return {
+                success: false,
+                error: 'chrome.developerPrivate.deleteExtensionErrors() not available',
+              };
+            }
+
+            return new Promise(resolve => {
+              try {
+                // Build options for deleteExtensionErrors
+                const options: any = {extensionId: extId};
+
+                // If specific error types requested, filter by type
+                // Note: Chrome API accepts errorIds array, but we clear all by default
+                if (types && types.length > 0) {
+                  // For now, we clear all errors as Chrome doesn't provide easy filtering
+                  // Future enhancement: get error list first, filter by type, then delete specific IDs
+                  options.type = types;
+                }
+
+                // Call deleteExtensionErrors
+                chromeAPI.developerPrivate.deleteExtensionErrors(options, () => {
+                  if (chromeAPI.runtime.lastError) {
+                    resolve({
+                      success: false,
+                      error: chromeAPI.runtime.lastError.message,
+                    });
+                  } else {
+                    resolve({
+                      success: true,
+                      clearedTypes: types || ['runtime', 'manifest'],
+                    });
+                  }
+                });
+              } catch (error) {
+                resolve({
+                  success: false,
+                  error: `Failed to call deleteExtensionErrors: ${error}`,
+                });
+              }
+            });
+          },
+          extensionId,
+          errorTypes
+        );
+
+        const typedResult = clearResult as any;
+
+        if (!typedResult.success) {
+          response.appendResponseLine(`❌ **Failed to clear errors**\n`);
+          response.appendResponseLine(`**Reason**: ${typedResult.error}\n`);
+          response.appendResponseLine(`## 💡 Alternative\n`);
+          response.appendResponseLine('You can manually clear errors:');
+          response.appendResponseLine('1. Open chrome://extensions');
+          response.appendResponseLine('2. Click the "Errors" button for the extension');
+          response.appendResponseLine('3. Click "Clear all" in the error dialog\n');
+        } else {
+          response.appendResponseLine(`✅ **Errors cleared successfully**\n`);
+
+          const clearedTypes = typedResult.clearedTypes || ['runtime', 'manifest'];
+          response.appendResponseLine(`**Cleared types**: ${clearedTypes.join(', ')}`);
+          response.appendResponseLine('');
+
+          response.appendResponseLine(`## What was cleared:\n`);
+          response.appendResponseLine('- 🧹 All runtime errors from chrome://extensions');
+          response.appendResponseLine('- 🧹 Error occurrence counts reset to 0');
+          response.appendResponseLine('- 🧹 Manifest errors (if any)');
+          response.appendResponseLine('- 🧹 Install warnings (if any)');
+          response.appendResponseLine('');
+
+          response.appendResponseLine(`## Next steps:\n`);
+          response.appendResponseLine('✅ **Errors cleared** - You now have a clean slate\n');
+          response.appendResponseLine('**Recommended workflow**:');
+          response.appendResponseLine('1. \`reload_extension\` - Apply your code fixes');
+          response.appendResponseLine('2. Test your extension');
+          response.appendResponseLine('3. \`get_extension_runtime_errors\` - Check for new errors');
+          response.appendResponseLine('');
+          response.appendResponseLine('💡 **Tip**: Use \`diagnose_extension_errors\` to analyze any new errors that appear\n');
+        }
+      } finally {
+        await page.close();
+      }
+    } catch (error) {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to clear extension errors. The operation failed or Chrome API is unavailable.'
+      );
+
+      if (error instanceof Error) {
+        response.appendResponseLine(`\n**Details**: ${error.message}`);
+      }
+    }
+
+    response.setIncludePages(true);
+  },
+});
+
 export const evaluateInExtension = defineTool({
   name: 'evaluate_in_extension',
   description: `Evaluate JavaScript code in an extension context.
