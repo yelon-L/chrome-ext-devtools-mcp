@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.16] - 2025-10-24
+
+### Added
+- **Enhanced Console Logs (Hybrid Worker Capture)** (`get_page_console_logs`): Now captures logs from Web Workers and Service Workers using a hybrid strategy
+  - **Hybrid Strategy**: CDP for Page + Content Scripts, Puppeteer `page.on('console')` for Workers
+  - **Source Tagging**: Logs are labeled with `[PAGE]` and `[WORKER]`
+  - **Complex Objects**: Preserves existing enhanced serialization for page contexts; worker objects fall back to safe serialization
+  - **Heartbeat/Long-running**: Periodic worker logs (e.g., heartbeats) are captured
+  - No setup required; logs are auto-collected since last navigation
+
+- **Test Pages (test-extension-enhanced/test-pages/)** to validate worker/iframe logging
+  - `index.html` – Entry for tests
+  - `worker-test.html`, `test-worker.js` – Web Worker log tests (complex objects, errors, heartbeats)
+  - `iframe-test.html`, `iframe-content.html` – Iframe log tests (structure prepared)
+
+- **Documentation**
+  - `WORKER_LOGGING_SUCCESS.md` – Implementation summary and verification
+  - `WORKER_LOGGING_FINAL_ANALYSIS.md` – Root cause and solution analysis
+  - `TEST_ENVIRONMENT_READY.md` – How to run local test env (Chrome, MCP, HTTP server)
+  - `WORKER_IFRAME_FILTER_IMPLEMENTATION_PLAN.md` – Plan for iframe capture and filtering
+
+### Changed
+- **EnhancedConsoleCollector**
+  - Implemented hybrid capture: keeps CDP `Runtime.consoleAPICalled` for page/content; adds Puppeteer `page.on('console')` to collect worker logs
+  - Added worker URL heuristics (blob: and standalone .js) to classify worker-origin logs
+  - Unified log shape and source tagging across contexts
+
+### Fixed
+- **Worker logs not appearing in Enhanced mode**: Previously only page logs were shown; worker logs now correctly collected and tagged `[WORKER]`
+- **Misclassification of sources**: Page logs with filenames containing "worker" were incorrectly tagged; corrected with robust URL checks
+
+### Notes
+- This change is backward compatible and does not alter tool names or schemas
+- Iframe capture and log filtering (by type/source/time) are planned next; current release focuses on Worker coverage
+
 ## [0.8.15] - 2025-10-20
 
 ### Added
