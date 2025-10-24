@@ -33,6 +33,8 @@ export class EnhancedConsoleCollector {
   private logs: ConsoleLog[] = [];
   private serializer = new EnhancedObjectSerializer();
   private isInitialized = false;
+  private mainExecutionContextId: number | null = null;
+  private frameExecutionContexts = new Map<number, string>(); // contextId -> frameUrl
   
   /**
    * 初始化日志收集
@@ -46,14 +48,45 @@ export class EnhancedConsoleCollector {
       // 启用 Runtime domain
       await cdpSession.send('Runtime.enable');
       
-      // 监听 console API 调用（页面主上下文 + Content Script）
+      // 监听执行上下文创建（用于识别 iframe）
+      cdpSession.on('Runtime.executionContextCreated', (params: Protocol.Runtime.ExecutionContextCreatedEvent) => {
+        const context = params.context;
+        
+        // 判断是否为 iframe
+        // auxData.isDefault 为 true 表示主上下文，为 false 表示 iframe
+        // auxData.frameId 存在且不等于主 frameId 也表示 iframe
+        const isIframe = context.auxData && context.auxData.isDefault === false;
+        
+        if (isIframe) {
+          // 这是 iframe 上下文
+          this.frameExecutionContexts.set(context.id, context.origin || context.name || 'unknown');
+          console.log(`[EnhancedConsoleCollector] iframe context created: ${context.id}, origin: ${context.origin}, name: ${context.name}`);
+        } else {
+          // 主上下文
+          this.mainExecutionContextId = context.id;
+          console.log(`[EnhancedConsoleCollector] Main context created: ${context.id}`);
+        }
+      });
+      
+      // 监听执行上下文销毁
+      cdpSession.on('Runtime.executionContextDestroyed', (params: Protocol.Runtime.ExecutionContextDestroyedEvent) => {
+        this.frameExecutionContexts.delete(params.executionContextId);
+      });
+      
+      // 监听 console API 调用（页面主上下文 + Content Script + iframe）
       // Worker 日志由 Puppeteer 的 page.on('console') 处理
       cdpSession.on('Runtime.consoleAPICalled', async (params: Protocol.Runtime.ConsoleAPICalledEvent) => {
         try {
           const log = await this.formatConsoleAPICall(params, cdpSession);
           
-          // 标记为页面日志（包括 Content Script）
-          log.source = 'page';
+          // 判断日志来源
+          if (this.frameExecutionContexts.has(params.executionContextId)) {
+            // 来自 iframe
+            log.source = 'iframe';
+          } else {
+            // 来自页面主上下文或 Content Script
+            log.source = 'page';
+          }
           
           this.logs.push(log);
         } catch (error) {
@@ -311,15 +344,64 @@ export class EnhancedConsoleCollector {
    */
   private async serializePuppeteerHandle(handle: JSHandle): Promise<any> {
     try {
+      // 先尝试直接序列化
       return await handle.jsonValue();
     } catch {
-      // 无法序列化的对象（如函数）
+      // 无法直接序列化，尝试识别类型
       const str = handle.toString();
       
-      // 尝试提取有用信息
+      // 识别 JSHandle 类型
       if (str.startsWith('JSHandle@')) {
         const type = str.substring(9);
-        return {__type: type, __serialized: false};
+        
+        // 对于特殊类型，尝试提取更多信息
+        try {
+          switch (type) {
+            case 'map':
+              // 获取 Map 的大小
+              const mapSize = await handle.evaluate((m: any) => m.size);
+              return {__type: 'Map', size: mapSize, preview: `Map(${mapSize})`};
+              
+            case 'set':
+              // 获取 Set 的大小
+              const setSize = await handle.evaluate((s: any) => s.size);
+              return {__type: 'Set', size: setSize, preview: `Set(${setSize})`};
+              
+            case 'date':
+              // 获取 Date 的 ISO 字符串
+              const dateStr = await handle.evaluate((d: any) => d.toISOString());
+              return {__type: 'Date', value: dateStr, iso: dateStr};
+              
+            case 'function':
+              // 获取函数名称和源码
+              const funcInfo = await handle.evaluate((f: any) => ({
+                name: f.name || 'anonymous',
+                length: f.length,
+                source: f.toString().substring(0, 100) // 限制长度
+              }));
+              return {__type: 'Function', ...funcInfo};
+              
+            case 'error':
+              // 获取 Error 信息
+              const errorInfo = await handle.evaluate((e: any) => ({
+                name: e.name,
+                message: e.message,
+                stack: e.stack
+              }));
+              return {__type: 'Error', ...errorInfo};
+              
+            case 'regexp':
+              // 获取 RegExp 源码
+              const regexpSource = await handle.evaluate((r: any) => r.source);
+              return {__type: 'RegExp', source: regexpSource};
+              
+            default:
+              return {__type: type, __serialized: false};
+          }
+        } catch (evalError) {
+          // evaluate 失败，返回基本信息
+          return {__type: type, __serialized: false};
+        }
       }
       
       return str;
@@ -338,5 +420,81 @@ export class EnhancedConsoleCollector {
    */
   getLogsByType(type: string): ConsoleLog[] {
     return this.logs.filter(log => log.type === type);
+  }
+  
+  /**
+   * 按来源过滤日志
+   */
+  getLogsBySource(source: 'page' | 'worker' | 'service-worker' | 'iframe'): ConsoleLog[] {
+    return this.logs.filter(log => log.source === source);
+  }
+  
+  /**
+   * 按时间范围过滤日志
+   */
+  getLogsSince(timestamp: number): ConsoleLog[] {
+    return this.logs.filter(log => log.timestamp >= timestamp);
+  }
+  
+  /**
+   * 高级过滤日志
+   */
+  getFilteredLogs(options: {
+    types?: string[];
+    sources?: ('page' | 'worker' | 'service-worker' | 'iframe')[];
+    since?: number;
+    limit?: number;
+  }): ConsoleLog[] {
+    let filtered = this.logs;
+    
+    // 按类型过滤
+    if (options.types && options.types.length > 0) {
+      filtered = filtered.filter(log => options.types!.includes(log.type));
+    }
+    
+    // 按来源过滤
+    if (options.sources && options.sources.length > 0) {
+      filtered = filtered.filter(log => log.source && options.sources!.includes(log.source));
+    }
+    
+    // 按时间过滤
+    if (options.since) {
+      filtered = filtered.filter(log => log.timestamp >= options.since!);
+    }
+    
+    // 限制数量
+    if (options.limit && options.limit > 0) {
+      filtered = filtered.slice(-options.limit);
+    }
+    
+    return filtered;
+  }
+  
+  /**
+   * 获取日志统计信息
+   */
+  getLogStats(): {
+    total: number;
+    byType: Record<string, number>;
+    bySource: Record<string, number>;
+  } {
+    const byType: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+    
+    for (const log of this.logs) {
+      // 统计类型
+      byType[log.type] = (byType[log.type] || 0) + 1;
+      
+      // 统计来源
+      if (log.source) {
+        bySource[log.source] = (bySource[log.source] || 0) + 1;
+      }
+    }
+    
+    return {
+      total: this.logs.length,
+      byType,
+      bySource,
+    };
   }
 }
