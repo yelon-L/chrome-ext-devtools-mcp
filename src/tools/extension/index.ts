@@ -29,4 +29,5 @@ export {
   waitForPopup,
   closePopup,
   getPopupInfo,
+  interactWithPopup,
 } from './popup-lifecycle.js';

@@ -626,3 +626,207 @@ export const getPopupInfo = defineTool({
     response.setIncludePages(true);
   },
 });
+
+/**
+ * 与 Popup 窗口交互
+ * 支持页面方式和真正popup两种模式
+ */
+export const interactWithPopup = defineTool({
+  name: 'interact_with_popup',
+  description: `Interact with extension popup (supports both page mode and real popup).
+
+**🎯 For AI**: RECOMMENDED - Use page mode for stable interaction.
+
+**Supported Actions**:
+- \`get_dom\`: Get popup's DOM structure
+- \`click\`: Click an element (CSS selector)
+- \`fill\`: Fill an input field (CSS selector + value)
+- \`evaluate\`: Execute custom JavaScript
+
+**⚠️ Important**: Real popup auto-closes in remote debugging due to focus loss.
+
+**Recommended Workflow**:
+1. \`navigate_page("chrome-extension://ID/popup.html")\` - Open as page (stable)
+2. \`interact_with_popup(extensionId, 'get_dom')\` - Get elements
+3. \`interact_with_popup(extensionId, 'click', selector)\` - Interact
+4. \`take_screenshot()\` - Verify results
+
+**Alternative** (unstable): \`open_extension_popup\` then immediately interact (may fail)
+
+**Related tools**: \`navigate_page\`, \`open_extension_popup\`, \`take_screenshot\``,
+  
+  annotations: {
+    category: ToolCategories.EXTENSION_DEBUGGING,
+    readOnlyHint: false,
+  },
+  
+  schema: {
+    extensionId: z.string().regex(/^[a-z]{32}$/),
+    action: z.enum(['get_dom', 'click', 'fill', 'evaluate']),
+    selector: z.string().optional(),
+    value: z.string().optional(),
+    code: z.string().optional(),
+  },
+  
+  handler: async (request, response, context) => {
+    const {extensionId, action, selector, value, code} = request.params;
+    
+    // 参数验证
+    if (action === 'click' && !selector) {
+      response.appendResponseLine('❌ selector required for click');
+      response.setIncludePages(true);
+      return;
+    }
+    if (action === 'fill' && (!selector || !value)) {
+      response.appendResponseLine('❌ selector and value required for fill');
+      response.setIncludePages(true);
+      return;
+    }
+    if (action === 'evaluate' && !code) {
+      response.appendResponseLine('❌ code required for evaluate');
+      response.setIncludePages(true);
+      return;
+    }
+    
+    // 获取popup上下文
+    const contexts = await context.getExtensionContexts(extensionId);
+    const popupContext = contexts.find(ctx => ctx.type === 'popup');
+    
+    // 检查是否有页面方式打开的popup
+    const browser = context.getBrowser();
+    const pages = await browser.pages();
+    const popupPage = pages.find(p => p.url().includes(`chrome-extension://${extensionId}/popup.html`));
+    
+    if (!popupContext && !popupPage) {
+      response.appendResponseLine('# Popup Not Open or Accessible\n');
+      response.appendResponseLine('The popup is not currently accessible for interaction.\n');
+      response.appendResponseLine('**🎯 Recommended Solution** (Stable):');
+      response.appendResponseLine('```bash');
+      response.appendResponseLine(`navigate_page('chrome-extension://${extensionId}/popup.html')`);
+      response.appendResponseLine('```');
+      response.appendResponseLine('This opens popup as a page - same functionality, won\'t auto-close.\n');
+      response.appendResponseLine('**Alternative** (May auto-close):');
+      response.appendResponseLine('```bash');
+      response.appendResponseLine('open_extension_popup(extensionId)');
+      response.appendResponseLine('# Then immediately:');
+      response.appendResponseLine('interact_with_popup(extensionId, action, ...)');
+      response.appendResponseLine('```');
+      response.appendResponseLine('⚠️ Note: Real popup may close before interaction in remote debugging.');
+      response.setIncludePages(true);
+      return;
+    }
+    
+    try {
+      // 查找popup page（优先使用已找到的页面方式）
+      let targetPopupPage = popupPage;
+      
+      // 如果没有页面方式，尝试通过popup上下文查找
+      if (!targetPopupPage && popupContext) {
+        targetPopupPage = pages.find(p => p.url() === popupContext.url);
+        
+        // 如果还是没找到，遍历targets查找
+        if (!targetPopupPage) {
+          const targets = await browser.targets();
+          for (const target of targets) {
+            try {
+              const page = await target.page();
+              if (page && page.url() === popupContext.url) {
+                targetPopupPage = page;
+                break;
+              }
+            } catch {
+              continue;
+            }
+          }
+        }
+      }
+      
+      if (!targetPopupPage) {
+        throw new Error('Popup page not accessible');
+      }
+      
+      // 执行操作
+      switch (action) {
+        case 'get_dom': {
+          const result = await targetPopupPage.evaluate(() => {
+            console.log('[MCP] 🔍 Getting DOM structure...');
+            const elements = Array.from(document.querySelectorAll('button, input, select, a, textarea')).map((el, i) => ({
+              index: i,
+              tag: el.tagName.toLowerCase(),
+              id: (el as HTMLElement).id || null,
+              text: el.textContent?.trim().substring(0, 50) || null,
+              type: (el as HTMLInputElement).type || null,
+            }));
+            console.log(`[MCP] ✅ Found ${elements.length} interactive elements`);
+            return elements;
+          });
+          
+          response.appendResponseLine('# Popup DOM\n');
+          response.appendResponseLine(`Found ${result.length} elements:\n`);
+          response.appendResponseLine('```json');
+          response.appendResponseLine(JSON.stringify(result, null, 2));
+          response.appendResponseLine('```');
+          break;
+        }
+        
+        case 'click': {
+          const result = await targetPopupPage.evaluate((sel) => {
+            console.log(`[MCP] 🖱️ Clicking element: ${sel}`);
+            const el = document.querySelector(sel);
+            if (!el) {
+              console.log(`[MCP] ❌ Element not found: ${sel}`);
+              return { success: false, error: 'Not found' };
+            }
+            (el as HTMLElement).click();
+            console.log(`[MCP] ✅ Clicked ${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}`);
+            return { success: true, tag: el.tagName.toLowerCase() };
+          }, selector!);
+          
+          response.appendResponseLine(result.success ? '# Click ✅\n' : '# Click ❌\n');
+          response.appendResponseLine(`**Selector**: \`${selector}\``);
+          break;
+        }
+        
+        case 'fill': {
+          const result = await targetPopupPage.evaluate((sel, val) => {
+            console.log(`[MCP] ✏️ Filling input: ${sel} = "${val}"`);
+            const el = document.querySelector(sel) as HTMLInputElement;
+            if (!el) {
+              console.log(`[MCP] ❌ Element not found: ${sel}`);
+              return { success: false };
+            }
+            el.value = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log(`[MCP] ✅ Filled ${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''} = "${val}"`);
+            return { success: true };
+          }, selector!, value!);
+          
+          response.appendResponseLine(result.success ? '# Fill ✅\n' : '# Fill ❌\n');
+          response.appendResponseLine(`**Selector**: \`${selector}\` = "${value}"`);
+          break;
+        }
+        
+        case 'evaluate': {
+          const result = await targetPopupPage.evaluate((c) => {
+            console.log(`[MCP] 🔧 Evaluating: ${c.substring(0, 50)}...`);
+            const res = eval(c);
+            console.log('[MCP] ✅ Evaluation result:', res);
+            return res;
+          }, code!);
+          response.appendResponseLine('# Result\n```json');
+          response.appendResponseLine(JSON.stringify(result, null, 2));
+          response.appendResponseLine('```');
+          break;
+        }
+      }
+      
+    } catch (error) {
+      response.appendResponseLine('# Failed ❌\n');
+      response.appendResponseLine(`**Error**: ${error instanceof Error ? error.message : String(error)}`);
+      response.appendResponseLine('\n**Tip**: Popup may have closed. Use `navigate_page` for stable testing.');
+    }
+    
+    response.setIncludePages(true);
+  },
+});

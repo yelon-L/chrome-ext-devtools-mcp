@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `TEST_ENVIRONMENT_READY.md` – How to run local test env (Chrome, MCP, HTTP server)
   - `WORKER_IFRAME_FILTER_IMPLEMENTATION_PLAN.md` – Plan for iframe capture and filtering
 
+- **Popup Interaction Tool** (`interact_with_popup`): Interact with extension popup (supports real popup and page mode)
+  - **🎯 Recommendation**: Use page mode for stability – `navigate_page("chrome-extension://ID/popup.html")` → `interact_with_popup`
+  - **Supported Actions**: `get_dom`, `click`, `fill`, `evaluate`
+  - **Improved Guidance**: Clear error/help when popup not open; suggests page mode and shows exact commands
+  - **Rationale**: Real popup may auto-close under remote debugging; page mode provides identical DOM/logic without auto-close
+
 ### Changed
 - **EnhancedConsoleCollector**
   - Implemented hybrid capture: keeps CDP `Runtime.consoleAPICalled` for page/content; adds Puppeteer `page.on('console')` to collect worker logs
