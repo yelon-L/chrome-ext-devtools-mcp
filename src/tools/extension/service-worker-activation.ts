@@ -17,36 +17,28 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const activateExtensionServiceWorker = defineTool({
   name: 'activate_extension_service_worker',
-  description: `Activate Service Worker(s) for MV3 Chrome extensions.
+  description: `Wake up inactive Service Workers for MV3 extensions using Chrome DevTools Protocol.
 
-**Purpose**: Wake up inactive Service Workers using Chrome DevTools Protocol (more reliable than manual activation).
+**🎯 For AI: Use BEFORE** \`evaluate_in_extension\`, \`inspect_extension_storage\`, or any tool requiring active SW.
 
-**Why you need this**:
-MV3 Service Workers are ephemeral and become inactive after ~30 seconds of inactivity. When inactive:
-- evaluate_in_extension fails ("No background context found")
-- list_extension_contexts shows no background context
-- inspect_extension_storage may fail
-- Message listeners don't respond
-- Background tasks don't run
+**Why needed**:
+MV3 Service Workers become inactive after ~30 seconds. When inactive:
+- \`evaluate_in_extension\` fails with "No background context found"
+- \`list_extension_contexts\` shows no background context
+- Storage inspection may fail
 
 **Activation modes**:
-- **inactive** (default): Only activate Service Workers that are currently inactive
-- **all**: Activate all extension Service Workers (even if already active)
-- **single**: Activate one specific extension (requires extensionId)
+- **inactive** (default): Only activate currently inactive SWs
+- **all**: Activate all extension SWs (even if active)
+- **single**: Activate specific extension (requires extensionId)
 
-**When to use**:
-- BEFORE calling evaluate_in_extension on MV3 extensions
-- When list_extensions shows SW status as 🔴 Inactive
-- When list_extension_contexts returns "No active contexts"
-- In automated testing to ensure SW is ready
-- After extension reload to wake SW
+**Required workflow**:
+1. \`list_extensions\` → Check SW status
+2. If 🔴 Inactive → \`activate_extension_service_worker\`
+3. Wait 1-2 seconds
+4. Proceed with other tools
 
-**How it works**:
-Uses CDP ServiceWorker.inspectWorker command to activate the SW, which is more reliable than clicking in chrome://extensions.
-
-**💡 Best practice**: Always check SW status with list_extensions first, then activate if needed.
-
-**Example**: activate_extension_service_worker with mode="inactive" activates 2 of 3 MV3 extensions (1 was already active).`,
+**Related tools**: \`list_extensions\`, \`evaluate_in_extension\`, \`list_extension_contexts\``,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,

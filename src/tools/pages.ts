@@ -27,7 +27,9 @@ export const listPages = defineTool({
 
 export const selectPage = defineTool({
   name: 'select_page',
-  description: `Select a page as a context for future tool calls.`,
+  description: `Select a page as a context for future tool calls.
+
+**Console Logs**: Each page has its own log collection. Switching pages doesn't clear logs - list_console_messages will show logs from the selected page only.`,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: true,
@@ -77,7 +79,9 @@ export const closePage = defineTool({
 
 export const newPage = defineTool({
   name: 'new_page',
-  description: `Creates a new page`,
+  description: `Creates a new page.
+
+**Console Logs**: The new page will automatically start collecting console messages from the moment it's created.`,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
@@ -101,7 +105,12 @@ export const newPage = defineTool({
 
 export const navigatePage = defineTool({
   name: 'navigate_page',
-  description: `Navigates the currently selected page to a URL. 
+  description: `Navigates the currently selected page to a URL.
+
+⚠️ **Impact on Console Logs**: Navigation clears all collected console messages. If you need to capture logs:
+1. Navigate to the page first
+2. Perform actions that generate logs
+3. Then call list_console_messages
 
 Note: This operation depends on network conditions and page complexity. If navigation fails due to timeout, consider:
 1. Using a simpler/faster website for testing
@@ -161,7 +170,9 @@ Note: This operation depends on network conditions and page complexity. If navig
 
 export const navigatePageHistory = defineTool({
   name: 'navigate_page_history',
-  description: `Navigates the currently selected page.`,
+  description: `Navigates the currently selected page (back/forward in history).
+
+⚠️ **Impact on Console Logs**: Same as navigate_page - going back/forward clears collected console messages for that page.`,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,

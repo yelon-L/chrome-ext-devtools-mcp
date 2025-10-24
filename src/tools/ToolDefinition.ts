@@ -4,9 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Browser, Dialog, ElementHandle, Page} from 'puppeteer-core';
+import type {
+  Browser,
+  CDPSession,
+  Dialog,
+  ElementHandle,
+  Page,
+} from 'puppeteer-core';
 import z from 'zod';
 
+import type {EnhancedConsoleCollector} from '../collectors/EnhancedConsoleCollector.js';
 import type {
   ExtensionContext,
   ExtensionInfo,
@@ -159,6 +166,11 @@ export type Context = Readonly<{
     storageArea: string;
     changes: Record<string, {oldValue?: unknown; newValue?: unknown}>;
   }>>;
+  
+  // CDP Session methods for enhanced logging
+  getCDPSession(page: Page): CDPSession | undefined;
+  getOrCreateCDPSession(page: Page): Promise<CDPSession>;
+  getEnhancedConsoleCollector(page: Page): EnhancedConsoleCollector | undefined;
 }>;
 
 export function defineTool<Schema extends z.ZodRawShape>(

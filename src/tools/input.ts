@@ -43,6 +43,7 @@ export const click = defineTool({
           : `Successfully clicked on the element`,
       );
       response.setIncludeSnapshot(true);
+      response.setIncludeConsoleData(true);  // Auto-include console logs
     } finally {
       void handle.dispose();
     }
@@ -72,6 +73,7 @@ export const hover = defineTool({
       });
       response.appendResponseLine(`Successfully hovered over the element`);
       response.setIncludeSnapshot(true);
+      response.setIncludeConsoleData(true);  // Auto-include console logs
     } finally {
       void handle.dispose();
     }
@@ -99,8 +101,9 @@ export const fill = defineTool({
       await context.waitForEventsAfterAction(async () => {
         await handle.asLocator().fill(request.params.value);
       });
-      response.appendResponseLine(`Successfully filled out the element`);
+      response.appendResponseLine(`Successfully filled in the element`);
       response.setIncludeSnapshot(true);
+      response.setIncludeConsoleData(true);  // Auto-include console logs
     } finally {
       void handle.dispose();
     }
@@ -129,6 +132,7 @@ export const drag = defineTool({
       });
       response.appendResponseLine(`Successfully dragged an element`);
       response.setIncludeSnapshot(true);
+      response.setIncludeConsoleData(true);  // Auto-include console logs
     } finally {
       void fromHandle.dispose();
       void toHandle.dispose();
@@ -166,6 +170,7 @@ export const fillForm = defineTool({
     }
     response.appendResponseLine(`Successfully filled out the form`);
     response.setIncludeSnapshot(true);
+    response.setIncludeConsoleData(true);  // Auto-include console logs
   },
 });
 
@@ -213,10 +218,12 @@ export const uploadFile = defineTool({
           response.appendResponseLine('3. Try clicking the element manually to see if it triggers a file chooser');
           response.appendResponseLine('4. Inspect the element\'s onclick handler in DevTools');
           response.setIncludeSnapshot(true);
+          response.setIncludeConsoleData(true);  // Auto-include console logs even on error
           return;
         }
       }
       response.setIncludeSnapshot(true);
+      response.setIncludeConsoleData(true);  // Auto-include console logs
       response.appendResponseLine(`File uploaded from ${filePath}.`);
     } finally {
       void handle.dispose();

@@ -63,6 +63,7 @@ Example with arguments: \`(el) => {
         response.appendResponseLine('```json');
         response.appendResponseLine(`${result}`);
         response.appendResponseLine('```');
+        response.setIncludeConsoleData(true);  // Auto-include console logs
       });
     } finally {
       Promise.allSettled(args.map(arg => arg.dispose())).catch(() => {

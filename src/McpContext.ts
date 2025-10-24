@@ -10,6 +10,7 @@ import path from 'node:path';
 import type {Debugger} from 'debug';
 import type {
   Browser,
+  CDPSession,
   ConsoleMessage,
   Dialog,
   ElementHandle,
@@ -21,6 +22,8 @@ import type {
 
 import {CdpOperations} from './CdpOperations.js';
 import {CdpTargetManager} from './CdpTargetManager.js';
+import {CDPSessionManager} from './cdp/CDPSessionManager.js';
+import {EnhancedConsoleCollector} from './collectors/EnhancedConsoleCollector.js';
 import {ExtensionHelper} from './extension/ExtensionHelper.js';
 import type {
   ExtensionContext,
@@ -109,11 +112,23 @@ export class McpContext implements Context {
   // CDP Operations for high-frequency operations
   #cdpOperations?: CdpOperations;
   #useCdpForOperations = false; // 是否使用 CDP 执行高频操作
+  
+  // CDP Session Manager for enhanced logging
+  #cdpSessionManager: CDPSessionManager;
+  #enhancedConsoleCollectors = new WeakMap<Page, EnhancedConsoleCollector>();
 
   private constructor(browser: Browser, logger: Debugger) {
     this.browser = browser;
     this.logger = logger;
-    this.#extensionHelper = new ExtensionHelper(browser);
+    
+    // 初始化 CDP Session Manager
+    this.#cdpSessionManager = new CDPSessionManager();
+    
+    this.#extensionHelper = new ExtensionHelper(browser, {
+      logging: {
+        useConsole: true  // 启用详细日志用于调试扩展检测问题
+      }
+    });
 
     this.#networkCollector = new NetworkCollector(
       this.browser,
@@ -135,6 +150,38 @@ export class McpContext implements Context {
         });
       },
     );
+    
+    // 为新创建的页面自动创建 CDP session 和增强日志收集器
+    browser.on('targetcreated', async (target) => {
+      const page = await target.page();
+      if (page) {
+        await this.#initializeEnhancedConsoleCollector(page);
+      }
+    });
+  }
+  
+  /**
+   * 为页面初始化增强日志收集器
+   */
+  async #initializeEnhancedConsoleCollector(page: Page): Promise<void> {
+    try {
+      const cdpSession = await this.#cdpSessionManager.getOrCreateSession(page);
+      const collector = new EnhancedConsoleCollector();
+      await collector.init(page, cdpSession);
+      this.#enhancedConsoleCollectors.set(page, collector);
+      
+      // 监听页面导航，清空旧日志
+      page.on('framenavigated', async (frame) => {
+        if (frame === page.mainFrame()) {
+          collector.clear();
+          this.logger('[McpContext] Enhanced console collector cleared for navigation: %s', page.url());
+        }
+      });
+      
+      this.logger('[McpContext] Enhanced console collector initialized for: %s', page.url());
+    } catch (error) {
+      this.logger('[McpContext] Failed to initialize enhanced console collector: %s', error);
+    }
   }
 
   async #init() {
@@ -160,6 +207,11 @@ export class McpContext implements Context {
       this.setSelectedPageIdx(0);
       await this.#networkCollector.init();
       await this.#consoleCollector.init();
+      
+      // 为已存在的页面初始化增强日志收集器
+      for (const page of this.#pages) {
+        await this.#initializeEnhancedConsoleCollector(page);
+      }
     } catch (error) {
       this.logger(`Warning: Failed to initialize context: ${error}`);
       // 创建一个默认页面作为fallback
@@ -836,6 +888,27 @@ export class McpContext implements Context {
   }
   
   // ===== CDP Hybrid Architecture Methods =====
+  
+  /**
+   * 获取页面的 CDP session（用于增强日志捕获）
+   */
+  getCDPSession(page: Page): CDPSession | undefined {
+    return this.#cdpSessionManager.getSession(page);
+  }
+  
+  /**
+   * 获取或创建页面的 CDP session
+   */
+  async getOrCreateCDPSession(page: Page): Promise<CDPSession> {
+    return this.#cdpSessionManager.getOrCreateSession(page);
+  }
+  
+  /**
+   * 获取页面的增强日志收集器
+   */
+  getEnhancedConsoleCollector(page: Page): EnhancedConsoleCollector | undefined {
+    return this.#enhancedConsoleCollectors.get(page);
+  }
   
   /**
    * 获取 CDP Operations 实例（如果已启用）

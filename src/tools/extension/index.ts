@@ -21,3 +21,12 @@ export {inspectExtensionManifest} from './manifest-inspector.js';
 export {checkContentScriptInjection} from './content-script-checker.js';
 export {enhanceExtensionErrorCapture} from './error-capture-enhancer.js';
 export {getExtensionRuntimeErrors} from './runtime-errors.js';
+
+// Popup lifecycle management tools
+export {
+  openExtensionPopup,
+  isPopupOpen,
+  waitForPopup,
+  closePopup,
+  getPopupInfo,
+} from './popup-lifecycle.js';

@@ -282,16 +282,47 @@ export class ExtensionHelper {
    */
   private async getExtensionsViaManagementAPI(allTargets: CDPTargetInfo[]): Promise<ExtensionInfo[]> {
     try {
-      // 方案A: 找一个已经活跃的扩展 Service Worker
+      this.log('[Management API] 尝试使用 chrome.management.getAll()');
+      
+      // 方案A: 找一个已经活跃的扩展 Service Worker (MV3)
+      this.log('[Management API] 查找活跃的 Service Worker...');
       let activeExtensionTarget = allTargets.find(
         t => t.type === 'service_worker' && t.url?.startsWith('chrome-extension://')
       );
       
-      // 方案B: 如果没有活跃的SW，尝试主动激活一个
+      if (activeExtensionTarget) {
+        this.log(`[Management API] ✅ 找到 Service Worker: ${activeExtensionTarget.url}`);
+      }
+      
+      // 方案B: 如果没有 SW，找任意扩展页面 (page 类型)
       if (!activeExtensionTarget) {
-        this.log('[ExtensionHelper] 没有活跃的SW，尝试激活一个扩展...');
+        this.log('[Management API] 没有活跃的 Service Worker，查找扩展页面...');
+        activeExtensionTarget = allTargets.find(
+          t => t.type === 'page' && t.url?.startsWith('chrome-extension://')
+        );
         
-        // 从 targets 中找任意一个扩展页面
+        if (activeExtensionTarget) {
+          this.log(`[Management API] ✅ 找到扩展页面: ${activeExtensionTarget.url}`);
+        }
+      }
+      
+      // 方案C: 查找 MV2 的 background_page
+      if (!activeExtensionTarget) {
+        this.log('[Management API] 查找 MV2 background page...');
+        activeExtensionTarget = allTargets.find(
+          t => t.type === 'background_page' && t.url?.startsWith('chrome-extension://')
+        );
+        
+        if (activeExtensionTarget) {
+          this.log(`[Management API] ✅ 找到 background page: ${activeExtensionTarget.url}`);
+        }
+      }
+      
+      // 方案D: 如果所有方法都失败，尝试主动激活一个扩展
+      if (!activeExtensionTarget) {
+        this.log('[Management API] 所有方法都失败，尝试主动激活扩展...');
+        
+        // 从 targets 中找任意一个扩展相关的 URL
         const anyExtensionTarget = allTargets.find(
           t => t.url?.startsWith('chrome-extension://')
         );
@@ -299,6 +330,8 @@ export class ExtensionHelper {
         if (anyExtensionTarget) {
           const extId = this.extractExtensionId(anyExtensionTarget.url);
           if (extId) {
+            this.log(`[Management API] 发现扩展 ID: ${extId}，尝试激活...`);
+            
             try {
               // 通过打开 manifest.json 来触发 SW 激活（轻量级操作）
               const manifestPage = await this.browser.newPage();
@@ -308,30 +341,33 @@ export class ExtensionHelper {
               });
               await manifestPage.close();
               
-              // 等待 SW 激活
-              await new Promise(resolve => setTimeout(resolve, 500));
+              // 等待 SW 激活（增加等待时间）
+              this.log('[Management API] 等待 Service Worker 激活...');
+              await new Promise(resolve => setTimeout(resolve, 1500));
               
               // 重新获取 targets
               const cdp = await this.getCDPSession();
               const {targetInfos} = await cdp.send('Target.getTargets');
               const newTargets = targetInfos as CDPTargetInfo[];
               
+              // 查找新激活的 Service Worker 或页面
               activeExtensionTarget = newTargets.find(
-                t => t.type === 'service_worker' && t.url?.startsWith('chrome-extension://')
+                t => (t.type === 'service_worker' || t.type === 'page' || t.type === 'background_page') && 
+                     t.url?.includes(extId)
               );
               
               if (activeExtensionTarget) {
-                this.log('[ExtensionHelper] ✅ 成功激活一个SW');
+                this.log(`[Management API] ✅ 成功激活扩展 ${extId} (type: ${activeExtensionTarget.type})`);
               }
             } catch (error) {
-              this.log('[ExtensionHelper] 激活SW失败，使用回退方案');
+              this.log(`[Management API] 激活失败: ${error}`);
             }
           }
         }
       }
       
       if (!activeExtensionTarget) {
-        this.log('[ExtensionHelper] 仍然没有活跃的SW，使用回退方案');
+        this.log('[Management API] ❌ 无法找到任何可用的扩展上下文');
         return [];
       }
       
@@ -549,36 +585,68 @@ export class ExtensionHelper {
    */
   async getExtensions(includeDisabled = false): Promise<ExtensionInfo[]> {
     try {
-      this.log('[ExtensionHelper] 获取所有扩展...');
+      this.log('=== 开始扩展检测 ===');
+      this.log(`[ExtensionHelper] includeDisabled: ${includeDisabled}`);
       
       // 获取所有 targets（只调用一次）
       const cdp = await this.getCDPSession();
       const {targetInfos} = await cdp.send('Target.getTargets');
       const allTargets = targetInfos as CDPTargetInfo[];
       
+      this.log(`[ExtensionHelper] CDP Target.getTargets 返回 ${allTargets.length} 个 targets`);
+      
+      // 统计 target 类型分布
+      const typeCount: Record<string, number> = {};
+      allTargets.forEach(t => {
+        typeCount[t.type] = (typeCount[t.type] || 0) + 1;
+      });
+      this.log(`[ExtensionHelper] Target 类型分布: ${JSON.stringify(typeCount)}`);
+      
+      // 统计扩展相关的 targets
+      const extensionTargets = allTargets.filter(t => 
+        t.url?.startsWith('chrome-extension://')
+      );
+      this.log(`[ExtensionHelper] 扩展相关 targets: ${extensionTargets.length} 个`);
+      
+      if (extensionTargets.length > 0) {
+        extensionTargets.forEach(t => {
+          this.log(`  - ${t.type}: ${t.url}`);
+        });
+      }
+      
       // 策略 1: 🚀 尝试使用 chrome.management.getAll() API（最快、最完整）
       const managementExtensions = await this.getExtensionsViaManagementAPI(allTargets);
       
       if (managementExtensions.length > 0) {
-        this.log(`[ExtensionHelper] ✅ 通过 chrome.management API 获取到 ${managementExtensions.length} 个扩展`);
-        return includeDisabled ? managementExtensions : managementExtensions.filter(ext => ext.enabled);
+        this.log(`[ExtensionHelper] ✅ 方法 1 成功: chrome.management API 获取到 ${managementExtensions.length} 个扩展`);
+        const result = includeDisabled ? managementExtensions : managementExtensions.filter(ext => ext.enabled);
+        this.log(`[ExtensionHelper] 返回 ${result.length} 个扩展`);
+        return result;
       }
       
-      this.log('[ExtensionHelper] ⚠️  chrome.management API 不可用，尝试 targets 扫描');
+      this.log('[ExtensionHelper] ⚠️  方法 1 失败: chrome.management API 不可用');
+      this.log('[ExtensionHelper] 尝试方法 2: Target.getTargets 扫描');
       
       // 回退方案：从所有 chrome-extension:// URLs 中提取唯一的扩展 ID
       const extensionIds = new Set<string>();
+      const extensionTargetDetails: Array<{id: string; type: string; url: string}> = [];
       
       for (const target of allTargets) {
         if (target.url?.startsWith('chrome-extension://')) {
           const id = this.extractExtensionId(target.url);
           if (id) {
             extensionIds.add(id);
+            extensionTargetDetails.push({
+              id,
+              type: target.type,
+              url: target.url
+            });
+            this.log(`[Target Scan] 发现扩展 ${id} (type: ${target.type})`);
           }
         }
       }
       
-      this.log(`[ExtensionHelper] 从 targets 找到 ${extensionIds.size} 个扩展 ID`);
+      this.log(`[ExtensionHelper] 从 ${allTargets.length} 个 targets 中找到 ${extensionIds.size} 个扩展 ID`);
       
       // 添加已知的扩展 ID（即使它们的 SW 是 inactive）
       const knownIds = this.options.knownExtensionIds || [];

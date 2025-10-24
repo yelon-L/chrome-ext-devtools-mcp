@@ -19,38 +19,26 @@ import {reportExtensionNotFound} from '../utils/ErrorReporting.js';
 
 export const diagnoseExtensionErrors = defineTool({
   name: 'diagnose_extension_errors',
-  description: `Get intelligent error analysis with fix recommendations (analyzes console logs).
+  description: `Intelligent error analysis with fix recommendations (analyzes console logs from all contexts).
 
-**This is the tool you need when:**
-- ✅ You want quick health check with actionable recommendations
-- ✅ You need errors classified by type (JavaScript, API, Permission, Network)
-- ✅ You want a health score (0-100) for the extension
-- ✅ You need fix suggestions for detected errors
+**🎯 For AI**: Quick health check + actionable solutions for extension errors.
 
-**Data source**: Console logs from all extension contexts (background, content scripts, popup)
-
-**What you get**:
-- Error classification (🐛 JavaScript, 🔌 Chrome API, 🔒 Permission, 🌐 Network)
-- Error frequency analysis (which errors happen most often)
+**Returns**:
+- Error classification: 🐛 JavaScript, 🔌 Chrome API, 🔒 Permission, 🌐 Network
+- Error frequency analysis (which errors most common)
 - Health score (0-100) with severity assessment
-- Diagnostic recommendations with actionable solutions
-- Service Worker status check
+- Diagnostic recommendations with actionable fixes
+- Service Worker status
 
-**This tool analyzes console logs, NOT chrome://extensions errors**:
-- For chrome://extensions errors → use \`get_extension_runtime_errors\`
-- This tool complements \`get_extension_runtime_errors\` by providing analysis
+**Data source**: Console logs (background, content scripts, popup)
+For chrome://extensions errors → use \`get_extension_runtime_errors\` instead
 
-**Example scenarios**:
-1. Quick health check: "Is my extension working correctly?"
-   → Use this tool for overview and recommendations
-   
-2. Need fix suggestions: "How do I fix these errors?"
-   → Use this tool for intelligent analysis and solutions
+**Use cases**:
+- "Is extension working correctly?" → Health overview
+- "How to fix errors?" → Analysis + recommendations
+- Before: \`enhance_extension_error_capture\` to catch more errors
 
-**Related tools**:
-- \`get_extension_runtime_errors\` - See errors from chrome://extensions (different data source)
-- \`get_extension_logs\` - Get raw console logs (this tool analyzes them)
-- \`enhance_extension_error_capture\` - Inject listeners before using this tool`,
+**Related tools**: \`get_extension_runtime_errors\`, \`get_extension_logs\`, \`enhance_extension_error_capture\``,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,

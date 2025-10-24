@@ -952,22 +952,24 @@ export const clearExtensionErrors = defineTool({
 
 export const evaluateInExtension = defineTool({
   name: 'evaluate_in_extension',
-  description: `Evaluate JavaScript code in an extension context.
+  description: `Execute JavaScript code in extension's background context with full chrome.* API access.
 
-Executes arbitrary JavaScript in the extension's background context (Service Worker for MV3, 
-background page for MV2). This is essential for:
-- Testing extension APIs (chrome.runtime, chrome.storage, etc.)
-- Debugging extension logic
-- Inspecting extension state
-- Calling extension functions
+**🎯 For AI: PREREQUISITE** - Service Worker MUST be 🟢 Active (check with \`list_extensions\` first).
 
-The code runs with full extension permissions and has access to all chrome.* APIs.
+**Use cases**:
+- Test extension APIs (chrome.runtime, chrome.storage, etc.)
+- Debug extension logic and inspect state
+- Call extension functions
 
-⚠️ **Prerequisites for MV3 extensions**:
-- Service Worker MUST be active before calling this tool
-- If SW is inactive, this tool will fail with "No background context found"
-- Use 'activate_extension_service_worker' first if you see SW status as 🔴 Inactive
-- Check SW status with 'list_extensions' before proceeding`,
+**⚠️ MV3 Prerequisites**:
+1. Check SW status: \`list_extensions\` 
+2. If 🔴 Inactive: \`activate_extension_service_worker\`
+3. Wait 1-2 seconds
+4. Then use this tool
+
+**Common error**: "No background context found" → SW is inactive, activate it first.
+
+**Related tools**: \`activate_extension_service_worker\`, \`list_extensions\`, \`list_extension_contexts\``,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false,

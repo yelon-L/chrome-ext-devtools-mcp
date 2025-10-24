@@ -17,39 +17,26 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const listExtensions = defineTool({
   name: 'list_extensions',
-  description: `List all installed extensions (your starting point for extension debugging).
+  description: `List all installed Chrome extensions with status and metadata.
 
-**This is the tool you need when:**
-- ✅ You want to see which extensions are installed
-- ✅ You need to get the extension ID (32-character code for other tools)
-- ✅ You want to check if an extension is enabled or disabled
-- ✅ You need to verify Service Worker status (MV3 extensions: 🟢 Active / 🔴 Inactive)
+**🎯 For AI: START HERE** - This is your first tool for any extension debugging task.
 
-**This is typically your FIRST TOOL** - Start here to discover available extensions
-
-**What you get**:
-- Extension ID (required for all other extension tools)
-- Name, version, and description
+**Returns**:
+- Extension ID (required for ALL other extension tools)
+- Name, version, manifest version (MV2/MV3)
+- Service Worker status: 🟢 Active / 🔴 Inactive
 - Enabled/disabled status
-- Manifest version (MV2 or MV3)
-- Service Worker status (MV3 only)
-- Permissions summary
-- Background script URL
 
-**Example scenarios**:
-1. Starting extension debugging: "What extensions are installed?"
-   → Use this tool first to see all extensions
-   
-2. Need extension ID: "I want to debug MyExtension"
-   → Use this tool to find the 32-character extension ID
+**Critical: Service Worker Status**
+- 🟢 Active = Ready to use
+- 🔴 Inactive = MUST activate first → use \`activate_extension_service_worker\`
 
-3. Service Worker check: "Is the Service Worker running?"
-   → Use this tool to see SW status (🟢 Active / 🔴 Inactive)
+**Typical workflow**:
+1. \`list_extensions\` → Get ID and check SW status
+2. If 🔴 Inactive → \`activate_extension_service_worker\`  
+3. Then proceed with other debugging tools
 
-**Related tools**:
-- \`get_extension_details\` - Get detailed information about a specific extension
-- \`activate_extension_service_worker\` - Wake up inactive Service Worker (if 🔴)
-- \`diagnose_extension_errors\` - Check extension health after finding the ID`,
+**Related tools**: \`activate_extension_service_worker\`, \`get_extension_details\`, \`diagnose_extension_errors\``,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -83,10 +70,10 @@ export const listExtensions = defineTool({
       response.appendResponseLine('Navigate to the extensions management page to visually see all extensions (including disabled ones):');
       response.appendResponseLine('```javascript');
       response.appendResponseLine('// Step 1: Navigate to extensions page');
-      response.appendResponseLine('navigate_to({ url: "chrome://extensions/" })');
+      response.appendResponseLine('navigate_page({ url: "chrome://extensions/" })');
       response.appendResponseLine('');
       response.appendResponseLine('// Step 2: Take a screenshot');
-      response.appendResponseLine('screenshot()');
+      response.appendResponseLine('take_screenshot()');
       response.appendResponseLine('');
       response.appendResponseLine('// Step 3: Analyze the screenshot');
       response.appendResponseLine('// - Check if there are installed but disabled extensions');
@@ -126,7 +113,7 @@ export const listExtensions = defineTool({
       response.appendResponseLine('- Update failure causing automatic disable');
       response.appendResponseLine('- Too many crashes causing Chrome to disable it\n');
       
-      response.appendResponseLine('💡 **AI Tip**: Always use the `navigate_to` tool to jump to chrome://extensions/ and take a screenshot first. This provides a visual view of all extension states, including disabled ones.');
+      response.appendResponseLine('💡 **AI Tip**: Always use the `navigate_page` tool to jump to chrome://extensions/ and take a screenshot first. This provides a visual view of all extension states, including disabled ones.');
       
       response.setIncludePages(true);
       return;
@@ -159,7 +146,7 @@ export const listExtensions = defineTool({
           `  - **Enable Steps**:`
         );
         response.appendResponseLine(
-          `    1. Navigate to chrome://extensions/ page (use \`navigate_to\` tool)`
+          `    1. Navigate to chrome://extensions/ page (use \`navigate_page\` tool)`
         );
         response.appendResponseLine(
           `    2. Find "${ext.name}" extension`
