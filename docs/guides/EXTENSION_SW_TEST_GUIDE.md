@@ -734,10 +734,10 @@ get_background_logs({capture: true, duration: 10000})
 
 **结果:**
 ```
-📊 Total: 15 entries
-- 📝 log: 5 entries
-- 📋 warning: 5 entries
-- ❌ error: 5 entries
+ Total: 15 entries
+- log: 5 entries
+- warning: 5 entries
+- error: 5 entries
 
 [TEST][BG][1761365821161] Log 1
 [TEST][BG][1761365821161] Warn 1

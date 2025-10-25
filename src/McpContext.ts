@@ -143,10 +143,10 @@ export class McpContext implements Context {
       this.browser,
       (page, collect) => {
         page.on('console', event => {
-          collect(event);
+          collect(event as ConsoleMessage);
         });
         page.on('pageerror', event => {
-          collect(event);
+          collect(event as Error);
         });
       },
     );
