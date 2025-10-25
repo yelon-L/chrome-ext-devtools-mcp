@@ -633,6 +633,177 @@ evaluate_script(() => {
 
 ---
 
-**更新日期:** 2025-10-25  
-**状态:** ✅ Background 工具验证通过，❌ Offscreen 工具需要修复  
-**下一步:** 实施修复方案 A，修改 Target 匹配逻辑
+**更新日期:** 2025-10-25 12:17  
+**状态:** ✅ Background 工具已修复，✅ Offscreen 工具已修复  
+**Git Commits:** 289c858 (Offscreen), 3d2e6e2 (Background)
+
+---
+
+## 🎉 修复完成与验证报告
+
+### 修复日期
+- Offscreen 修复: 2025-10-25 12:14
+- Background 修复: 2025-10-25 12:17
+
+### 最终测试结果
+
+| 工具 | 状态 | 捕获日志 | 验证方法 |
+|------|------|----------|----------|
+| **get_background_logs** | ✅ **正常** | 15 条 | 定时器打印 log/warn/error |
+| **get_offscreen_logs** | ✅ **正常** | 156 条 | 实际扩展使用场景 |
+
+### 修复内容详解
+
+#### 第一阶段：Offscreen Target 匹配修复
+
+**Git Commit:** 289c858
+
+**问题:**
+- 使用私有属性 `_targetId` 匹配不可靠
+- Offscreen Document 的 target 特性与 Background 不同
+
+**修复:**
+```typescript
+// ❌ 修改前
+const offTarget = targets.find(
+  t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+);
+
+// ✅ 修改后
+const offTarget = targets.find(t => {
+  const url = t.url();
+  const matches = url.includes(extensionId) && url.includes('/offscreen');
+  this.log(`[ExtensionHelper] Checking target: ${url} -> ${matches}`);
+  return matches;
+});
+```
+
+**验证结果:**
+- ✅ 成功捕获 156 条 Offscreen 日志
+- 日志内容：`[Offscreen] 📨 Received message from Background Object`
+
+#### 第二阶段：Background Target 匹配修复
+
+**Git Commit:** 3d2e6e2
+
+**问题:**
+- 第一次修复使用了错误的 `url.includes(backgroundTarget.url)` 逻辑
+- `backgroundTarget.url` 是完整 URL，不应该用 includes
+
+**修复:**
+```typescript
+// ❌ 第一次修复（错误）
+const swTarget = targets.find(t => {
+  const url = t.url();
+  const matches = url.includes(extensionId) && url.includes(backgroundTarget.url);
+  return matches;
+});
+
+// ✅ 第二次修复（正确）
+const swTarget = targets.find(t => {
+  const url = t.url();
+  const matches = url === backgroundTarget.url;
+  this.log(`[ExtensionHelper] Checking target: ${url} -> ${matches}`);
+  return matches;
+});
+```
+
+**验证结果:**
+- ✅ 成功捕获 15 条 Background 日志
+- 日志类型：5 log + 5 warning + 5 error
+
+### 完整测试流程
+
+#### Background 日志测试
+
+**步骤:**
+```javascript
+// 1. 在 Service Worker 中启动定时器
+let count = 0;
+const interval = setInterval(() => {
+  count++;
+  console.log(`[TEST][BG] Log ${count}`);
+  console.warn(`[TEST][BG] Warn ${count}`);
+  console.error(`[TEST][BG] Error ${count}`);
+  if (count >= 5) clearInterval(interval);
+}, 1000);
+
+// 2. 立即捕获日志
+get_background_logs({capture: true, duration: 10000})
+```
+
+**结果:**
+```
+📊 Total: 15 entries
+- 📝 log: 5 entries
+- 📋 warning: 5 entries
+- ❌ error: 5 entries
+
+[TEST][BG][1761365821161] Log 1
+[TEST][BG][1761365821161] Warn 1
+[TEST][BG][1761365821162] Error 1
+...
+```
+
+#### Offscreen 日志测试
+
+**步骤:**
+1. 打开 HLS 测试页面
+2. Hover 到视频，点击"字幕"按钮
+3. 播放视频，等待状态变为"运行中"
+4. 捕获 Offscreen 日志
+
+**结果:**
+```
+📊 Total: 156 entries
+- 📝 log: 156 entries
+
+[04:14:35] [Offscreen] 📨 Received message from Background Object
+[04:14:36] [Offscreen] 📨 Received message from Background Object
+...
+```
+
+### 技术要点总结
+
+#### Background vs Offscreen 匹配策略差异
+
+**为什么使用不同的匹配方式？**
+
+| Target 类型 | 匹配方式 | 原因 |
+|------------|---------|------|
+| **Background** | `url === backgroundTarget.url` | CDP 返回完整准确的 URL，直接比较最可靠 |
+| **Offscreen** | `url.includes('/offscreen')` | 需要模式匹配，因为 URL 路径可能变化 |
+
+**核心区别:**
+- Background target 通过 `type === 'service_worker'` 唯一确定，URL 固定
+- Offscreen target 没有专用 type，需要通过 URL 模式识别
+
+#### 最佳实践
+
+1. **优先使用公开 API**: 避免依赖私有属性（如 `_targetId`）
+2. **根据场景选择匹配方式**:
+   - 已知准确 URL → 直接比较 (`===`)
+   - 需要模式匹配 → 使用 includes
+3. **添加详细调试日志**: 便于排查匹配失败问题
+4. **实际测试验证**: 不依赖假设，用真实场景测试
+
+### 遗留问题与改进
+
+#### 已解决 ✅
+- ✅ Offscreen target 匹配失败
+- ✅ Background target 匹配失败
+- ✅ 私有属性依赖问题
+- ✅ 调试日志缺失
+
+#### 后续优化建议
+1. 考虑添加 fallback 机制（URL 匹配失败时尝试其他方式）
+2. 优化调试日志级别（production 环境可关闭）
+3. 添加单元测试覆盖 target 匹配逻辑
+4. 文档补充不同扩展类型的日志捕获差异
+
+---
+
+**最终状态:** ✅ 两个工具均已修复并通过验证  
+**测试扩展:** Video SRT Ext v0.4.263  
+**测试环境:** ext-debug-stdio (Chrome 9225)  
+**总耗时:** ~30 分钟（包含调试、修复、验证）
