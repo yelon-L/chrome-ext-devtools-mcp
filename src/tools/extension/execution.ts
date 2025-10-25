@@ -577,7 +577,8 @@ export const reloadExtension = defineTool({
 - cacheStrategy: 'auto' | 'force-clear' | 'preserve' | 'disable' (default: 'auto')
 - preserveStorage: true - Keep chrome.storage data (default: false)
 - waitForReady: true - Wait and verify reload completion (default: true)
-- captureErrors: true - Capture post-reload errors (default: true)
+- captureErrors: true - Quick error check after reload (default: true)
+- captureLogs: true - Capture full startup logs (default: false, more detailed than captureErrors)
 
 **Typical Workflow**:
 Modify extension files → reload_extension(auto) → Cache handled automatically → Changes take effect
@@ -615,6 +616,21 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
       .boolean()
       .optional()
       .describe('Capture and report errors after reload. Default is true.'),
+    captureLogs: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(`Capture full startup logs (Background + Offscreen) after reload.
+      - true: Show all logs (useful for debugging startup issues)
+      - false: Only quick error check (faster, default)
+      Default: false`),
+    logDuration: z
+      .number()
+      .min(1000)
+      .max(15000)
+      .optional()
+      .default(3000)
+      .describe(`Log capture duration in milliseconds. Default: 3000ms (3 seconds)`),
   },
   handler: async (request, response, context) => {
     const {
@@ -623,6 +639,8 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
       preserveStorage = false,
       waitForReady = true,
       captureErrors = true,
+      captureLogs = false,
+      logDuration = 3000,
     } = request.params;
 
     // Detailed logging: record tool invocation
@@ -635,7 +653,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
     console.log(`Session: ${sessionInfo}`);
     console.log(`Token: ${tokenInfo}`);
     console.log(`Extension ID: ${extensionId}`);
-    console.log(`Options: cacheStrategy=${cacheStrategy}, preserveStorage=${preserveStorage}, waitForReady=${waitForReady}, captureErrors=${captureErrors}`);
+    console.log(`Options: cacheStrategy=${cacheStrategy}, preserveStorage=${preserveStorage}, waitForReady=${waitForReady}, captureErrors=${captureErrors}, captureLogs=${captureLogs}, logDuration=${logDuration}`);
     console.log(`${'='.repeat(80)}\n`);
 
     // Global timeout protection - prevent infinite hang
@@ -939,8 +957,24 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
         }
       }
 
-      // 8. Capture startup errors (optimized: reduce wait time)
-      if (captureErrors) {
+      // 8. Capture logs or errors
+      if (captureLogs) {
+        // Full log capture (Background + Offscreen)
+        nextStep++;
+        response.appendResponseLine(`## Step ${nextStep}: Startup Logs\n`);
+        
+        try {
+          // Wait for startup
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Capture logs using new helper
+          const logResults = await captureExtensionLogs(extensionId, logDuration, context);
+          formatCapturedLogs(logResults, response);
+        } catch (e) {
+          response.appendResponseLine('⚠️ Log capture failed (timeout or error)\n');
+        }
+      } else if (captureErrors) {
+        // Quick error check only (backward compatible)
         nextStep++;
         response.appendResponseLine(`## Step ${nextStep}: Error Check\n`);
         
@@ -1002,6 +1036,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
       response.appendResponseLine('');
       response.appendResponseLine('💡 **Tip**: This is a true disk reload with smart cache management. The cache strategy ensures your latest code changes are loaded without browser caching issues.');
 
+      response.setIncludeConsoleData(true);
       response.setIncludePages(true);
       
       // Clean up timeout check
