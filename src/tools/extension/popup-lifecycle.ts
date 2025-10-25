@@ -19,6 +19,7 @@ import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {captureExtensionLogs, formatCapturedLogs} from './execution.js';
 
 /**
  * 打开扩展 Popup
@@ -653,6 +654,8 @@ export const interactWithPopup = defineTool({
 
 **Alternative** (unstable): \`open_extension_popup\` then immediately interact (may fail)
 
+**🎯 Auto-capture logs**: Optionally captures popup interaction logs (page + extension).
+
 **Related tools**: \`navigate_page\`, \`open_extension_popup\`, \`take_screenshot\``,
   
   annotations: {
@@ -666,10 +669,31 @@ export const interactWithPopup = defineTool({
     selector: z.string().optional(),
     value: z.string().optional(),
     code: z.string().optional(),
+    captureLogs: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(`Capture popup interaction logs (page console + extension logs).
+      - true: Show logs during and after interaction
+      - false: No log capture (default, faster)
+      Default: false`),
+    logDuration: z
+      .number()
+      .min(1000)
+      .max(15000)
+      .optional()
+      .default(3000)
+      .describe(`Log capture duration in milliseconds. Default: 3000ms (3 seconds)`),
   },
   
   handler: async (request, response, context) => {
-    const {extensionId, action, selector, value, code} = request.params;
+    const {extensionId, action, selector, value, code, captureLogs = false, logDuration = 3000} = request.params;
+    
+    // 启动日志捕获（如果启用）
+    let logCapturePromise: Promise<[any, any]> | null = null;
+    if (captureLogs) {
+      logCapturePromise = captureExtensionLogs(extensionId, logDuration, context);
+    }
     
     // 参数验证
     if (action === 'click' && !selector) {
@@ -827,6 +851,17 @@ export const interactWithPopup = defineTool({
       response.appendResponseLine('\n**Tip**: Popup may have closed. Use `navigate_page` for stable testing.');
     }
     
+    // 等待并格式化日志（如果启用）
+    if (logCapturePromise) {
+      try {
+        const logResults = await logCapturePromise;
+        formatCapturedLogs(logResults, response);
+      } catch (error) {
+        response.appendResponseLine('\n⚠️ Log capture failed (timeout or error)\n');
+      }
+    }
+    
+    response.setIncludeConsoleData(true);
     response.setIncludePages(true);
   },
 });
