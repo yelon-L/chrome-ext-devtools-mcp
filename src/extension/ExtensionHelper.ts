@@ -1379,6 +1379,24 @@ export class ExtensionHelper {
   }
 
   /**
+   * Helper function to add timeout to CDP send commands
+   */
+  private async cdpSendWithTimeout<T>(
+    session: any,
+    method: string,
+    params?: any,
+    timeoutMs: number = 3000
+  ): Promise<T> {
+    const sendPromise = session.send(method, params);
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`CDP ${method} timeout (${timeoutMs}ms)`));
+      }, timeoutMs);
+    });
+    return Promise.race([sendPromise, timeoutPromise]);
+  }
+
+  /**
    * 获取扩展背景日志（实时捕获 + 历史日志）
    * 只包括 Service Worker (MV3) 或 Background Page (MV2)
    * 
@@ -1455,7 +1473,12 @@ export class ExtensionHelper {
       this.log(`[ExtensionHelper] Found Background target: ${swTarget.url()}`);
 
       // 3. 创建独立的 CDPSession for Service Worker
-      swSession = await swTarget.createCDPSession();
+      // Add timeout protection for CDPSession creation
+      const sessionPromise = swTarget.createCDPSession();
+      const sessionTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('CDPSession creation timeout (5s)')), 5000);
+      });
+      swSession = await Promise.race([sessionPromise, sessionTimeout]);
       this.log('[ExtensionHelper] 已为 Service Worker 创建独立 CDPSession');
 
       // 4. 获取历史日志（如果需要） - 使用 CDP Log domain
@@ -1487,8 +1510,8 @@ export class ExtensionHelper {
         // 监听 Log.entryAdded 事件
         swSession.on('Log.entryAdded', logHandler);
         
-        // 启用 Log domain - 这会触发历史日志的发送
-        await swSession.send('Log.enable');
+        // 启用 Log domain - 这会触发历史日志的发送（带超时保护）
+        await this.cdpSendWithTimeout(swSession, 'Log.enable', undefined, 3000);
         this.log('[ExtensionHelper] 已启用 Log domain，等待历史日志...');
         
         // 等待一小段时间接收历史日志（通常立即发送）
@@ -1496,7 +1519,7 @@ export class ExtensionHelper {
         
         // 停止监听并禁用
         swSession.off('Log.entryAdded', logHandler);
-        await swSession.send('Log.disable');
+        await this.cdpSendWithTimeout(swSession, 'Log.disable', undefined, 3000);
         
         this.log(`[ExtensionHelper] 通过 Log domain 获取到 ${logEntriesReceived} 条历史日志`);
         
@@ -1510,8 +1533,8 @@ export class ExtensionHelper {
         const captureStartTime = Date.now();
         const capturedLogs: any[] = [];
 
-        // 启用 Runtime domain（在 SW session 上）
-        await swSession.send('Runtime.enable');
+        // 启用 Runtime domain（在 SW session 上）（带超时保护）
+        await this.cdpSendWithTimeout(swSession, 'Runtime.enable', undefined, 3000);
         this.log('[ExtensionHelper] 已在 SW session 上启用 Runtime domain');
 
         // 监听 console API 调用（在 SW session 上）
@@ -1557,8 +1580,8 @@ export class ExtensionHelper {
         // 停止监听
         swSession.off('Runtime.consoleAPICalled', consoleHandler);
 
-        // 禁用 Runtime domain
-        await swSession.send('Runtime.disable');
+        // 禁用 Runtime domain（带超时保护）
+        await this.cdpSendWithTimeout(swSession, 'Runtime.disable', undefined, 3000);
 
         const captureEndTime = Date.now();
 
@@ -1682,7 +1705,12 @@ export class ExtensionHelper {
       this.log(`[ExtensionHelper] Found Offscreen target: ${offTarget.url()}`);
 
       // 3. 创建独立的 CDPSession for Offscreen Document
-      offscreenSession = await offTarget.createCDPSession();
+      // Add timeout protection for CDPSession creation
+      const offSessionPromise = offTarget.createCDPSession();
+      const offSessionTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Offscreen CDPSession creation timeout (5s)')), 5000);
+      });
+      offscreenSession = await Promise.race([offSessionPromise, offSessionTimeout]);
       this.log('[ExtensionHelper] 已为 Offscreen Document 创建独立 CDPSession');
 
       // 4. 获取历史日志（如果需要） - 使用 CDP Log domain
@@ -1714,8 +1742,8 @@ export class ExtensionHelper {
         // 监听 Log.entryAdded 事件
         offscreenSession.on('Log.entryAdded', logHandler);
         
-        // 启用 Log domain - 这会触发历史日志的发送
-        await offscreenSession.send('Log.enable');
+        // 启用 Log domain - 这会触发历史日志的发送（带超时保护）
+        await this.cdpSendWithTimeout(offscreenSession, 'Log.enable', undefined, 3000);
         this.log('[ExtensionHelper] 已启用 Offscreen Log domain，等待历史日志...');
         
         // 等待一小段时间接收历史日志（通常立即发送）
@@ -1723,7 +1751,7 @@ export class ExtensionHelper {
         
         // 停止监听并禁用
         offscreenSession.off('Log.entryAdded', logHandler);
-        await offscreenSession.send('Log.disable');
+        await this.cdpSendWithTimeout(offscreenSession, 'Log.disable', undefined, 3000);
         
         this.log(`[ExtensionHelper] 通过 Log domain 获取到 ${logEntriesReceived} 条 Offscreen 历史日志`);
         
@@ -1737,8 +1765,8 @@ export class ExtensionHelper {
         const captureStartTime = Date.now();
         const capturedLogs: any[] = [];
 
-        // 启用 Runtime domain
-        await offscreenSession.send('Runtime.enable');
+        // 启用 Runtime domain（带超时保护）
+        await this.cdpSendWithTimeout(offscreenSession, 'Runtime.enable', undefined, 3000);
         this.log('[ExtensionHelper] 已在 Offscreen session 上启用 Runtime domain');
 
         // 监听 console API 调用
@@ -1784,8 +1812,8 @@ export class ExtensionHelper {
         // 停止监听
         offscreenSession.off('Runtime.consoleAPICalled', consoleHandler);
 
-        // 禁用 Runtime domain
-        await offscreenSession.send('Runtime.disable');
+        // 禁用 Runtime domain（带超时保护）
+        await this.cdpSendWithTimeout(offscreenSession, 'Runtime.disable', undefined, 3000);
 
         const captureEndTime = Date.now();
 
