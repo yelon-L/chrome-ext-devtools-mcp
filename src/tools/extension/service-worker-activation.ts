@@ -14,12 +14,15 @@ import z from 'zod';
 import {ExtensionHelper} from '../../extension/ExtensionHelper.js';
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {captureExtensionLogs, formatCapturedLogs} from './execution.js';
 
 export const activateExtensionServiceWorker = defineTool({
   name: 'activate_extension_service_worker',
   description: `Wake up inactive Service Workers for MV3 extensions using Chrome DevTools Protocol.
 
 **🎯 For AI: Use BEFORE** \`evaluate_in_extension\`, \`inspect_extension_storage\`, or any tool requiring active SW.
+
+**🎯 Auto-capture logs**: Optionally captures Service Worker startup logs after activation.
 
 **Why needed**:
 MV3 Service Workers become inactive after ~30 seconds. When inactive:
@@ -57,9 +60,24 @@ MV3 Service Workers become inactive after ~30 seconds. When inactive:
         - single: Only activate the specified extensionId (requires extensionId)
         - all: Activate all extension Service Workers (including already active ones)
         - inactive: Only activate inactive Service Workers (default)`),
+    captureLogs: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(`Capture Service Worker startup logs after activation.
+      - true: Capture Background + Offscreen logs (useful for debugging startup)
+      - false: Skip log capture (default, faster)
+      Default: false`),
+    logDuration: z
+      .number()
+      .min(1000)
+      .max(15000)
+      .optional()
+      .default(3000)
+      .describe(`Log capture duration in milliseconds. Default: 3000ms (3 seconds)`),
   },
   handler: async (request, response, context) => {
-    const {extensionId, mode = 'inactive'} = request.params;
+    const {extensionId, mode = 'inactive', captureLogs = false, logDuration = 3000} = request.params;
 
     // Validate parameter combination
     if (mode === 'single' && !extensionId) {
@@ -69,6 +87,12 @@ MV3 Service Workers become inactive after ~30 seconds. When inactive:
     }
 
     try {
+      // Start log capture BEFORE activation (if enabled and single mode)
+      let logCapturePromise: Promise<[any, any]> | null = null;
+      if (captureLogs && mode === 'single' && extensionId) {
+        logCapturePromise = captureExtensionLogs(extensionId, logDuration, context);
+      }
+
       // Activate Service Worker using CDP API
       const helper = new ExtensionHelper(context.getBrowser());
       const results: Array<{
@@ -153,6 +177,18 @@ MV3 Service Workers become inactive after ~30 seconds. When inactive:
         results
       }, extensionId, mode);
 
+      // Wait for log capture and format results (if enabled)
+      if (logCapturePromise) {
+        try {
+          const logResults = await logCapturePromise;
+          formatCapturedLogs(logResults, response);
+        } catch (error) {
+          response.appendResponseLine(`\n⚠️ Log capture failed: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
+        }
+      } else if (captureLogs && mode !== 'single') {
+        response.appendResponseLine(`\n💡 **Note**: Log capture is only available in 'single' mode with extensionId specified\n`);
+      }
+
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
@@ -160,6 +196,7 @@ MV3 Service Workers become inactive after ~30 seconds. When inactive:
       );
     }
     
+    response.setIncludeConsoleData(true);
     response.setIncludePages(true);
   },
 });

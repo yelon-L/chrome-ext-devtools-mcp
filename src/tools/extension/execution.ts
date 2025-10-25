@@ -47,6 +47,42 @@ async function cdpWithTimeout<T>(promise: Promise<T>, timeoutMs: number, operati
  * @param duration - Capture duration in milliseconds
  * @param response - Response object to append logs to
  * @param context - Context object
+ * @returns Promise that resolves with log results [backgroundLogs, offscreenLogs]
+ */
+export async function captureExtensionLogs(
+  extensionId: string,
+  duration: number,
+  context: any
+): Promise<[any, any]> {
+  // Start log listeners FIRST
+  const logCapturePromise = Promise.all([
+    context.getBackgroundLogs(extensionId, {
+      capture: true,
+      duration,
+      includeStored: false,
+    }).catch((err: any) => ({ 
+      logs: [], 
+      error: err.message || 'Failed to capture background logs'
+    })),
+    
+    context.getOffscreenLogs(extensionId, {
+      capture: true,
+      duration,
+      includeStored: false,
+    }).catch((err: any) => ({ 
+      logs: [], 
+      error: err.message || 'Failed to capture offscreen logs'
+    })),
+  ]);
+  
+  // Give listeners time to initialize
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  return logCapturePromise;
+}
+
+/**
+ * Legacy wrapper for backward compatibility
  */
 async function captureAllLogs(
   extensionId: string,
@@ -189,8 +225,10 @@ function truncateMessage(message: string, maxLength: number): string {
 
 /**
  * Format captured logs from parallel capture
+ * @param logResults - Array of [backgroundLogs, offscreenLogs]
+ * @param response - Response object
  */
-function formatCapturedLogs(logResults: any, response: any): void {
+export function formatCapturedLogs(logResults: any, response: any): void {
   response.appendResponseLine(`\n---\n\n## 📋 Captured Logs\n`);
   
   try {
