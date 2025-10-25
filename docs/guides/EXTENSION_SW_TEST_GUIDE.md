@@ -410,3 +410,229 @@ sleep 60 && node test-extension-tools.mjs
 **下一步:** 安装测试扩展并重新运行测试  
 **测试脚本:** `node test-extension-tools.mjs`  
 **预期时间:** 5-10 分钟
+
+---
+
+## 🔬 Background/Offscreen 日志工具调试报告
+
+**调试日期:** 2025-10-25  
+**调试环境:** ext-debug-stream9222 (Chrome 9225)  
+**测试扩展:** Video SRT Ext (Rebuilt) v0.4.263  
+**调试内容:** Background 和 Offscreen Document 日志捕获功能
+
+### 测试结果总结
+
+| 工具 | 状态 | 日志捕获 | 备注 |
+|------|------|----------|------|
+| `get_background_logs` | ✅ **正常** | ✅ 成功捕获 10 条 | 实时捕获机制工作正常 |
+| `get_offscreen_logs` | ❌ **有Bug** | ❌ 返回 0 条 | Target 匹配失败 |
+
+### Background 日志工具验证 ✅
+
+**测试流程:**
+1. 在 Service Worker 中启动定时器，每秒打印 3 条不同级别的日志
+2. 调用 `getBackgroundLogs({capture: true, duration: 6000})`
+3. **成功捕获 10 条日志**，包含:
+   - 日志类型: log, warning, error
+   - 时间戳
+   - Stack trace
+   - 源文件信息
+
+**关键发现:**
+- 工具采用**实时捕获机制**
+- **必须先启动捕获，再产生日志**（时机很重要）
+- 捕获期间的日志才能被记录
+- 历史日志需要扩展在 `globalThis.__logs` 中存储
+
+**示例输出:**
+```
+📊 Total: 10 entries
+- 📝 log: 4 entries
+- 📋 warning: 3 entries
+- ❌ error: 3 entries
+
+[MCP][TEST][1761365116161] Background log test 8
+[MCP][WARN][1761365116162] Warning test 8
+[MCP][ERROR][1761365116162] Error test 8
+...
+```
+
+### Offscreen 日志工具问题 ❌
+
+**问题描述:**
+- Offscreen Document 确实存在（`list_extension_contexts` 可见）
+- Offscreen 有在打印日志（通过页面方式可见 5 条历史日志）
+- 但 `getOffscreenLogs` 始终返回 0 条日志
+
+**验证步骤:**
+1. 通过 `list_extension_contexts` 确认 Offscreen target 存在
+   - Target ID: `DE80498E7E154C40D6C9F47EF3CB037A`
+   - URL: `chrome-extension://obbhgfjghnnodmekfkfffojnkbdbfpbh/offscreen/offscreen.html`
+
+2. 直接导航到 Offscreen 页面，成功获取到 5 条历史日志:
+   ```
+   [04:06:33] [Offscreen] Document loaded (v0.4.263)
+   [04:06:33] [Offscreen] ✅ Ready to handle WebSocket connections
+   [04:06:33] [Offscreen] Disconnecting WebSocket
+   [04:06:33] [Offscreen] ✅ Disconnected and all state cleared
+   [04:06:33] [Offscreen] 📨 Received message from Background
+   ```
+
+3. 通过 SW 创建真正的 Offscreen Document，并发送消息触发日志
+4. 调用 `getOffscreenLogs({capture: true, duration: 10000})`
+5. **返回 0 条日志**
+
+### 问题根因分析
+
+**代码审查 (`ExtensionHelper.ts:1630-1644`)**:
+
+```typescript
+// 第一步：通过 CDP 查找 Offscreen target
+const offscreenTarget = await this.getExtensionOffscreenTarget(extensionId);
+
+// 第二步：通过 Puppeteer API 匹配 target
+const targets = await this.browser.targets();
+const offTarget = targets.find(
+  t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+);
+
+if (!offTarget) {
+  this.logError('[ExtensionHelper] 未找到 Offscreen Document 的 Puppeteer Target');
+  return {logs: [], isActive: false};
+}
+```
+
+**问题点:**
+1. **使用私有属性** `_targetId` 进行 target 匹配
+2. 这种匹配方式对 Offscreen Document 不可靠
+3. Background logs 使用相同的模式但能工作，说明 Offscreen target 的特性不同
+
+### 修复方案
+
+#### 方案 A: 修复 Target 匹配逻辑（推荐）
+
+```typescript
+// ❌ 修改前：使用私有属性
+const offTarget = targets.find(
+  t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+);
+
+// ✅ 修改后：使用 URL 匹配
+const offTarget = targets.find(t => {
+  const url = t.url();
+  return url.includes(extensionId) && url.includes('/offscreen');
+});
+```
+
+**优点:**
+- 使用公开 API
+- 更可靠
+- 与 `getExtensionOffscreenTarget` 的查找逻辑一致
+
+#### 方案 B: 直接使用 CDP API
+
+```typescript
+// 绕过 Puppeteer Target API，直接使用 CDP
+const cdp = await this.getCDPSession();
+const session = await cdp.send('Target.attachToTarget', {
+  targetId: offscreenTarget.targetId,
+  flatten: true
+});
+```
+
+**优点:**
+- 更底层，更直接
+- 避免 Puppeteer 封装的问题
+
+#### 方案 C: 添加详细调试日志
+
+在修复前，先添加调试日志以确认问题:
+
+```typescript
+this.log(`[Debug] Found offscreen CDP target: ${offscreenTarget.targetId}`);
+this.log(`[Debug] Puppeteer targets count: ${targets.length}`);
+targets.forEach(t => {
+  this.log(`[Debug] Target: ${t.url()}, _targetId: ${(t as any)._targetId}`);
+});
+this.log(`[Debug] Found matching target: ${!!offTarget}`);
+```
+
+### 对比分析
+
+| 特性 | Background Logs | Offscreen Logs |
+|------|-----------------|----------------|
+| Target 查找 | `getExtensionBackgroundTarget` | `getExtensionOffscreenTarget` |
+| Target 匹配 | 使用 `_targetId` | 使用 `_targetId` |
+| CDP Session | ✅ 成功创建 | ❌ 可能失败 |
+| 日志捕获 | ✅ 正常工作 | ❌ 返回空 |
+| 代码模式 | 完全相同 | 完全相同 |
+
+**结论:** 相同的代码模式，但 Offscreen 失败，说明问题在于 Offscreen target 的特性与 Background 不同。
+
+### 工作区解决方案
+
+**临时方案:** 使用页面方式访问 Offscreen
+
+```bash
+# 1. 导航到 Offscreen 页面
+navigate_page('chrome-extension://ID/offscreen/offscreen.html')
+
+# 2. 使用普通的页面日志工具
+get_page_console_logs({limit: 100})
+
+# 3. 在页面中执行测试代码
+evaluate_script(() => {
+  console.log('[TEST] Offscreen log test');
+})
+```
+
+**优点:**
+- 可以立即使用
+- 能获取完整的历史日志
+- 支持实时监听
+
+**缺点:**
+- 不是真正的 Offscreen Document（是作为普通页面打开的）
+- 生命周期不同
+
+### 后续行动
+
+1. **立即可做**:
+   - ✅ 在文档中记录问题和临时方案
+   - ✅ 为 Offscreen 日志工具添加警告说明
+
+2. **短期修复** (推荐方案 A):
+   - 修改 Target 匹配逻辑，使用 URL 匹配
+   - 添加完整的错误处理和调试日志
+   - 测试修复效果
+
+3. **长期优化**:
+   - 统一 Background 和 Offscreen 的日志捕获实现
+   - 考虑使用更可靠的 CDP API
+   - 添加单元测试覆盖
+
+### 测试数据
+
+**扩展信息:**
+- ID: `obbhgfjghnnodmekfkfffojnkbdbfpbh`
+- 名称: Video SRT Ext (Rebuilt)
+- 版本: 0.4.263
+- Manifest: MV3
+- Service Worker: ✅ Active
+- Offscreen Document: ✅ Exists
+
+**测试时间:**
+- 开始: 2025-10-25 12:03
+- 结束: 2025-10-25 12:20
+- 总计: ~17 分钟
+
+**测试次数:**
+- Background logs: 3 次测试，全部成功
+- Offscreen logs: 5 次测试，全部失败
+- 页面方式访问 Offscreen: 1 次测试，成功
+
+---
+
+**更新日期:** 2025-10-25  
+**状态:** ✅ Background 工具验证通过，❌ Offscreen 工具需要修复  
+**下一步:** 实施修复方案 A，修改 Target 匹配逻辑
