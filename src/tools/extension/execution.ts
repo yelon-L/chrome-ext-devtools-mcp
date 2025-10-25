@@ -546,7 +546,9 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
         await new Promise(resolve => setTimeout(resolve, 500));
         
         console.log(`[reload_extension] 🔥 Calling chrome.developerPrivate.reload() - complete disk reload`);
-        const reloadResult = await devPage.evaluate((extId: string) => {
+        
+        // 🛡️ Add timeout protection for evaluate call
+        const reloadPromise = devPage.evaluate((extId: string) => {
           return new Promise((resolve, reject) => {
             const chromeAPI = (window as any).chrome;
             
@@ -559,6 +561,11 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
               reject(new Error('chrome.developerPrivate.reload() method not available'));
               return;
             }
+            
+            // 🛡️ Safety timeout: if callback not called within 8 seconds, reject
+            const safetyTimeout = setTimeout(() => {
+              reject(new Error('Extension reload callback timeout (8s) - reload may have failed'));
+            }, 8000);
             
             // 🔥 Complete reload:
             // - failQuietly: false - Don't fail silently, report all errors immediately
@@ -573,6 +580,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
               failQuietly: false,                // 🔥 No error tolerance
               populateErrorForUnpacked: true     // 🔥 Detailed error info
             }, () => {
+              clearTimeout(safetyTimeout);
               if (chromeAPI.runtime.lastError) {
                 reject(new Error(chromeAPI.runtime.lastError.message));
               } else {
@@ -581,6 +589,15 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
             });
           });
         }, extensionId);
+        
+        // 🛡️ Race with timeout to prevent infinite hang
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Extension reload operation timeout (10s)'));
+          }, 10000);
+        });
+        
+        const reloadResult = await Promise.race([reloadPromise, timeoutPromise]);
         
         console.log(`[reload_extension] ✅ Disk reload successful:`, reloadResult);
         response.appendResponseLine('✅ Extension completely reloaded from disk\n');

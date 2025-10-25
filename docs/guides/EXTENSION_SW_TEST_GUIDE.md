@@ -807,3 +807,208 @@ get_background_logs({capture: true, duration: 10000})
 **测试扩展:** Video SRT Ext v0.4.263  
 **测试环境:** ext-debug-stdio (Chrome 9225)  
 **总耗时:** ~30 分钟（包含调试、修复、验证）
+
+---
+
+## 🛡️ reload_extension 超时保护修复
+
+**修复日期:** 2025-10-25 12:25  
+**问题:** reload_extension 工具可能永久卡住无返回
+
+### 问题分析
+
+#### 1. Timeout 机制缺陷
+
+**原代码:**
+```typescript
+const checkTimeout = () => {
+  const elapsed = Date.now() - startTime;
+  if (elapsed > TOTAL_TIMEOUT) {
+    console.error(`[reload_extension] TIMEOUT after ${elapsed}ms!`);
+    reportTimeout(response, 'Reload operation', elapsed, TOTAL_TIMEOUT);
+    response.setIncludePages(true);
+    return; // ❌ 只退出 checkTimeout，主函数继续执行
+  }
+};
+```
+
+**问题:**
+- `return` 只退出定时器回调，不退出主 handler
+- 主函数继续执行，可能永久卡住
+- 没有真正中断操作
+
+#### 2. devPage.evaluate 无超时保护
+
+**原代码:**
+```typescript
+const reloadResult = await devPage.evaluate((extId: string) => {
+  return new Promise((resolve, reject) => {
+    chromeAPI.developerPrivate.reload(extId, options, () => {
+      // ❌ 如果回调永远不被调用，Promise 永远不 resolve
+      if (chromeAPI.runtime.lastError) {
+        reject(new Error(chromeAPI.runtime.lastError.message));
+      } else {
+        resolve({success: true});
+      }
+    });
+  });
+}, extensionId);
+```
+
+**问题:**
+- `developerPrivate.reload()` 回调可能永远不被调用
+- 扩展加载失败或卡住时，Promise 永远不 resolve/reject
+- `devPage.evaluate` 本身没有设置 timeout
+
+#### 3. 可能卡住的场景
+
+1. **扩展加载失败但回调未触发**
+   - manifest.json 语法错误
+   - 依赖文件缺失
+   - Service Worker 启动失败
+
+2. **Chrome 内部问题**
+   - chrome://extensions 页面无响应
+   - CDP 连接中断
+   - developerPrivate API 异常
+
+3. **扩展本身问题**
+   - Service Worker 死循环
+   - 初始化代码卡住
+   - 异步操作未完成
+
+### 修复方案
+
+#### 双重超时保护
+
+**修复后代码:**
+```typescript
+// 🛡️ 内部超时：evaluate 内部 8 秒
+const reloadPromise = devPage.evaluate((extId: string) => {
+  return new Promise((resolve, reject) => {
+    const chromeAPI = (window as any).chrome;
+    
+    // 验证 API 可用性
+    if (!chromeAPI?.developerPrivate?.reload) {
+      reject(new Error('chrome.developerPrivate.reload() not available'));
+      return;
+    }
+    
+    // 🛡️ Safety timeout: 8 秒内回调未触发则 reject
+    const safetyTimeout = setTimeout(() => {
+      reject(new Error('Extension reload callback timeout (8s) - reload may have failed'));
+    }, 8000);
+    
+    chromeAPI.developerPrivate.reload(extId, options, () => {
+      clearTimeout(safetyTimeout); // ✅ 清除超时
+      if (chromeAPI.runtime.lastError) {
+        reject(new Error(chromeAPI.runtime.lastError.message));
+      } else {
+        resolve({success: true});
+      }
+    });
+  });
+}, extensionId);
+
+// 🛡️ 外部超时：Promise.race 10 秒
+const timeoutPromise = new Promise((_, reject) => {
+  setTimeout(() => {
+    reject(new Error('Extension reload operation timeout (10s)'));
+  }, 10000);
+});
+
+const reloadResult = await Promise.race([reloadPromise, timeoutPromise]);
+```
+
+### 修复效果
+
+**保护层级:**
+
+| 层级 | 超时时间 | 作用 |
+|------|---------|------|
+| **内部保护** | 8 秒 | 检测 reload 回调未触发 |
+| **外部保护** | 10 秒 | 防止 evaluate 整体卡住 |
+| **全局保护** | 20 秒 | 整个 handler 的最大执行时间 |
+
+**错误消息:**
+- 8 秒超时：`Extension reload callback timeout (8s) - reload may have failed`
+- 10 秒超时：`Extension reload operation timeout (10s)`
+- 20 秒超时：`Reload operation timeout`
+
+### 最佳实践
+
+#### 1. 多层超时保护
+
+```typescript
+// ✅ 好的做法：多层保护
+const innerPromise = operation(); // 内部超时
+const outerPromise = Promise.race([innerPromise, timeout(10000)]); // 外部超时
+// 全局 handler 也有 20 秒超时
+```
+
+#### 2. 清理资源
+
+```typescript
+// ✅ 超时后清理
+const safetyTimeout = setTimeout(() => reject(...), 8000);
+callback(() => {
+  clearTimeout(safetyTimeout); // 清理超时定时器
+  resolve(...);
+});
+```
+
+#### 3. 明确的错误消息
+
+```typescript
+// ✅ 区分不同超时层级
+'Extension reload callback timeout (8s)' // 内部
+'Extension reload operation timeout (10s)' // 外部
+'Reload operation timeout (20s)' // 全局
+```
+
+### 测试建议
+
+#### 测试场景
+
+1. **正常重载**
+   ```bash
+   reload_extension(extensionId)
+   # 预期：2-3 秒内完成
+   ```
+
+2. **扩展加载失败**
+   ```bash
+   # 修改 manifest.json 引入语法错误
+   reload_extension(extensionId)
+   # 预期：8 秒内返回错误
+   ```
+
+3. **Service Worker 卡住**
+   ```bash
+   # background.js 中添加死循环
+   reload_extension(extensionId)
+   # 预期：10 秒内超时返回
+   ```
+
+4. **Chrome 无响应**
+   ```bash
+   # 模拟 CDP 连接问题
+   reload_extension(extensionId)
+   # 预期：20 秒内全局超时
+   ```
+
+### 相关工具
+
+**受影响的工具:**
+- ✅ `reload_extension` - 已修复
+- ⚠️ `activate_extension_service_worker` - 可能需要类似保护
+- ⚠️ `evaluate_in_extension` - 可能需要类似保护
+
+**建议审查:**
+所有使用 `page.evaluate()` 且可能长时间运行的工具都应添加超时保护。
+
+---
+
+**修复状态:** ✅ 已修复并编译通过  
+**Git Commit:** 待提交  
+**下一步:** 重启 MCP 服务器测试修复效果
