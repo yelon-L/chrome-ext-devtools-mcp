@@ -48,6 +48,11 @@ export const getBackgroundLogs = defineTool({
       .string()
       .regex(/^[a-z]{32}$/)
       .describe('Extension ID to get logs from. Get this from list_extensions.'),
+    includeHistory: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.'),
     level: z
       .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
       .optional()
@@ -61,20 +66,28 @@ export const getBackgroundLogs = defineTool({
       .number()
       .optional()
       .describe('Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.'),
+    duration: z
+      .number()
+      .positive()
+      .optional()
+      .default(5000)
+      .describe('Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).'),
   },
   handler: async (request, response, context) => {
     const {
       extensionId,
+      includeHistory = false,
       level,
       limit = 50,
       since,
+      duration = 5000,
     } = request.params;
 
     try {
       const result = await context.getBackgroundLogs(extensionId, {
         capture: true,
-        duration: 5000,
-        includeStored: true,
+        duration,
+        includeStored: includeHistory,
       });
       
       const logs = result.logs;
@@ -198,6 +211,11 @@ export const getOffscreenLogs = defineTool({
       .string()
       .regex(/^[a-z]{32}$/)
       .describe('Extension ID to get logs from. Get this from list_extensions.'),
+    includeHistory: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.'),
     level: z
       .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
       .optional()
@@ -211,20 +229,28 @@ export const getOffscreenLogs = defineTool({
       .number()
       .optional()
       .describe('Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.'),
+    duration: z
+      .number()
+      .positive()
+      .optional()
+      .default(5000)
+      .describe('Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).'),
   },
   handler: async (request, response, context) => {
     const {
       extensionId,
+      includeHistory = false,
       level,
       limit = 50,
       since,
+      duration = 5000,
     } = request.params;
 
     try {
       const result = await context.getOffscreenLogs(extensionId, {
         capture: true,
-        duration: 5000,
-        includeStored: true,
+        duration,
+        includeStored: includeHistory,
       });
       
       const logs = result.logs;
