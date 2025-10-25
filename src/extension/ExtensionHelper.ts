@@ -368,7 +368,8 @@ export class ExtensionHelper {
       
       if (!activeExtensionTarget) {
         this.log('[Management API] ❌ 无法找到任何可用的扩展上下文');
-        return [];
+        this.log('[Management API] 返回 null 以触发回退到方案 2');
+        return null as any;  // 返回 null 表示方案失败，触发回退
       }
       
       const extId = this.extractExtensionId(activeExtensionTarget.url);
@@ -617,15 +618,31 @@ export class ExtensionHelper {
       // 策略 1: 🚀 尝试使用 chrome.management.getAll() API（最快、最完整）
       const managementExtensions = await this.getExtensionsViaManagementAPI(allTargets);
       
-      if (managementExtensions.length > 0) {
+      if (managementExtensions !== null && managementExtensions.length > 0) {
         this.log(`[ExtensionHelper] ✅ 方法 1 成功: chrome.management API 获取到 ${managementExtensions.length} 个扩展`);
         const result = includeDisabled ? managementExtensions : managementExtensions.filter(ext => ext.enabled);
         this.log(`[ExtensionHelper] 返回 ${result.length} 个扩展`);
         return result;
       }
       
-      this.log('[ExtensionHelper] ⚠️  方法 1 失败: chrome.management API 不可用');
-      this.log('[ExtensionHelper] 尝试方法 2: Target.getTargets 扫描');
+      this.log('[ExtensionHelper] ⚠️  方法 1 失败或返回空: chrome.management API 不可用或无活跃扩展');
+      this.log('[ExtensionHelper] 尝试方法 2: 视觉检测 (chrome://extensions)');
+      
+      // 策略 2: 🔍 视觉检测 - 最可靠的方法
+      try {
+        const visualExtensions = await this.getExtensionsViaVisualInspection(allTargets);
+        if (visualExtensions.length > 0) {
+          this.log(`[ExtensionHelper] ✅ 方法 2 成功: 视觉检测获取到 ${visualExtensions.length} 个扩展`);
+          const result = includeDisabled ? visualExtensions : visualExtensions.filter(ext => ext.enabled);
+          this.log(`[ExtensionHelper] 返回 ${result.length} 个扩展`);
+          return result;
+        }
+        this.log('[ExtensionHelper] ⚠️  方法 2 也未找到扩展');
+      } catch (error) {
+        this.logError('[ExtensionHelper] 方法 2 失败:', error);
+      }
+      
+      this.log('[ExtensionHelper] 尝试方法 3: Target.getTargets 扫描');
       
       // 回退方案：从所有 chrome-extension:// URLs 中提取唯一的扩展 ID
       const extensionIds = new Set<string>();
