@@ -1431,16 +1431,28 @@ export class ExtensionHelper {
         return {logs: [], isActive: false};
       }
 
-      // 2. 通过 targetId 找到对应的 Puppeteer Target
+      // 2. 通过 URL 匹配找到对应的 Puppeteer Target（更可靠）
       const targets = await this.browser.targets();
-      const swTarget = targets.find(
-        t => (t as unknown as {_targetId: string})._targetId === backgroundTarget.targetId
-      );
+      
+      // 调试日志：输出所有 targets
+      this.log(`[ExtensionHelper] Total targets: ${targets.length}`);
+      this.log(`[ExtensionHelper] Looking for background target: ${backgroundTarget.url}`);
+      
+      // 使用 URL 匹配而非私有属性 _targetId
+      const swTarget = targets.find(t => {
+        const url = t.url();
+        const matches = url.includes(extensionId) && url.includes(backgroundTarget.url);
+        this.log(`[ExtensionHelper] Checking target: ${url} -> ${matches}`);
+        return matches;
+      });
 
       if (!swTarget) {
         this.logError('[ExtensionHelper] 未找到 Service Worker 的 Puppeteer Target');
+        this.logError(`[ExtensionHelper] Expected URL: ${backgroundTarget.url}`);
         return {logs: [], isActive: false};
       }
+      
+      this.log(`[ExtensionHelper] Found Background target: ${swTarget.url()}`);
 
       // 3. 创建独立的 CDPSession for Service Worker
       swSession = await swTarget.createCDPSession();
@@ -1632,16 +1644,28 @@ export class ExtensionHelper {
         return {logs: [], isActive: false};
       }
 
-      // 2. 通过 targetId 找到对应的 Puppeteer Target
+      // 2. 通过 URL 匹配找到对应的 Puppeteer Target（更可靠）
       const targets = await this.browser.targets();
-      const offTarget = targets.find(
-        t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
-      );
+      
+      // 调试日志：输出所有 targets
+      this.log(`[ExtensionHelper] Total targets: ${targets.length}`);
+      this.log(`[ExtensionHelper] Looking for offscreen target: ${offscreenTarget.url}`);
+      
+      // 使用 URL 匹配而非私有属性 _targetId
+      const offTarget = targets.find(t => {
+        const url = t.url();
+        const matches = url.includes(extensionId) && url.includes('/offscreen');
+        this.log(`[ExtensionHelper] Checking target: ${url} -> ${matches}`);
+        return matches;
+      });
 
       if (!offTarget) {
         this.logError('[ExtensionHelper] 未找到 Offscreen Document 的 Puppeteer Target');
+        this.logError(`[ExtensionHelper] Expected URL pattern: chrome-extension://${extensionId}/offscreen`);
         return {logs: [], isActive: false};
       }
+      
+      this.log(`[ExtensionHelper] Found Offscreen target: ${offTarget.url()}`);
 
       // 3. 创建独立的 CDPSession for Offscreen Document
       offscreenSession = await offTarget.createCDPSession();
