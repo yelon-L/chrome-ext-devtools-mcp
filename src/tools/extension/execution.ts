@@ -41,6 +41,195 @@ async function cdpWithTimeout<T>(promise: Promise<T>, timeoutMs: number, operati
 }
 
 /**
+ * Capture all logs from extension components and current page
+ * 
+ * @param extensionId - Extension ID
+ * @param duration - Capture duration in milliseconds
+ * @param response - Response object to append logs to
+ * @param context - Context object
+ */
+async function captureAllLogs(
+  extensionId: string,
+  duration: number,
+  response: any,
+  context: any
+): Promise<void> {
+  response.appendResponseLine(`\n---\n\n## 📋 Captured Logs\n`);
+  response.appendResponseLine(`*Capturing logs for ${duration}ms...*\n\n`);
+  
+  try {
+    // Parallel capture: Extension (Background + Offscreen) + Page
+    const [backgroundResult, offscreenResult] = await Promise.allSettled([
+      // Background Service Worker
+      context.getBackgroundLogs(extensionId, {
+        capture: true,
+        duration,
+        includeStored: false,
+      }).catch((err: any) => ({ 
+        logs: [], 
+        error: err.message || 'Failed to capture background logs'
+      })),
+      
+      // Offscreen Document
+      context.getOffscreenLogs(extensionId, {
+        capture: true,
+        duration,
+        includeStored: false,
+      }).catch((err: any) => ({ 
+        logs: [], 
+        error: err.message || 'Failed to capture offscreen logs'
+      })),
+    ]);
+    
+    // Extract results
+    const backgroundLogs = backgroundResult.status === 'fulfilled' 
+      ? backgroundResult.value 
+      : { logs: [], error: 'Failed to capture' };
+      
+    const offscreenLogs = offscreenResult.status === 'fulfilled'
+      ? offscreenResult.value
+      : { logs: [], error: 'Failed to capture' };
+    
+    // Count total logs
+    const extLogs = (backgroundLogs.logs?.length || 0) + (offscreenLogs.logs?.length || 0);
+    
+    // Format extension logs
+    if (extLogs > 0) {
+      response.appendResponseLine(`### Extension Logs\n`);
+      response.appendResponseLine(`**Total**: ${extLogs} entries\n\n`);
+      
+      // Background logs
+      if (backgroundLogs.logs && backgroundLogs.logs.length > 0) {
+        response.appendResponseLine(`#### Background Service Worker (${backgroundLogs.logs.length} entries)\n`);
+        formatLogEntries(backgroundLogs.logs, response, 5);
+      }
+      
+      // Offscreen logs
+      if (offscreenLogs.logs && offscreenLogs.logs.length > 0) {
+        response.appendResponseLine(`\n#### Offscreen Document (${offscreenLogs.logs.length} entries)\n`);
+        formatLogEntries(offscreenLogs.logs, response, 5);
+      }
+    } else {
+      response.appendResponseLine(`### Extension Logs\n`);
+      response.appendResponseLine(`*No extension logs captured*\n\n`);
+    }
+    
+    // Page logs are automatically included via setIncludeConsoleData(true)
+    // Just indicate they are available
+    response.appendResponseLine(`### Page Logs\n`);
+    response.appendResponseLine(`*Page console logs are included below (if any)*\n`);
+    
+  } catch (error) {
+    response.appendResponseLine(
+      `\n⚠️  **Log capture error**: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+    );
+  }
+}
+
+/**
+ * Format log entries for display
+ */
+function formatLogEntries(logs: any[], response: any, maxDisplay: number = 5): void {
+  const displayLogs = logs.slice(-maxDisplay); // Show most recent
+  
+  for (const log of displayLogs) {
+    const timestamp = new Date(log.timestamp).toLocaleTimeString();
+    const level = log.level || log.type || 'log';
+    const icon = getLogIcon(level);
+    
+    // Extract message from various possible fields
+    let message = '';
+    if (log.text && log.text.trim()) {
+      message = log.text;
+    } else if (log.message && log.message.trim()) {
+      message = log.message;
+    } else if (log.args && Array.isArray(log.args)) {
+      // Try to extract from args if available
+      message = log.args
+        .map((arg: any) => arg.value || arg.description || '[Object]')
+        .join(' ');
+    } else {
+      // Fallback: show log object structure for debugging
+      message = `[Log data: ${JSON.stringify(log).substring(0, 50)}...]`;
+    }
+    
+    const truncated = truncateMessage(message, 120);
+    response.appendResponseLine(`${icon} **[${timestamp}]** ${truncated}`);
+  }
+  
+  if (logs.length > maxDisplay) {
+    response.appendResponseLine(`\n*...and ${logs.length - maxDisplay} more entries*`);
+  }
+}
+
+/**
+ * Get icon for log level
+ */
+function getLogIcon(level: string): string {
+  const icons: Record<string, string> = {
+    log: '📝',
+    info: 'ℹ️',
+    warn: '⚠️',
+    error: '❌',
+    debug: '🔍',
+  };
+  return icons[level] || '📝';
+}
+
+/**
+ * Truncate long messages
+ */
+function truncateMessage(message: string, maxLength: number): string {
+  if (message.length <= maxLength) {
+    return message;
+  }
+  return message.substring(0, maxLength) + '...';
+}
+
+/**
+ * Format captured logs from parallel capture
+ */
+function formatCapturedLogs(logResults: any, response: any): void {
+  response.appendResponseLine(`\n---\n\n## 📋 Captured Logs\n`);
+  
+  try {
+    // logResults is [backgroundLogs, offscreenLogs] from Promise.all
+    const [backgroundLogs, offscreenLogs] = logResults || [{ logs: [] }, { logs: [] }];
+    
+    // Count total logs
+    const extLogs = (backgroundLogs.logs?.length || 0) + (offscreenLogs.logs?.length || 0);
+    
+    // Format extension logs
+    if (extLogs > 0) {
+      response.appendResponseLine(`### Extension Logs\n`);
+      response.appendResponseLine(`**Total**: ${extLogs} entries\n\n`);
+      
+      // Background logs
+      if (backgroundLogs.logs && backgroundLogs.logs.length > 0) {
+        response.appendResponseLine(`#### Background Service Worker (${backgroundLogs.logs.length} entries)\n`);
+        formatLogEntries(backgroundLogs.logs, response, 8);
+      }
+      
+      // Offscreen logs
+      if (offscreenLogs.logs && offscreenLogs.logs.length > 0) {
+        response.appendResponseLine(`\n#### Offscreen Document (${offscreenLogs.logs.length} entries)\n`);
+        formatLogEntries(offscreenLogs.logs, response, 8);
+      }
+    } else {
+      response.appendResponseLine(`### Extension Logs\n`);
+      response.appendResponseLine(`*No extension logs captured during execution*\n\n`);
+    }
+    
+    // Page logs are automatically included via setIncludeConsoleData(true)
+    response.appendResponseLine(`### Page Logs\n`);
+    response.appendResponseLine(`*Page console logs are included below (if any)*\n`);
+    
+  } catch (error) {
+    response.appendResponseLine(`\n⚠️  Error formatting logs: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
+  }
+}
+
+/**
  * Clear all browser caches for an extension using reliable CDP commands
  * This approach doesn't require chrome.browsingData API permissions
  * Clears: HTTP cache, Service Worker caches, CacheStorage, Storage
@@ -1022,6 +1211,11 @@ export const evaluateInExtension = defineTool({
 
 **🎯 For AI: PREREQUISITE** - Service Worker MUST be 🟢 Active (check with \`list_extensions\` first).
 
+**🎯 Auto-capture logs**: By default, this tool automatically captures logs from:
+- 📝 Background Service Worker
+- 📝 Offscreen Document
+- 📝 Current page console
+
 **Use cases**:
 - Test extension APIs (chrome.runtime, chrome.storage, etc.)
 - Debug extension logic and inspect state
@@ -1052,9 +1246,24 @@ export const evaluateInExtension = defineTool({
       .string()
       .optional()
       .describe('Specific context ID to execute in. If not provided, uses the background context.'),
+    captureLogs: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe(`Automatically capture extension and page logs during execution.
+      - true: Capture all logs (Background + Offscreen + Page) - recommended
+      - false: Skip log capture for performance
+      Default: true`),
+    logDuration: z
+      .number()
+      .min(1000)
+      .max(15000)
+      .optional()
+      .default(3000)
+      .describe(`Log capture duration in milliseconds. Default: 3000ms (3 seconds)`),
   },
   handler: async (request, response, context) => {
-    const {extensionId, code, contextId} = request.params;
+    const {extensionId, code, contextId, captureLogs = true, logDuration = 3000} = request.params;
 
     try {
       // Get background context
@@ -1075,7 +1284,38 @@ export const evaluateInExtension = defineTool({
       // Wrap code in async IIFE
       const wrappedCode = `(async () => { return (${code}); })()`;
       
-      const result = await context.evaluateInExtensionContext(
+      // Start log capture BEFORE executing code (if enabled)
+      let result;
+      let logCapturePromise: Promise<any> | null = null;
+      
+      if (captureLogs) {
+        // Start log listeners FIRST
+        logCapturePromise = Promise.all([
+          context.getBackgroundLogs(extensionId, {
+            capture: true,
+            duration: logDuration,
+            includeStored: false,
+          }).catch((err: any) => ({ 
+            logs: [], 
+            error: err.message || 'Failed to capture background logs'
+          })),
+          
+          context.getOffscreenLogs(extensionId, {
+            capture: true,
+            duration: logDuration,
+            includeStored: false,
+          }).catch((err: any) => ({ 
+            logs: [], 
+            error: err.message || 'Failed to capture offscreen logs'
+          })),
+        ]);
+        
+        // Give listeners time to initialize
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // Execute code (log listeners are now active)
+      result = await context.evaluateInExtensionContext(
         targetId,
         wrappedCode,
         true,
@@ -1093,6 +1333,12 @@ export const evaluateInExtension = defineTool({
       response.appendResponseLine(`\n**Code**:\n\`\`\`javascript\n${code}\n\`\`\``);
       response.appendResponseLine(`\n**Result**:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``);
 
+      // Wait for log capture to complete and format results
+      if (captureLogs && logCapturePromise) {
+        const logResults = await logCapturePromise;
+        formatCapturedLogs(logResults, response);
+      }
+
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
@@ -1100,6 +1346,8 @@ export const evaluateInExtension = defineTool({
       );
     }
     
+    // Include page console data (for page logs)
+    response.setIncludeConsoleData(true);
     response.setIncludePages(true);
   },
 });
