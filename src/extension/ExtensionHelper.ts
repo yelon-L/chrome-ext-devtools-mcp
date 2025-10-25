@@ -1458,36 +1458,50 @@ export class ExtensionHelper {
       swSession = await swTarget.createCDPSession();
       this.log('[ExtensionHelper] 已为 Service Worker 创建独立 CDPSession');
 
-      // 4. 读取历史日志（如果需要）
+      // 4. 获取历史日志（如果需要） - 使用 CDP Log domain
+      const historicalLogs: any[] = [];
       if (includeStored) {
-        const evalResult = await swSession.send('Runtime.evaluate', {
-          expression: `
-            (() => {
-              if (typeof globalThis.__logs !== 'undefined') {
-                return globalThis.__logs;
-              }
-              return [];
-            })()
-          `,
-          returnByValue: true,
-        });
+        // 使用 Log.enable 获取历史日志
+        // CDP Log.enable 会立即通过 Log.entryAdded 发送已收集的历史日志
+        let logEntriesReceived = 0;
+        
+        const logHandler = (entry: any) => {
+          this.log(`[ExtensionHelper] 收到历史 Log.entryAdded: ${entry.entry?.text || 'unknown'}`);
+          
+          const logEntry = entry.entry;
+          if (logEntry) {
+            historicalLogs.push({
+              type: logEntry.level || 'log',
+              text: logEntry.text || '',
+              timestamp: logEntry.timestamp || Date.now(),
+              source: 'history',
+              level: logEntry.level,
+              url: logEntry.url,
+              lineNumber: logEntry.lineNumber,
+              stackTrace: logEntry.stackTrace,
+            });
+            logEntriesReceived++;
+          }
+        };
 
-        const storedLogs = evalResult.result?.value as Array<{
-          type: string;
-          message: string;
-          timestamp: number;
-        }> || [];
-
-        storedLogs.forEach((log) => {
-          logs.push({
-            type: log.type,
-            text: log.message,
-            timestamp: log.timestamp,
-            source: 'stored',
-          });
-        });
-
-        this.log(`[ExtensionHelper] 读取到 ${storedLogs.length} 条历史日志`);
+        // 监听 Log.entryAdded 事件
+        swSession.on('Log.entryAdded', logHandler);
+        
+        // 启用 Log domain - 这会触发历史日志的发送
+        await swSession.send('Log.enable');
+        this.log('[ExtensionHelper] 已启用 Log domain，等待历史日志...');
+        
+        // 等待一小段时间接收历史日志（通常立即发送）
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 停止监听并禁用
+        swSession.off('Log.entryAdded', logHandler);
+        await swSession.send('Log.disable');
+        
+        this.log(`[ExtensionHelper] 通过 Log domain 获取到 ${logEntriesReceived} 条历史日志`);
+        
+        // 将历史日志添加到结果
+        logs.push(...historicalLogs);
       }
 
       // 5. 实时捕获日志（如果需要）
@@ -1671,36 +1685,50 @@ export class ExtensionHelper {
       offscreenSession = await offTarget.createCDPSession();
       this.log('[ExtensionHelper] 已为 Offscreen Document 创建独立 CDPSession');
 
-      // 4. 读取历史日志（如果需要）
+      // 4. 获取历史日志（如果需要） - 使用 CDP Log domain
+      const historicalLogs: any[] = [];
       if (includeStored) {
-        const evalResult = await offscreenSession.send('Runtime.evaluate', {
-          expression: `
-            (() => {
-              if (typeof globalThis.__logs !== 'undefined') {
-                return globalThis.__logs;
-              }
-              return [];
-            })()
-          `,
-          returnByValue: true,
-        });
+        // 使用 Log.enable 获取历史日志
+        // CDP Log.enable 会立即通过 Log.entryAdded 发送已收集的历史日志
+        let logEntriesReceived = 0;
+        
+        const logHandler = (entry: any) => {
+          this.log(`[ExtensionHelper] 收到 Offscreen 历史 Log.entryAdded: ${entry.entry?.text || 'unknown'}`);
+          
+          const logEntry = entry.entry;
+          if (logEntry) {
+            historicalLogs.push({
+              type: logEntry.level || 'log',
+              text: logEntry.text || '',
+              timestamp: logEntry.timestamp || Date.now(),
+              source: 'history',
+              level: logEntry.level,
+              url: logEntry.url,
+              lineNumber: logEntry.lineNumber,
+              stackTrace: logEntry.stackTrace,
+            });
+            logEntriesReceived++;
+          }
+        };
 
-        const storedLogs = evalResult.result?.value as Array<{
-          type: string;
-          message: string;
-          timestamp: number;
-        }> || [];
-
-        storedLogs.forEach((log) => {
-          logs.push({
-            type: log.type,
-            text: log.message,
-            timestamp: log.timestamp,
-            source: 'stored',
-          });
-        });
-
-        this.log(`[ExtensionHelper] 读取到 ${storedLogs.length} 条 Offscreen 历史日志`);
+        // 监听 Log.entryAdded 事件
+        offscreenSession.on('Log.entryAdded', logHandler);
+        
+        // 启用 Log domain - 这会触发历史日志的发送
+        await offscreenSession.send('Log.enable');
+        this.log('[ExtensionHelper] 已启用 Offscreen Log domain，等待历史日志...');
+        
+        // 等待一小段时间接收历史日志（通常立即发送）
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 停止监听并禁用
+        offscreenSession.off('Log.entryAdded', logHandler);
+        await offscreenSession.send('Log.disable');
+        
+        this.log(`[ExtensionHelper] 通过 Log domain 获取到 ${logEntriesReceived} 条 Offscreen 历史日志`);
+        
+        // 将历史日志添加到结果
+        logs.push(...historicalLogs);
       }
 
       // 5. 实时捕获日志（如果需要）
