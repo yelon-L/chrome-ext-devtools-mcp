@@ -1438,10 +1438,10 @@ export class ExtensionHelper {
       this.log(`[ExtensionHelper] Total targets: ${targets.length}`);
       this.log(`[ExtensionHelper] Looking for background target: ${backgroundTarget.url}`);
       
-      // 使用 URL 匹配而非私有属性 _targetId
+      // 使用 URL 直接比较而非私有属性 _targetId
       const swTarget = targets.find(t => {
         const url = t.url();
-        const matches = url.includes(extensionId) && url.includes(backgroundTarget.url);
+        const matches = url === backgroundTarget.url;
         this.log(`[ExtensionHelper] Checking target: ${url} -> ${matches}`);
         return matches;
       });
