@@ -28,6 +28,19 @@ import {
  */
 
 /**
+ * Helper function to add timeout to CDP commands
+ */
+async function cdpWithTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`CDP operation timeout (${timeoutMs}ms): ${operation}`));
+    }, timeoutMs);
+  });
+  
+  return Promise.race([promise, timeoutPromise]);
+}
+
+/**
  * Clear all browser caches for an extension using reliable CDP commands
  * This approach doesn't require chrome.browsingData API permissions
  * Clears: HTTP cache, Service Worker caches, CacheStorage, Storage
@@ -46,8 +59,12 @@ async function clearExtensionCache(extensionId: string, context: any): Promise<{
       const page = pages[0]; // Use first available page
       const cdpSession = await page.target().createCDPSession();
       
-      // Clear browser HTTP cache
-      await cdpSession.send('Network.clearBrowserCache');
+      // Clear browser HTTP cache with timeout
+      await cdpWithTimeout(
+        cdpSession.send('Network.clearBrowserCache'),
+        3000,
+        'Network.clearBrowserCache'
+      );
       details.push('✅ Cleared HTTP browser cache');
       successCount++;
       totalOperations++;
@@ -65,11 +82,15 @@ async function clearExtensionCache(extensionId: string, context: any): Promise<{
       const page = pages[0];
       const cdpSession = await page.target().createCDPSession();
       
-      // Clear cache_storage via Storage domain
-      await cdpSession.send('Storage.clearDataForOrigin', {
-        origin: `chrome-extension://${extensionId}`,
-        storageTypes: 'cache_storage'
-      });
+      // Clear cache_storage via Storage domain with timeout
+      await cdpWithTimeout(
+        cdpSession.send('Storage.clearDataForOrigin', {
+          origin: `chrome-extension://${extensionId}`,
+          storageTypes: 'cache_storage'
+        }),
+        3000,
+        'Storage.clearDataForOrigin (cache_storage)'
+      );
       
       details.push('✅ Cleared CacheStorage');
       successCount++;
@@ -88,11 +109,15 @@ async function clearExtensionCache(extensionId: string, context: any): Promise<{
       const page = pages[0];
       const cdpSession = await page.target().createCDPSession();
       
-      // Clear service workers via Storage domain (most reliable method)
-      await cdpSession.send('Storage.clearDataForOrigin', {
-        origin: `chrome-extension://${extensionId}`,
-        storageTypes: 'service_workers'
-      });
+      // Clear service workers via Storage domain (most reliable method) with timeout
+      await cdpWithTimeout(
+        cdpSession.send('Storage.clearDataForOrigin', {
+          origin: `chrome-extension://${extensionId}`,
+          storageTypes: 'service_workers'
+        }),
+        3000,
+        'Storage.clearDataForOrigin (service_workers)'
+      );
       
       details.push('✅ Cleared Service Worker registrations');
       successCount++;
@@ -109,11 +134,15 @@ async function clearExtensionCache(extensionId: string, context: any): Promise<{
       const page = pages[0];
       const cdpSession = await page.target().createCDPSession();
       
-      // Clear all storage types for the extension origin
-      await cdpSession.send('Storage.clearDataForOrigin', {
-        origin: `chrome-extension://${extensionId}`,
-        storageTypes: 'local_storage,session_storage,indexeddb,websql,service_workers,cache_storage'
-      });
+      // Clear all storage types for the extension origin with timeout
+      await cdpWithTimeout(
+        cdpSession.send('Storage.clearDataForOrigin', {
+          origin: `chrome-extension://${extensionId}`,
+          storageTypes: 'local_storage,session_storage,indexeddb,websql,service_workers,cache_storage'
+        }),
+        3000,
+        'Storage.clearDataForOrigin (all storage)'
+      );
       
       details.push('✅ Cleared localStorage, sessionStorage, IndexedDB');
       successCount++;
@@ -180,7 +209,11 @@ async function disableExtensionCache(extensionId: string, context: any): Promise
     for (const page of pages) {
       try {
         const cdpSession = await page.target().createCDPSession();
-        await cdpSession.send('Network.setCacheDisabled', { cacheDisabled: true });
+        await cdpWithTimeout(
+          cdpSession.send('Network.setCacheDisabled', { cacheDisabled: true }),
+          3000,
+          'Network.setCacheDisabled'
+        );
         await cdpSession.detach();
         disabledCount++;
       } catch (err) {
