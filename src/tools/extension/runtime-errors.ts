@@ -43,9 +43,7 @@ export const getExtensionRuntimeErrors = defineTool({
 4. Returns structured error information
 
 **NOT for**:
-- ❌ Real-time console monitoring → use \`get_extension_logs\`
-- ❌ Error classification and fix recommendations → use \`diagnose_extension_errors\`
-- ❌ Capturing future errors → use \`enhance_extension_error_capture\`
+- ❌ Real-time console monitoring → use \`get_background_logs\`
 
 **Example scenarios**:
 1. User reports: "chrome://extensions shows 8 errors"
@@ -58,9 +56,7 @@ export const getExtensionRuntimeErrors = defineTool({
    → This tool shows occurrence counts for each error
 
 **Complementary tools**:
-- \`diagnose_extension_errors\` - Intelligent analysis with fix recommendations
-- \`get_extension_logs\` - Real-time console monitoring
-- \`enhance_extension_error_capture\` - Proactive error capture`,
+- \`get_background_logs\` - Real-time background console monitoring`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -255,8 +251,7 @@ export const getExtensionRuntimeErrors = defineTool({
         response.appendResponseLine('## 💡 Note\n');
         response.appendResponseLine('This tool extracts error information from the chrome://extensions page.');
         response.appendResponseLine('For real-time error monitoring, use:');
-        response.appendResponseLine('- `diagnose_extension_errors` - Analyze console logs');
-        response.appendResponseLine('- `get_extension_logs` - Monitor real-time console output\n');
+        response.appendResponseLine('- `get_background_logs` - Monitor background console output\n');
         response.setIncludePages(true);
         return;
       }
@@ -268,8 +263,7 @@ export const getExtensionRuntimeErrors = defineTool({
         response.appendResponseLine('**Why**: Chrome requires clicking the "Errors" button to load full error details.\n');
         response.appendResponseLine('**Alternative approaches**:');
         response.appendResponseLine('1. **Manual check**: Open chrome://extensions and click "Errors" button');
-        response.appendResponseLine('2. **Console monitoring**: Use `get_extension_logs` to capture new errors');
-        response.appendResponseLine('3. **Error capture**: Use `enhance_extension_error_capture` before testing\n');
+        response.appendResponseLine('2. **Console monitoring**: Use `get_background_logs` to capture new errors\n');
         response.setIncludePages(true);
         return;
       }
@@ -352,9 +346,7 @@ export const getExtensionRuntimeErrors = defineTool({
       // 14. Related tools suggestions
       response.appendResponseLine(`## 🔧 Related Tools\n`);
       response.appendResponseLine('Need more help? Try these tools:\n');
-      response.appendResponseLine('- `diagnose_extension_errors` - Get intelligent error analysis and fix recommendations');
-      response.appendResponseLine('- `get_extension_logs` - Monitor real-time console output');
-      response.appendResponseLine('- `enhance_extension_error_capture` - Inject listeners to capture future errors\n');
+      response.appendResponseLine('- `get_background_logs` - Monitor real-time background console output\n');
 
     } catch (error) {
       // Follow navigate_page_history pattern: simple error message

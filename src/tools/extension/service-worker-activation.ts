@@ -215,7 +215,6 @@ function formatCDPResponse(
     response.appendResponseLine('\n**Next steps**:');
     response.appendResponseLine('- Service Worker may need a brief delay to be fully ready after activation');
     response.appendResponseLine('- Use `list_extension_contexts` to view current extension context status');
-    response.appendResponseLine('- Use `get_extension_logs` to view SW startup logs');
-    response.appendResponseLine('- Use `enhance_extension_error_capture` to enable comprehensive error monitoring');
+    response.appendResponseLine('- Use `get_background_logs` to view SW startup logs');
   }
 }

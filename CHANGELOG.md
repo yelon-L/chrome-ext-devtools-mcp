@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.18] - 2025-10-25
+
+### Added
+- Offscreen Logs Testing Support (test-extension-enhanced)
+  - Test script: `docs/examples/test-offscreen-logs.sh`
+  - Debug script: `scripts/debug-offscreen-target.ts`
+  - Guides and summaries:
+    - `docs/guides/TEST_OFFSCREEN_LOGS_GUIDE.md`
+    - `docs/OFFSCREEN_LOGS_TEST_SUMMARY.md`
+  - Updated extension docs: `test-extension-enhanced/README.md` (Offscreen section)
+
+### Fixed
+- get_offscreen_logs did not capture logs from Offscreen Document
+  - Root cause: Offscreen Document target type is reported as `background_page` (not `page`) via CDP/Puppeteer
+  - Change: `ExtensionHelper.getExtensionOffscreenTarget()` now matches by URL (`/offscreen`) without restricting `type`
+  - Result: Offscreen logs are correctly captured (log/info/warn/error/debug + heartbeat)
+
+### Documentation
+- `docs/OFFSCREEN_LOGS_BUG_FIX.md`: Root cause analysis and fix details
+
 ## [0.8.16] - 2025-10-24
 
 ### Added

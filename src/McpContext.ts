@@ -833,15 +833,15 @@ export class McpContext implements Context {
   }
 
   /**
-   * Get extension logs
+   * Get background logs (Service Worker or Background Page)
    */
-  async getExtensionLogs(
+  async getBackgroundLogs(
     extensionId: string,
     options?: {
       capture?: boolean;
       duration?: number;
       includeStored?: boolean;
-    }
+    },
   ): Promise<{
     logs: Array<{
       type: string;
@@ -861,7 +861,39 @@ export class McpContext implements Context {
       messageCount: number;
     };
   }> {
-    return this.#extensionHelper.getExtensionLogs(extensionId, options);
+    return this.#extensionHelper.getBackgroundLogs(extensionId, options);
+  }
+
+  /**
+   * Get offscreen document logs
+   */
+  async getOffscreenLogs(
+    extensionId: string,
+    options?: {
+      capture?: boolean;
+      duration?: number;
+      includeStored?: boolean;
+    },
+  ): Promise<{
+    logs: Array<{
+      type: string;
+      text: string;
+      timestamp: number;
+      source: 'stored' | 'realtime';
+      level?: string;
+      stackTrace?: string;
+      url?: string;
+      lineNumber?: number;
+    }>;
+    isActive: boolean;
+    captureInfo?: {
+      started: number;
+      ended: number;
+      duration: number;
+      messageCount: number;
+    };
+  }> {
+    return this.#extensionHelper.getOffscreenLogs(extensionId, options);
   }
 
   /**

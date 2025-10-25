@@ -657,7 +657,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
           // Reduce wait time to avoid hanging
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const logsResult = await context.getExtensionLogs(extensionId, {
+          const logsResult = await context.getBackgroundLogs(extensionId, {
             capture: true,
             duration: 1000,  // Reduced from 3000ms to 1000ms
             includeStored: true,
@@ -669,15 +669,12 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
           
           if (recentErrors.length === 0) {
             response.appendResponseLine('✅ No errors detected after reload\n');
-            response.appendResponseLine('💡 **Tip**: For comprehensive error monitoring, use `enhance_extension_error_capture`\n');
           } else {
             response.appendResponseLine(`⚠️ **${recentErrors.length} error(s) detected after reload**:\n`);
             recentErrors.forEach((log: any) => {
               response.appendResponseLine(`- ${log.text}`);
             });
-            response.appendResponseLine('\n💡 **Next steps**:');
-            response.appendResponseLine('1. Use `diagnose_extension_errors` for detailed analysis');
-            response.appendResponseLine('2. Use `enhance_extension_error_capture` to catch uncaught errors and Promise rejections\n');
+            response.appendResponseLine('\n💡 **Next step**: Use `get_extension_runtime_errors` to see full error details\n');
           }
         } catch (e) {
           response.appendResponseLine('ℹ️ Error check skipped (completed quickly to avoid blocking)\n');
@@ -792,8 +789,7 @@ export const clearExtensionErrors = defineTool({
 
 **Related tools**:
 - \`get_extension_runtime_errors\` - View errors before clearing
-- \`reload_extension\` - Reload after clearing
-- \`diagnose_extension_errors\` - Analyze errors before clearing`,
+- \`reload_extension\` - Reload after clearing`,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: false, // Clears data (side effect)
@@ -930,7 +926,7 @@ export const clearExtensionErrors = defineTool({
           response.appendResponseLine('2. Test your extension');
           response.appendResponseLine('3. \`get_extension_runtime_errors\` - Check for new errors');
           response.appendResponseLine('');
-          response.appendResponseLine('💡 **Tip**: Use \`diagnose_extension_errors\` to analyze any new errors that appear\n');
+          response.appendResponseLine('💡 **Tip**: Use \`get_extension_runtime_errors\` to check for any new errors\n');
         }
       } finally {
         await page.close();

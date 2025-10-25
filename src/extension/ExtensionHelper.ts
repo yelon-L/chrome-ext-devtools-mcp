@@ -995,6 +995,33 @@ export class ExtensionHelper {
     }
   }
 
+  /**
+   * 获取扩展 Offscreen Document Target
+   * Offscreen Document 的特征:
+   * - URL 包含扩展ID和 /offscreen
+   * - Puppeteer type 可能是 'background_page' (实测)
+   */
+  async getExtensionOffscreenTarget(extensionId: string): Promise<CDPTargetInfo | null> {
+    try {
+      const cdp = await this.getCDPSession();
+      const result = await cdp.send('Target.getTargets');
+      const targets = result.targetInfos as CDPTargetInfo[];
+
+      // 直接通过 URL 匹配，不限制 type
+      // 因为 Offscreen Document 的 type 在不同 Chrome 版本可能不同
+      const offscreenTarget = targets.find(
+        t =>
+          t.url?.includes(extensionId) &&
+          t.url?.includes('/offscreen'),
+      );
+
+      return offscreenTarget || null;
+    } catch (error) {
+      this.logError(`Failed to get offscreen target for ${extensionId}:`, error);
+      return null;
+    }
+  }
+
 
   /**
    * 自动激活 Service Worker
@@ -1352,17 +1379,14 @@ export class ExtensionHelper {
   }
 
   /**
-   * 获取扩展的 Console 日志
+   * 获取扩展背景日志（实时捕获 + 历史日志）
+   * 只包括 Service Worker (MV3) 或 Background Page (MV2)
    * 
-   * 支持两种模式：
-   * 1. 读取历史日志（如果扩展存储了 globalThis.__logs）
-   * 2. 实时捕获日志（监听指定时间内的 console 输出）
-   * 
-   * @param extensionId - 扩展 ID
+   * @param extensionId - 扩展ID
    * @param options - 可选配置
    * @returns 日志结果
    */
-  async getExtensionLogs(
+  async getBackgroundLogs(
     extensionId: string,
     options?: {
       /** 是否实时捕获日志（默认 true） */
@@ -1550,7 +1574,208 @@ export class ExtensionHelper {
         }
       }
 
-      this.logError(`[ExtensionHelper] getExtensionLogs 失败:`, error);
+      this.logError(`[ExtensionHelper] getBackgroundLogs 失败:`, error);
+      return {logs: [], isActive: false};
+    }
+  }
+
+  /**
+   * 获取 Offscreen Document 日志（实时捕获 + 历史日志）
+   * 只包括 Offscreen Document (MV3)
+   * 
+   * @param extensionId - 扩展ID
+   * @param options - 可选配置
+   * @returns 日志结果
+   */
+  async getOffscreenLogs(
+    extensionId: string,
+    options?: {
+      /** 是否实时捕获日志（默认 true） */
+      capture?: boolean;
+      /** 实时捕获的时长（毫秒，默认 5000） */
+      duration?: number;
+      /** 是否包含历史日志（默认 true） */
+      includeStored?: boolean;
+    }
+  ): Promise<{
+    logs: Array<{
+      type: string;
+      text: string;
+      timestamp: number;
+      source: 'stored' | 'realtime';
+      level?: string;
+      stackTrace?: string;
+      url?: string;
+      lineNumber?: number;
+    }>;
+    isActive: boolean;
+    captureInfo?: {
+      started: number;
+      ended: number;
+      duration: number;
+      messageCount: number;
+    };
+  }> {
+    const {
+      capture = true,
+      duration = 5000,
+      includeStored = true,
+    } = options || {};
+
+    const logs: any[] = [];
+    let offscreenSession: any = null;
+
+    try {
+      // 1. 找到 Offscreen Document target
+      const offscreenTarget = await this.getExtensionOffscreenTarget(extensionId);
+      if (!offscreenTarget) {
+        return {logs: [], isActive: false};
+      }
+
+      // 2. 通过 targetId 找到对应的 Puppeteer Target
+      const targets = await this.browser.targets();
+      const offTarget = targets.find(
+        t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+      );
+
+      if (!offTarget) {
+        this.logError('[ExtensionHelper] 未找到 Offscreen Document 的 Puppeteer Target');
+        return {logs: [], isActive: false};
+      }
+
+      // 3. 创建独立的 CDPSession for Offscreen Document
+      offscreenSession = await offTarget.createCDPSession();
+      this.log('[ExtensionHelper] 已为 Offscreen Document 创建独立 CDPSession');
+
+      // 4. 读取历史日志（如果需要）
+      if (includeStored) {
+        const evalResult = await offscreenSession.send('Runtime.evaluate', {
+          expression: `
+            (() => {
+              if (typeof globalThis.__logs !== 'undefined') {
+                return globalThis.__logs;
+              }
+              return [];
+            })()
+          `,
+          returnByValue: true,
+        });
+
+        const storedLogs = evalResult.result?.value as Array<{
+          type: string;
+          message: string;
+          timestamp: number;
+        }> || [];
+
+        storedLogs.forEach((log) => {
+          logs.push({
+            type: log.type,
+            text: log.message,
+            timestamp: log.timestamp,
+            source: 'stored',
+          });
+        });
+
+        this.log(`[ExtensionHelper] 读取到 ${storedLogs.length} 条 Offscreen 历史日志`);
+      }
+
+      // 5. 实时捕获日志（如果需要）
+      let captureInfo;
+      if (capture) {
+        const captureStartTime = Date.now();
+        const capturedLogs: any[] = [];
+
+        // 启用 Runtime domain
+        await offscreenSession.send('Runtime.enable');
+        this.log('[ExtensionHelper] 已在 Offscreen session 上启用 Runtime domain');
+
+        // 监听 console API 调用
+        const consoleHandler = (event: any) => {
+          this.log(`[ExtensionHelper] 收到 Offscreen console 事件: ${event.type}, args: ${event.args?.length || 0}`);
+          
+          const args = event.args || [];
+          const text = args
+            .map((arg: any) => {
+              if (arg.value !== undefined) {
+                return String(arg.value);
+              }
+              if (arg.description) {
+                return arg.description;
+              }
+              return '[Object]';
+            })
+            .join(' ');
+
+          capturedLogs.push({
+            type: event.type || 'log',
+            text,
+            timestamp: event.timestamp || Date.now(),
+            source: 'realtime',
+            level: event.type,
+            stackTrace: event.stackTrace?.callFrames
+              ? event.stackTrace.callFrames
+                  .map((frame: any) => `  at ${frame.functionName || 'anonymous'} (${frame.url}:${frame.lineNumber})`)
+                  .join('\n')
+              : undefined,
+            url: event.stackTrace?.callFrames?.[0]?.url,
+            lineNumber: event.stackTrace?.callFrames?.[0]?.lineNumber,
+          });
+        };
+
+        offscreenSession.on('Runtime.consoleAPICalled', consoleHandler);
+        this.log('[ExtensionHelper] 已开始监听 Offscreen console 事件');
+
+        // 等待指定时长
+        this.log(`[ExtensionHelper] 捕获 Offscreen 日志 ${duration}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, duration));
+
+        // 停止监听
+        offscreenSession.off('Runtime.consoleAPICalled', consoleHandler);
+
+        // 禁用 Runtime domain
+        await offscreenSession.send('Runtime.disable');
+
+        const captureEndTime = Date.now();
+
+        captureInfo = {
+          started: captureStartTime,
+          ended: captureEndTime,
+          duration: captureEndTime - captureStartTime,
+          messageCount: capturedLogs.length,
+        };
+
+        this.log(`[ExtensionHelper] Offscreen 捕获完成，共 ${capturedLogs.length} 条日志`);
+
+        // 合并捕获的日志
+        logs.push(...capturedLogs);
+      }
+
+      // 6. 分离 session
+      if (offscreenSession) {
+        await offscreenSession.detach();
+        offscreenSession = null;
+        this.log('[ExtensionHelper] 已分离 Offscreen CDPSession');
+      }
+
+      // 按时间戳排序
+      logs.sort((a, b) => a.timestamp - b.timestamp);
+
+      return {
+        logs,
+        isActive: true,
+        captureInfo,
+      };
+    } catch (error) {
+      // 清理
+      if (offscreenSession) {
+        try {
+          await offscreenSession.detach();
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      this.logError(`[ExtensionHelper] getOffscreenLogs 失败:`, error);
       return {logs: [], isActive: false};
     }
   }

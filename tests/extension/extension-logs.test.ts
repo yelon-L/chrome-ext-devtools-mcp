@@ -63,7 +63,7 @@ describe('get_extension_logs', () => {
 
   it('should get extension logs', async () => {
     try {
-      const result = await helper.getExtensionLogs(testExtensionId);
+      const result = await helper.getBackgroundLogs(testExtensionId);
 
       assert.ok(result, '应该返回日志结果');
       assert.strictEqual(typeof result.isActive, 'boolean', 'isActive 应该是布尔值');
@@ -83,7 +83,7 @@ describe('get_extension_logs', () => {
 
   it('should include Service Worker status', async () => {
     try {
-      const result = await helper.getExtensionLogs(testExtensionId);
+      const result = await helper.getBackgroundLogs(testExtensionId);
 
       assert.ok('isActive' in result, '结果应该包含 isActive');
       console.log(`✅ Service Worker 状态: ${result.isActive ? 'Active' : 'Inactive'}`);
@@ -94,7 +94,7 @@ describe('get_extension_logs', () => {
 
   it('should have valid log structure', async () => {
     try {
-      const result = await helper.getExtensionLogs(testExtensionId);
+      const result = await helper.getBackgroundLogs(testExtensionId);
 
       for (const log of result.logs) {
         assert.ok('type' in log, 'log 应该有 type');
@@ -127,7 +127,7 @@ describe('get_extension_logs', () => {
 
     if (details?.manifestVersion === 3) {
       try {
-        const result = await helper.getExtensionLogs(testExtensionId);
+        const result = await helper.getBackgroundLogs(testExtensionId);
 
         if (!result.isActive) {
           console.log(`ℹ️  Service Worker 未激活`);
@@ -144,7 +144,7 @@ describe('get_extension_logs', () => {
 
   it('should return empty logs for new/quiet extension', async () => {
     try {
-      const result = await helper.getExtensionLogs(testExtensionId);
+      const result = await helper.getBackgroundLogs(testExtensionId);
 
       // 新扩展或没有日志输出的扩展应该返回空数组
       if (result.logs.length === 0) {
@@ -163,7 +163,7 @@ describe('get_extension_logs', () => {
     const fakeId = 'a'.repeat(32);
 
     try {
-      await helper.getExtensionLogs(fakeId);
+      await helper.getBackgroundLogs(fakeId);
       assert.fail('应该抛出错误');
     } catch (error) {
       assert.ok(error instanceof Error, '应该抛出 Error');
@@ -173,7 +173,7 @@ describe('get_extension_logs', () => {
 
   it('should handle different log types', async () => {
     try {
-      const result = await helper.getExtensionLogs(testExtensionId);
+      const result = await helper.getBackgroundLogs(testExtensionId);
 
       const logTypes = new Set(result.logs.map(log => log.type));
       

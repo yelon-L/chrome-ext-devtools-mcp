@@ -416,7 +416,7 @@ function generateRecommendations(
     }
   }
 
-  recommendations.push('Use `diagnose_extension_errors` for comprehensive error analysis');
+  recommendations.push('Use `get_extension_runtime_errors` to check for errors');
 
   return recommendations;
 }

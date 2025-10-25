@@ -112,13 +112,39 @@ export type Context = Readonly<{
     error?: string;
     suggestion?: string;
   }>;
-  getExtensionLogs(
+  getBackgroundLogs(
     extensionId: string,
     options?: {
       capture?: boolean;
       duration?: number;
       includeStored?: boolean;
-    }
+    },
+  ): Promise<{
+    logs: Array<{
+      type: string;
+      text: string;
+      timestamp: number;
+      source: 'stored' | 'realtime';
+      level?: string;
+      stackTrace?: string;
+      url?: string;
+      lineNumber?: number;
+    }>;
+    isActive: boolean;
+    captureInfo?: {
+      started: number;
+      ended: number;
+      duration: number;
+      messageCount: number;
+    };
+  }>;
+  getOffscreenLogs(
+    extensionId: string,
+    options?: {
+      capture?: boolean;
+      duration?: number;
+      includeStored?: boolean;
+    },
   ): Promise<{
     logs: Array<{
       type: string;

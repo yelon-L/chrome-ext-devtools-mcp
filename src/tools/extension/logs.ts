@@ -13,46 +13,32 @@ import z from 'zod';
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
 
-export const getExtensionLogs = defineTool({
-  name: 'get_extension_logs',
-  description: `Monitor real-time console output from extension (live log streaming).
+export const getBackgroundLogs = defineTool({
+  name: 'get_background_logs',
+  description: `Get console logs from extension's background context (Service Worker or Background Page).
 
-**This is the tool you need when:**
-- ✅ You want to see what the extension is logging RIGHT NOW
-- ✅ You need to capture console.log(), console.error(), console.warn() output
-- ✅ You want to monitor extension activity as it happens
-- ✅ You need incremental log collection (get only new logs since last check)
+**🎯 For AI**: Monitor background script console output - SW (MV3) or Background Page (MV2).
 
-**Data source**: Live console output from all extension contexts (captured via Puppeteer)
+**Scope**: ONLY background context logs
+- ✅ Service Worker (MV3)
+- ✅ Background Page (MV2)
+- ❌ Content Scripts → use \`get_page_console_logs\` on the target page
+- ❌ Popup → use \`get_page_console_logs\` after opening as page
+
+**Data source**: CDP Runtime.consoleAPICalled on background target
 
 **What you get**:
-- Real-time console messages (log, info, warn, error, debug)
-- Timestamps for each log entry
-- Source context (background, content_script, popup, etc.)
-- Stack traces for errors (if available)
-- Filtering by log level and time range
+- Console messages (log, warn, error, info, debug)
+- Timestamps and stack traces
+- Filtering by level and time range
 
-**NOT for**:
-- ❌ chrome://extensions errors → use \`get_extension_runtime_errors\`
-- ❌ Error analysis and recommendations → use \`diagnose_extension_errors\`
-- ❌ Historical errors from hours ago → use \`get_extension_runtime_errors\`
+**⚠️ MV3 Service Worker**: SW must be active. Use \`activate_extension_service_worker\` if needed.
 
-**Example scenarios**:
-1. Development debugging: "What is my extension logging?"
-   → Use this tool to see live console output
-   
-2. Test verification: "Did my console.log() work?"
-   → Use this tool to verify logging statements
-   
-3. Incremental monitoring: "Show me new logs since 5 minutes ago"
-   → Use this tool with \`since\` parameter
+**Use cases**:
+- "What is my background script logging?" → See SW/background logs
+- "Did my SW console.log() work?" → Verify background logging
 
-**⚠️ MV3 Service Worker**: Logs only available when SW is active. Use \`activate_extension_service_worker\` if needed.
-
-**Related tools**:
-- \`enhance_extension_error_capture\` - Inject first, then monitor logs here
-- \`diagnose_extension_errors\` - This provides raw data, diagnose provides analysis
-- \`get_extension_runtime_errors\` - For Chrome's internal error records`,
+**Related tools**: \`get_extension_runtime_errors\`, \`get_page_console_logs\``,
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -85,7 +71,7 @@ export const getExtensionLogs = defineTool({
     } = request.params;
 
     try {
-      const result = await context.getExtensionLogs(extensionId, {
+      const result = await context.getBackgroundLogs(extensionId, {
         capture: true,
         duration: 5000,
         includeStored: true,
@@ -93,7 +79,7 @@ export const getExtensionLogs = defineTool({
       
       const logs = result.logs;
 
-      response.appendResponseLine(`# Extension Logs\n`);
+      response.appendResponseLine(`# Background Logs\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
       response.appendResponseLine(`**Total**: ${logs.length} entries\n`);
 
@@ -160,8 +146,170 @@ export const getExtensionLogs = defineTool({
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to get extension logs. The extension may be inactive or disabled.'
+        'Unable to get background logs. The Service Worker may be inactive or disabled.'
       );
+    }
+    
+    response.setIncludePages(true);
+  },
+});
+
+export const getOffscreenLogs = defineTool({
+  name: 'get_offscreen_logs',
+  description: `Get console logs from extension's Offscreen Document (MV3 only).
+
+**🎯 For AI**: Monitor Offscreen Document console output - independent console for DOM operations.
+
+**Scope**: ONLY Offscreen Document logs
+- ✅ Offscreen Document (MV3)
+- ❌ Service Worker → use \`get_background_logs\`
+- ❌ Content Scripts → use \`get_page_console_logs\`
+- ❌ Popup → use \`get_page_console_logs\`
+
+**What is Offscreen Document**:
+- Hidden HTML page with DOM access (Canvas, Audio, Clipboard)
+- Independent console (not in SW or page console)
+- Created via \`chrome.offscreen.createDocument()\`
+- Typical use cases: Canvas rendering, Audio processing, background DOM operations
+
+**Data source**: CDP Runtime.consoleAPICalled on offscreen target
+
+**What you get**:
+- Console messages (log, warn, error, info, debug)
+- Timestamps and stack traces
+- Filtering by level and time range
+
+**Prerequisites**:
+- Extension must have created an Offscreen Document
+- Offscreen Document must be active
+
+**Use cases**:
+- "What is my offscreen document logging?" → See offscreen logs
+- "Did my Canvas operation work?" → Check offscreen console
+- "Debug Audio processing" → Monitor offscreen logs
+
+**Related tools**: \`get_background_logs\`, \`get_page_console_logs\`, \`list_extension_contexts\``,
+  annotations: {
+    category: ToolCategories.EXTENSION_DEBUGGING,
+    readOnlyHint: true,
+  },
+  schema: {
+    extensionId: z
+      .string()
+      .regex(/^[a-z]{32}$/)
+      .describe('Extension ID to get logs from. Get this from list_extensions.'),
+    level: z
+      .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
+      .optional()
+      .describe('Log levels to include. If not specified, returns all levels.'),
+    limit: z
+      .number()
+      .positive()
+      .optional()
+      .describe('Maximum number of log entries to return. Default is 50.'),
+    since: z
+      .number()
+      .optional()
+      .describe('Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.'),
+  },
+  handler: async (request, response, context) => {
+    const {
+      extensionId,
+      level,
+      limit = 50,
+      since,
+    } = request.params;
+
+    try {
+      const result = await context.getOffscreenLogs(extensionId, {
+        capture: true,
+        duration: 5000,
+        includeStored: true,
+      });
+      
+      const logs = result.logs;
+
+      response.appendResponseLine(`# Offscreen Document Logs\n`);
+      response.appendResponseLine(`**Extension ID**: ${extensionId}`);
+      response.appendResponseLine(`**Total**: ${logs.length} entries\n`);
+
+      if (logs.length === 0) {
+        response.appendResponseLine('*No logs found*\n');
+        response.appendResponseLine('**Possible reasons**:');
+        response.appendResponseLine('- Offscreen Document has not been created yet');
+        response.appendResponseLine('- Offscreen Document has not logged anything');
+        response.appendResponseLine('- Offscreen Document was closed');
+        response.appendResponseLine('\n**How to create Offscreen Document**:');
+        response.appendResponseLine('```javascript');
+        response.appendResponseLine('await chrome.offscreen.createDocument({');
+        response.appendResponseLine('  url: "offscreen.html",');
+        response.appendResponseLine('  reasons: ["TESTING"],');
+        response.appendResponseLine('  justification: "Testing offscreen logging"');
+        response.appendResponseLine('});');
+        response.appendResponseLine('```');
+        response.setIncludePages(true);
+        return;
+      }
+
+      // Group logs by level
+      const grouped = logs.reduce((acc, log) => {
+        const level = log.level || 'log';
+        if (!acc[level]) {
+          acc[level] = [];
+        }
+        acc[level].push(log);
+        return acc;
+      }, {} as Record<string, typeof logs>);
+
+      // Display summary
+      response.appendResponseLine('## Summary\n');
+      const levelEmojis: Record<string, string> = {
+        error: '❌',
+        warn: '⚠️',
+        info: 'ℹ️',
+        log: '📝',
+        debug: '🐛',
+      };
+
+      for (const [lvl, entries] of Object.entries(grouped)) {
+        const emoji = levelEmojis[lvl] || '📋';
+        response.appendResponseLine(`- ${emoji} **${lvl}**: ${entries.length} entries`);
+      }
+
+      response.appendResponseLine('\n## Log Entries\n');
+
+      // Display each log entry
+      logs.forEach((log) => {
+        const time = new Date(log.timestamp).toLocaleTimeString();
+        const logLevel = log.level || 'log';
+        const emoji = levelEmojis[logLevel] || '📋';
+        
+        response.appendResponseLine(`### ${emoji} ${logLevel.toUpperCase()} - ${time}`);
+        
+        if (log.source) {
+          response.appendResponseLine(`**Source**: ${log.source}`);
+        }
+        
+        response.appendResponseLine(`**Message**: ${log.text}`);
+        
+        if (log.stackTrace) {
+          response.appendResponseLine(`**Stack Trace**:\n\`\`\`\n${log.stackTrace}\n\`\`\``);
+        }
+        
+        response.appendResponseLine('');
+      });
+
+      response.appendResponseLine('\n**Tip**: Use the `since` parameter to get only new logs since your last check.');
+      response.appendResponseLine('\n**Note**: Offscreen Document has independent console, separate from Service Worker and page console.');
+
+    } catch {
+      // ✅ Following navigate_page_history pattern: simple error message
+      response.appendResponseLine(
+        'Unable to get offscreen logs. The Offscreen Document may not exist or has been closed.'
+      );
+      response.appendResponseLine('\n**How to check**:');
+      response.appendResponseLine('1. Use `list_extension_contexts` to see if offscreen context exists');
+      response.appendResponseLine('2. Create Offscreen Document if needed using `chrome.offscreen.createDocument()`');
     }
     
     response.setIncludePages(true);

@@ -130,7 +130,7 @@ describe('extension_tools_integration', () => {
     // Step 6: Get logs
     console.log('Step 6: Get Extension Logs');
     try {
-      const logs = await helper.getExtensionLogs(testExtensionId);
+      const logs = await helper.getBackgroundLogs(testExtensionId);
       console.log(`✅ Logs: ${logs.logs.length} 条`);
       if (logs.logs.length > 0) {
         console.log(`   最新: ${logs.logs[logs.logs.length - 1].text}`);
