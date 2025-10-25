@@ -170,6 +170,7 @@ function getLogIcon(level: string): string {
     log: '📝',
     info: 'ℹ️',
     warn: '⚠️',
+    warning: '⚠️',  // Also support 'warning'
     error: '❌',
     debug: '🔍',
   };
