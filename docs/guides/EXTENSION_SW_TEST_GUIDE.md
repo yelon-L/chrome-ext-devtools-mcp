@@ -443,6 +443,16 @@ sleep 60 && node test-extension-tools.mjs
 - **必须先启动捕获，再产生日志**（时机很重要）
 - 捕获期间的日志才能被记录
 - 历史日志需要扩展在 `globalThis.__logs` 中存储
+- **注意:** 
+- `includeHistory` 使用 CDP Log domain 获取 Chrome 收集的历史日志
+- **无需扩展实现任何功能**，直接从 Chrome 获取已收集的日志
+- 默认 `includeHistory=false` 是为了性能（历史日志可能很多）
+- `duration` 控制实时捕获的时长，可根据场景调整（3-20 秒）
+
+**技术实现**：
+- 历史日志：通过 `Log.enable` → `Log.entryAdded` 事件获取
+- 实时日志：通过 `Runtime.consoleAPICalled` 事件捕获
+- 两者独立工作，互不干扰
 
 **示例输出:**
 ```
