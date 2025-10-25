@@ -517,7 +517,20 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
       // Apply cache strategy
       if (actualStrategy === 'force-clear') {
         response.appendResponseLine('\n🧹 Clearing all browser caches...\n');
-        const clearResult = await clearExtensionCache(extensionId, context);
+        
+        // Add timeout protection for cache clearing (8 seconds max)
+        const clearPromise = clearExtensionCache(extensionId, context);
+        const timeoutPromise = new Promise<{success: boolean; details: string[]}>((resolve) => {
+          setTimeout(() => {
+            resolve({
+              success: false,
+              details: ['⚠️ Cache clearing timeout (8s) - continuing with reload']
+            });
+          }, 8000);
+        });
+        
+        const clearResult = await Promise.race([clearPromise, timeoutPromise]);
+        
         if (clearResult.success) {
           response.appendResponseLine('✅ **Cache cleared successfully**:\n');
           clearResult.details.forEach(detail => {
@@ -707,11 +720,18 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
           // Reduce wait time to avoid hanging
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const logsResult = await context.getBackgroundLogs(extensionId, {
+          // Add timeout protection for getBackgroundLogs (3 seconds max)
+          const logsPromise = context.getBackgroundLogs(extensionId, {
             capture: true,
             duration: 1000,  // Reduced from 3000ms to 1000ms
-            includeStored: true,
+            includeStored: false,  // Disable to avoid Log domain issues
           });
+          
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Log capture timeout')), 3000);
+          });
+          
+          const logsResult = await Promise.race([logsPromise, timeoutPromise]) as any;
           
           const recentErrors = logsResult.logs
             .filter((log: any) => log.level === 'error' && Date.now() - log.timestamp < 5000)
@@ -727,7 +747,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
             response.appendResponseLine('\n💡 **Next step**: Use `get_extension_runtime_errors` to see full error details\n');
           }
         } catch (e) {
-          response.appendResponseLine('ℹ️ Error check skipped (completed quickly to avoid blocking)\n');
+          response.appendResponseLine('ℹ️ Error check skipped (timeout or error)\n');
         }
       }
 
