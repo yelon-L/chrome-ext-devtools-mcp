@@ -12,6 +12,7 @@
 ### 测试场景1: SW Inactive + 完整验证
 
 **配置**:
+
 ```json
 {
   "extensionId": "lnidiajhkakibgicoamnbmfedgpmpafj",
@@ -22,11 +23,13 @@
 ```
 
 **初始状态**:
+
 - Extension: Video SRT Ext MVP v0.9.0
 - Manifest Version: 3
 - Service Worker: 🔴 **Inactive**
 
 **执行过程**:
+
 1. ✅ 检测到SW为inactive
 2. ✅ 自动激活Service Worker
 3. ✅ 激活成功
@@ -37,6 +40,7 @@
 **执行时间**: ~5-7秒
 
 **响应输出**:
+
 ```
 # Smart Extension Reload
 
@@ -83,6 +87,7 @@
 ### 测试场景2: SW Inactive + 保留Storage + 快速模式
 
 **配置**:
+
 ```json
 {
   "extensionId": "lnidiajhkakibgicoamnbmfedgpmpafj",
@@ -93,6 +98,7 @@
 ```
 
 **执行过程**:
+
 1. ✅ 检测到SW为inactive
 2. ✅ 自动激活Service Worker
 3. ✅ 保存Storage数据（1个key）
@@ -102,6 +108,7 @@
 **执行时间**: ~3-4秒（更快，因为跳过了验证步骤）
 
 **响应输出**:
+
 ```
 ## Step 2: Preserving Storage
 
@@ -126,14 +133,14 @@
 
 ### ✅ 功能验证
 
-| 功能点 | 状态 | 说明 |
-|--------|------|------|
-| 自动检测SW状态 | ✅ | 正确识别inactive状态 |
-| 自动激活SW | ✅ | 激活成功，无需手动操作 |
-| reload执行 | ✅ | 命令发送成功 |
-| reload验证 | ✅ | 正确验证上下文重建 |
-| 错误捕获 | ✅ | 未检测到错误 |
-| Storage保存/恢复 | ✅ | 正常工作 |
+| 功能点           | 状态 | 说明                   |
+| ---------------- | ---- | ---------------------- |
+| 自动检测SW状态   | ✅   | 正确识别inactive状态   |
+| 自动激活SW       | ✅   | 激活成功，无需手动操作 |
+| reload执行       | ✅   | 命令发送成功           |
+| reload验证       | ✅   | 正确验证上下文重建     |
+| 错误捕获         | ✅   | 未检测到错误           |
+| Storage保存/恢复 | ✅   | 正常工作               |
 
 ### ⚠️ 观察到的问题
 
@@ -142,18 +149,21 @@
 **现象**: 添加的详细日志（Session, Token, Extension ID等）未在输出中看到
 
 **可能原因**:
+
 1. Console.log在stdio模式下可能被重定向或过滤
 2. 日志可能输出到了其他流（如单独的日志文件）
 3. 构建后的JS文件中日志可能被优化掉
 
 **验证**:
+
 ```bash
 $ grep -n "console.log.*reload_extension" build/src/tools/extension/execution.js
 ```
 
 **影响**: 低 - 功能正常，只是缺少调试日志
 
-**建议**: 
+**建议**:
+
 - 使用专门的日志框架而不是console.log
 - 或者在SSE/streamable模式下测试（可能有不同的日志行为）
 
@@ -164,22 +174,28 @@ $ grep -n "console.log.*reload_extension" build/src/tools/extension/execution.js
 ### 1. SW Inactive自动处理 ✅
 
 **设计正确**: reload_extension 能够：
+
 - 自动检测Service Worker状态
 - 在SW inactive时自动激活
 - 激活成功后继续reload流程
 
 **代码逻辑**:
+
 ```typescript
-if (extension.serviceWorkerStatus === 'inactive' || 
-    extension.serviceWorkerStatus === 'not_found') {
+if (
+  extension.serviceWorkerStatus === 'inactive' ||
+  extension.serviceWorkerStatus === 'not_found'
+) {
   response.appendResponseLine('🔄 Service Worker is inactive. Activating...\n');
-  
+
   try {
     await context.activateServiceWorker(extensionId);
     response.appendResponseLine('✅ Service Worker activated successfully\n');
     await new Promise(resolve => setTimeout(resolve, 1000));
   } catch (activationError) {
-    response.appendResponseLine('⚠️ Could not activate Service Worker automatically');
+    response.appendResponseLine(
+      '⚠️ Could not activate Service Worker automatically',
+    );
     response.appendResponseLine('Attempting reload anyway...\n');
   }
 }
@@ -192,6 +208,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ### 2. 无卡死或超时问题 ✅
 
 **测试结果**:
+
 - 执行时间: 3-7秒（正常范围）
 - 未触发20秒超时
 - 未出现网络卡死
@@ -204,6 +221,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ### 3. Storage保留功能正常 ✅
 
 **测试结果**:
+
 - 成功保存1个storage key
 - Reload后成功恢复
 - 数据未丢失
@@ -219,6 +237,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ### 可能的问题场景
 
 #### 场景A: 扩展崩溃或损坏
+
 ```
 状态: Extension已安装但处于错误状态
 触发: SW激活失败
@@ -226,6 +245,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ```
 
 #### 场景B: Chrome DevTools Protocol连接不稳定
+
 ```
 状态: CDP连接断断续续
 触发: 执行evaluateInExtensionContext时连接断开
@@ -233,6 +253,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ```
 
 #### 场景C: 扩展启动超慢
+
 ```
 状态: 扩展代码复杂，启动需要>10秒
 触发: waitForReady=true 时等待上下文
@@ -240,6 +261,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ```
 
 #### 场景D: 并发请求冲突
+
 ```
 状态: 多个客户端同时调用reload_extension
 触发: 资源竞争或死锁
@@ -247,6 +269,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ```
 
 #### 场景E: SSE连接管理问题
+
 ```
 状态: SSE模式下，客户端未正确读取流
 触发: 服务器发送响应，但客户端不读取
@@ -258,6 +281,7 @@ if (extension.serviceWorkerStatus === 'inactive' ||
 ## 💡 建议的进一步测试
 
 ### 测试1: 压力测试
+
 ```bash
 # 连续执行50次reload
 for i in {1..50}; do
@@ -267,6 +291,7 @@ done
 ```
 
 ### 测试2: 并发测试
+
 ```bash
 # 同时发送10个reload请求
 for i in {1..10}; do
@@ -276,6 +301,7 @@ wait
 ```
 
 ### 测试3: 网络延迟模拟
+
 ```bash
 # 使用tc命令模拟网络延迟
 sudo tc qdisc add dev eth0 root netem delay 200ms
@@ -283,6 +309,7 @@ sudo tc qdisc add dev eth0 root netem delay 200ms
 ```
 
 ### 测试4: SSE模式测试
+
 ```bash
 # 使用SSE模式，观察是否有不同行为
 ./dist/chrome-extension-debug-linux-x64 --transport sse --port 3456 ...
@@ -316,6 +343,7 @@ sudo tc qdisc add dev eth0 root netem delay 200ms
 - 响应正确
 
 **如果用户遇到卡死问题，可能是其他场景**:
+
 - 扩展崩溃/损坏
 - CDP连接不稳定
 - 并发请求冲突

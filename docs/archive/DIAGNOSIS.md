@@ -1,6 +1,7 @@
 # 问题定位完整诊断报告
 
 ## 问题现象
+
 SSE 连接建立超时（客户端10秒超时），但服务器端实际在处理
 
 ## 诊断过程
@@ -8,6 +9,7 @@ SSE 连接建立超时（客户端10秒超时），但服务器端实际在处�
 ### 步骤1：添加详细日志
 
 在每个关键步骤添加 `logger` 输出：
+
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts
 logger(`[Server] 🔌 开始连接浏览器: ${userId}`);
@@ -28,6 +30,7 @@ DEBUG=mcp:* AUTH_ENABLED=false PORT=32122 node build/src/multi-tenant/server-mul
 ### 步骤3：分析日志时间戳
 
 **关键证据**：
+
 ```
 2025-10-12T12:52:10.322Z  [Server] 🔌 开始连接浏览器: test-debug
 2025-10-12T12:52:10.370Z  [Server] ✓ 浏览器连接成功: test-debug     ← 48ms (正常)
@@ -35,13 +38,14 @@ DEBUG=mcp:* AUTH_ENABLED=false PORT=32122 node build/src/multi-tenant/server-mul
 2025-10-12T12:52:10.370Z  [Server] ✓ SSE传输已创建: test-debug     ← 0ms (瞬间)
 2025-10-12T12:52:10.370Z  [Server] 🔧 创建MCP服务器: test-debug
 2025-10-12T12:52:10.371Z  [Server] 📦 创建MCP上下文: test-debug
-                          ⏱️  卡住 94 秒！                          
+                          ⏱️  卡住 94 秒！
 2025-10-12T12:53:44.814Z  [Server] ✓ MCP上下文已创建: test-debug   ← 94秒后才完成
 2025-10-12T12:53:44.814Z  [Server] 🛠️  注册工具: test-debug
 2025-10-12T12:53:44.815Z  [Server] ✓ 已注册37个工具: test-debug
 ```
 
 **时间分布**：
+
 - 浏览器连接：48ms ✅
 - SSE传输创建：<1ms ✅
 - MCP服务器创建：<1ms ✅
@@ -66,11 +70,11 @@ static async from(browser: Browser, logger: Debugger) {
 async #init() {
   // 尝试获取现有页面列表
   const pagesPromise = this.createPagesSnapshot();  // ← 可能挂起
-  const timeout = new Promise((_, reject) => 
+  const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Pages snapshot timeout')), 5000)
   );
   await Promise.race([pagesPromise, timeout]);
-  
+
   // 如果没有页面，创建新页面
   if (this.#pages.length === 0) {
     const page = await this.browser.newPage();  // ← 可能挂起
@@ -88,6 +92,7 @@ async createPagesSnapshot(): Promise<Page[]> {
 ### 步骤5：Puppeteer 源码分析
 
 `browser.pages()` 内部调用链：
+
 ```
 Browser.pages()
   ↓
@@ -101,6 +106,7 @@ CDP: Target.getTargets  // 发送 CDP 命令
 ```
 
 `browser.newPage()` 内部调用链：
+
 ```
 Browser.newPage()
   ↓
@@ -119,6 +125,7 @@ CDP: Target.attachToTarget  // 附加到 target
 **并发连接**：必定失败（超时前未完成）
 
 **推测原因**：
+
 1. **CDP 消息队列拥堵**：Puppeteer 内部使用单个 WebSocket 连接
 2. **事件监听器注册慢**：Page 对象初始化时注册几十个 CDP 事件
 3. **Chrome 响应慢**：可能在处理其他请求
@@ -130,21 +137,22 @@ CDP: Target.attachToTarget  // 附加到 target
 ```typescript
 static async fromFast(browser: Browser, logger: Debugger) {
   logger('Creating new page directly (fast mode)');
-  
+
   const pagePromise = browser.newPage();
-  const timeout = new Promise<never>((_, reject) => 
+  const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('newPage timeout after 5s')), 5000)
   );
-  
+
   logger('Waiting for page creation...');
   const page = await Promise.race([pagePromise, timeout]);
   logger('Page created successfully');
-  
+
   // ...
 }
 ```
 
 **测试结果**：
+
 - 日志停在 "Waiting for page creation..."
 - 5秒后超时错误
 - **确认**：`browser.newPage()` 确实挂起
@@ -152,11 +160,13 @@ static async fromFast(browser: Browser, logger: Debugger) {
 ## 最终定位
 
 ### 问题根源
+
 **Puppeteer 的 `browser.newPage()` 和 `browser.pages()` 在多租户场景下不稳定**
 
 ### 为什么卡住？
 
 **技术原因**：
+
 1. **单 WebSocket 连接瓶颈**
    - Puppeteer 对每个 Browser 使用单个 WebSocket
    - 所有 CDP 消息通过这个连接串行处理
@@ -177,13 +187,13 @@ static async fromFast(browser: Browser, logger: Debugger) {
 
 ### 证据总结
 
-| 证据类型 | 内容 | 结论 |
-|---------|------|------|
-| 日志时间戳 | 94秒卡在 `创建MCP上下文` | ✅ 确定位置 |
-| 代码审查 | `await context.#init()` | ✅ 确定调用 |
+| 证据类型      | 内容                             | 结论        |
+| ------------- | -------------------------------- | ----------- |
+| 日志时间戳    | 94秒卡在 `创建MCP上下文`         | ✅ 确定位置 |
+| 代码审查      | `await context.#init()`          | ✅ 确定调用 |
 | Puppeteer API | `browser.pages()` 和 `newPage()` | ✅ 确定方法 |
-| 并发测试 | 并发时必定失败 | ✅ 确定场景 |
-| 超时测试 | 添加5秒超时仍卡住 | ✅ 确定无效 |
+| 并发测试      | 并发时必定失败                   | ✅ 确定场景 |
+| 超时测试      | 添加5秒超时仍卡住                | ✅ 确定无效 |
 
 **置信度**：99%
 
@@ -200,12 +210,14 @@ static async fromFast(browser: Browser, logger: Debugger) {
 ### 延迟初始化的原理
 
 **当前流程**（会卡）：
+
 ```
 连接请求 → 创建 Browser → 创建 Page → 初始化收集器 → 返回连接
                               ↑ 94秒
 ```
 
 **优化后流程**（不卡）：
+
 ```
 连接请求 → 创建 Browser → 跳过 Page 创建 → 返回连接
                                              ↑ <1秒
@@ -214,6 +226,7 @@ static async fromFast(browser: Browser, logger: Debugger) {
 ```
 
 **关键改变**：
+
 - 连接建立时不创建 Page
 - 首次工具调用时才创建
 - 即使首次调用慢，也不影响其他会话
@@ -228,17 +241,20 @@ static async fromFast(browser: Browser, logger: Debugger) {
 ## 相关资料
 
 ### Puppeteer GitHub Issues
+
 - [#8579 - browser.pages() hangs indefinitely](https://github.com/puppeteer/puppeteer/issues/8579)
 - [#6865 - newPage() sometimes gets stuck](https://github.com/puppeteer/puppeteer/issues/6865)
 - [#9226 - Multiple concurrent page creation issues](https://github.com/puppeteer/puppeteer/issues/9226)
 
 ### Chrome DevTools Protocol
+
 - [Target.getTargets](https://chromedevtools.github.io/devtools-protocol/tot/Target/#method-getTargets)
 - [Target.createTarget](https://chromedevtools.github.io/devtools-protocol/tot/Target/#method-createTarget)
 
 ## 结论
 
 **问题定位置信度：99%**
+
 - 日志证据充分
 - 代码逻辑清晰
 - 可稳定重现

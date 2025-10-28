@@ -297,15 +297,14 @@ so returned values have to JSON-serializable.
 
 - **args** (array) _(optional)_: An optional list of arguments to pass to the function.
 - **function** (string) **(required)**: A JavaScript function to run in the currently selected page.
-Example without arguments: `() => {
+  Example without arguments: `() => {
   return document.title
 }` or `async () => {
   return await fetch("example.com")
 }`.
-Example with arguments: `(el) => {
+  Example with arguments: `(el) => {
   return el.innerText;
 }`
-
 
 ---
 
@@ -346,14 +345,15 @@ identifier (uid). Always use the latest snapshot. Prefer taking a snapshot over 
 
 **Description:** Evaluate JavaScript code in an extension context.
 
-Executes arbitrary JavaScript in the extension's background context (Service Worker for MV3, 
+Executes arbitrary JavaScript in the extension's background context (Service Worker for MV3,
 background page for MV2). This is essential for:
+
 - Testing extension APIs (chrome.runtime, chrome.storage, etc.)
 - Debugging extension logic
 - Inspecting extension state
 - Calling extension functions
 
-The code runs with full extension permissions and has access to all chrome.* APIs.
+The code runs with full extension permissions and has access to all chrome.\* APIs.
 
 **Parameters:**
 
@@ -382,6 +382,7 @@ more detailed information about a particular extension.
 **Description:** Get console logs from a Chrome extension.
 
 Captures console output from different extension contexts:
+
 - Background script / Service Worker logs
 - Content script logs (if running in tabs)
 - Popup and options page logs
@@ -407,6 +408,7 @@ Shows storage quota, usage, and all stored key-value pairs. This is essential fo
 data persistence issues in extensions.
 
 Storage types:
+
 - local: 5MB quota, persists across browser restarts
 - sync: 100KB quota, syncs across devices signed into same account
 - session: 10MB quota, cleared when browser closes (MV3 only)
@@ -424,9 +426,10 @@ Storage types:
 **Description:** List all execution contexts for a Chrome extension.
 
 This includes:
+
 - Background context (Service Worker for MV3, Background Page for MV2)
 - Popup windows
-- Options pages  
+- Options pages
 - DevTools pages
 - Content scripts
 
@@ -461,11 +464,13 @@ Captures chrome.runtime.sendMessage, chrome.tabs.sendMessage calls and chrome.ru
 Useful for debugging communication between different parts of an extension (background, content scripts, popup).
 
 **Monitored events**:
+
 - runtime.sendMessage - Messages sent via runtime API
 - tabs.sendMessage - Messages sent to specific tabs
 - runtime.onMessage - Messages received by the extension
 
 **Usage tips**:
+
 - Start monitoring before triggering the action you want to debug
 - Default duration is 30 seconds
 - Messages are captured in chronological order
@@ -487,6 +492,7 @@ Forces the extension to reload, similar to clicking the reload button in chrome:
 This is useful after modifying extension files during development or to reset extension state.
 
 Note: Reloading will:
+
 - Close all extension contexts (popup, options, devtools)
 - Restart the background script/service worker
 - Re-inject content scripts
@@ -504,6 +510,7 @@ Note: Reloading will:
 
 After switching, operations like [`evaluate_in_extension`](#evaluate_in_extension) will run in the selected context.
 This is essential for debugging different parts of an extension:
+
 - Switch to background/service worker for background logic
 - Switch to popup for UI code
 - Switch to content script for page interaction code
@@ -519,17 +526,19 @@ Use [`list_extension_contexts`](#list_extension_contexts) first to get available
 
 ### `trace_extension_api_calls`
 
-**Description:** Track chrome.* API calls made by an extension.
+**Description:** Track chrome.\* API calls made by an extension.
 
 **Note**: This is a simplified version that primarily tracks message-related APIs.
 For full API tracing, use browser DevTools Performance profiler.
 
 **Tracked APIs**:
+
 - chrome.runtime.sendMessage
 - chrome.tabs.sendMessage
 - chrome.runtime.onMessage
 
 **Use cases**:
+
 - Understand extension's communication patterns
 - Debug message flow between components
 - Identify excessive API usage
@@ -550,17 +559,20 @@ Monitors chrome.storage.onChanged events to track data modifications.
 Useful for debugging data persistence, state management, and synchronization issues.
 
 **Supported storage types**:
+
 - local: Local storage (5MB quota)
 - sync: Sync storage (100KB quota, syncs across devices)
 - session: Session storage (10MB quota, MV3 only)
 - managed: Managed storage (enterprise, read-only)
 
 **Captured information**:
+
 - Timestamp of each change
 - Storage area (local/sync/session/managed)
 - Changed keys with old and new values
 
 **Usage tips**:
+
 - Start monitoring before making storage changes
 - Default duration is 30 seconds
 - Multiple storage types can be monitored simultaneously

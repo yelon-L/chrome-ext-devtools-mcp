@@ -5,6 +5,7 @@
 ✅ **完全可以实现！**
 
 当前限制只是设计问题，不是技术障碍：
+
 - `ensureBrowserConnected()` 函数支持连接任意 Chrome URL
 - 每次调用都返回独立的 browser 实例
 - 会话系统已经支持多会话管理
@@ -18,39 +19,49 @@
 #### 1. 修改会话存储结构
 
 **当前代码**：
+
 ```typescript
 // server-http.ts line 39-43
-const sessions = new Map<string, {
-  transport: StreamableHTTPServerTransport;
-  server: McpServer;
-  context: McpContext;
-}>();
+const sessions = new Map<
+  string,
+  {
+    transport: StreamableHTTPServerTransport;
+    server: McpServer;
+    context: McpContext;
+  }
+>();
 ```
 
 **改进后**：
+
 ```typescript
-const sessions = new Map<string, {
-  transport: StreamableHTTPServerTransport;
-  server: McpServer;
-  context: McpContext;
-  browser: any;  // ← 新增：存储会话专属的 browser
-  chromeUrl: string;  // ← 新增：记录 Chrome URL
-}>();
+const sessions = new Map<
+  string,
+  {
+    transport: StreamableHTTPServerTransport;
+    server: McpServer;
+    context: McpContext;
+    browser: any; // ← 新增：存储会话专属的 browser
+    chromeUrl: string; // ← 新增：记录 Chrome URL
+  }
+>();
 ```
 
 #### 2. 从客户端获取 Chrome URL
 
 **方式 A：HTTP 请求头**（推荐）
+
 ```typescript
 // line 141-145
 if (url.pathname === '/mcp') {
   const sessionIdFromHeader = req.headers['mcp-session-id'] as string | undefined;
   const chromeUrlFromHeader = req.headers['x-chrome-url'] as string | undefined;  // ← 新增
-  
+
   console.log(`[HTTP] ${req.method} /mcp, Session: ${sessionIdFromHeader || 'new'}, Chrome: ${chromeUrlFromHeader || 'default'}`);
 ```
 
 **方式 B：环境变量**（备选）
+
 ```typescript
 // 从进程环境变量获取（客户端 IDE 配置）
 const chromeUrl = process.env.CHROME_URL || 'http://localhost:9222';
@@ -59,42 +70,44 @@ const chromeUrl = process.env.CHROME_URL || 'http://localhost:9222';
 #### 3. 为每个会话创建独立 browser
 
 **当前代码**（line 172）：
+
 ```typescript
 // 所有会话共享同一个 browser
 const context = await McpContext.from(browser, logger);
 ```
 
 **改进后**：
+
 ```typescript
 if (!session) {
   // 获取客户端的 Chrome URL
-  const clientChromeUrl = 
-    req.headers['x-chrome-url'] as string ||
+  const clientChromeUrl =
+    (req.headers['x-chrome-url'] as string) ||
     process.env.DEFAULT_CHROME_URL ||
     'http://localhost:9222';
-  
+
   console.log(`[HTTP] 🔗 连接客户端 Chrome: ${clientChromeUrl}`);
-  
+
   // 为此会话创建独立的 browser 连接
   const sessionBrowser = await ensureBrowserConnected({
     browserURL: clientChromeUrl,
     devtools: false,
   });
-  
+
   // 使用会话专属的 browser 创建 context
   const context = await McpContext.from(sessionBrowser, logger);
-  
+
   // ... 注册工具 ...
-  
+
   // 存储会话，包含 browser 引用
   session = {
     transport,
     server: mcpServer,
     context,
-    browser: sessionBrowser,  // ← 新增
-    chromeUrl: clientChromeUrl,  // ← 新增
+    browser: sessionBrowser, // ← 新增
+    chromeUrl: clientChromeUrl, // ← 新增
   };
-  
+
   sessions.set(transport.sessionId, session);
 }
 ```
@@ -102,6 +115,7 @@ if (!session) {
 #### 4. 会话结束时断开 Chrome
 
 **当前代码**（line 156-159）：
+
 ```typescript
 onsessionclosed: async (sessionId) => {
   console.log(`[HTTP] 📴 会话关闭: ${sessionId}`);
@@ -110,10 +124,11 @@ onsessionclosed: async (sessionId) => {
 ```
 
 **改进后**：
+
 ```typescript
 onsessionclosed: async (sessionId) => {
   console.log(`[HTTP] 📴 会话关闭: ${sessionId}`);
-  
+
   const session = sessions.get(sessionId);
   if (session?.browser) {
     try {
@@ -125,7 +140,7 @@ onsessionclosed: async (sessionId) => {
       console.error(`[HTTP] ⚠️  断开 Chrome 失败:`, error);
     }
   }
-  
+
   sessions.delete(sessionId);
 },
 ```
@@ -140,7 +155,7 @@ onsessionclosed: async (sessionId) => {
 #!/usr/bin/env node
 /**
  * MCP Streamable HTTP Server - 支持多客户端分布式 Chrome
- * 
+ *
  * 特性：
  * - 每个客户端连接使用各自的 Chrome
  * - 会话级别的 browser 隔离
@@ -175,14 +190,17 @@ import * as scriptTools from './tools/script.js';
 import * as snapshotTools from './tools/snapshot.js';
 
 // 存储所有会话（改进：增加 browser 和 chromeUrl）
-const sessions = new Map<string, {
-  transport: StreamableHTTPServerTransport;
-  server: McpServer;
-  context: McpContext;
-  browser: any;  // 会话专属的 browser 实例
-  chromeUrl: string;  // Chrome URL
-  createdAt: number;  // 创建时间
-}>();
+const sessions = new Map<
+  string,
+  {
+    transport: StreamableHTTPServerTransport;
+    server: McpServer;
+    context: McpContext;
+    browser: any; // 会话专属的 browser 实例
+    chromeUrl: string; // Chrome URL
+    createdAt: number; // 创建时间
+  }
+>();
 
 async function startHTTPServer() {
   const version = '0.8.0';
@@ -191,7 +209,7 @@ async function startHTTPServer() {
 
   // 默认 Chrome URL（可选，用于降级）
   const defaultChromeUrl = args.browserUrl || process.env.DEFAULT_CHROME_URL;
-  
+
   console.log('[HTTP] 🚀 启动 MCP HTTP 服务器...');
   console.log('[HTTP] 📋 模式: 分布式 Chrome（会话级隔离）');
   if (defaultChromeUrl) {
@@ -202,7 +220,11 @@ async function startHTTPServer() {
 
   // 工具注册函数（保持不变）
   const toolMutex = new Mutex();
-  function registerTool(mcpServer: McpServer, tool: ToolDefinition, context: McpContext): void {
+  function registerTool(
+    mcpServer: McpServer,
+    tool: ToolDefinition,
+    context: McpContext,
+  ): void {
     mcpServer.registerTool(
       tool.name,
       {
@@ -226,11 +248,14 @@ async function startHTTPServer() {
   // HTTP 服务器
   const httpServer = http.createServer(async (req, res) => {
     const url = new URL(req.url!, `http://${req.headers.host}`);
-    
+
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Mcp-Session-Id, X-Chrome-Url');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Mcp-Session-Id, X-Chrome-Url',
+    );
 
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
@@ -241,16 +266,18 @@ async function startHTTPServer() {
     // 健康检查
     if (url.pathname === '/health') {
       res.writeHead(200, {'Content-Type': 'application/json'});
-      res.end(JSON.stringify({
-        status: 'ok',
-        sessions: sessions.size,
-        mode: 'distributed-chrome',
-        activeSessions: Array.from(sessions.entries()).map(([id, s]) => ({
-          sessionId: id,
-          chromeUrl: s.chromeUrl,
-          uptime: Date.now() - s.createdAt,
-        })),
-      }));
+      res.end(
+        JSON.stringify({
+          status: 'ok',
+          sessions: sessions.size,
+          mode: 'distributed-chrome',
+          activeSessions: Array.from(sessions.entries()).map(([id, s]) => ({
+            sessionId: id,
+            chromeUrl: s.chromeUrl,
+            uptime: Date.now() - s.createdAt,
+          })),
+        }),
+      );
       return;
     }
 
@@ -263,51 +290,66 @@ async function startHTTPServer() {
 
     // MCP 端点（改进版）
     if (url.pathname === '/mcp') {
-      const sessionIdFromHeader = req.headers['mcp-session-id'] as string | undefined;
-      const chromeUrlFromHeader = req.headers['x-chrome-url'] as string | undefined;
-      
-      console.log(`[HTTP] ${req.method} /mcp, Session: ${sessionIdFromHeader || 'new'}, Chrome: ${chromeUrlFromHeader || 'default'}`);
-      
+      const sessionIdFromHeader = req.headers['mcp-session-id'] as
+        | string
+        | undefined;
+      const chromeUrlFromHeader = req.headers['x-chrome-url'] as
+        | string
+        | undefined;
+
+      console.log(
+        `[HTTP] ${req.method} /mcp, Session: ${sessionIdFromHeader || 'new'}, Chrome: ${chromeUrlFromHeader || 'default'}`,
+      );
+
       // 查找或创建会话
-      let session = sessionIdFromHeader ? sessions.get(sessionIdFromHeader) : undefined;
-      
+      let session = sessionIdFromHeader
+        ? sessions.get(sessionIdFromHeader)
+        : undefined;
+
       if (!session) {
         // 确定 Chrome URL
         const clientChromeUrl = chromeUrlFromHeader || defaultChromeUrl;
-        
+
         if (!clientChromeUrl) {
           res.writeHead(400, {'Content-Type': 'application/json'});
-          res.end(JSON.stringify({
-            error: 'No Chrome URL provided',
-            message: 'Please provide Chrome URL via X-Chrome-Url header or configure DEFAULT_CHROME_URL',
-          }));
+          res.end(
+            JSON.stringify({
+              error: 'No Chrome URL provided',
+              message:
+                'Please provide Chrome URL via X-Chrome-Url header or configure DEFAULT_CHROME_URL',
+            }),
+          );
           return;
         }
-        
+
         console.log(`[HTTP] 🔗 连接客户端 Chrome: ${clientChromeUrl}`);
-        
+
         try {
           // 为此会话创建独立的 browser 连接
           const sessionBrowser = await ensureBrowserConnected({
             browserURL: clientChromeUrl,
             devtools: false,
           });
-          
+
           console.log(`[HTTP] ✅ Chrome 连接成功: ${clientChromeUrl}`);
-          
+
           // 创建传输层
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
-            onsessioninitialized: async (sessionId) => {
-              console.log(`[HTTP] ✅ 会话初始化: ${sessionId} (Chrome: ${clientChromeUrl})`);
+            onsessioninitialized: async sessionId => {
+              console.log(
+                `[HTTP] ✅ 会话初始化: ${sessionId} (Chrome: ${clientChromeUrl})`,
+              );
             },
-            onsessionclosed: async (sessionId) => {
+            onsessionclosed: async sessionId => {
               console.log(`[HTTP] 📴 会话关闭: ${sessionId}`);
-              
+
               const closingSession = sessions.get(sessionId);
               if (closingSession?.browser) {
                 try {
-                  console.log(`[HTTP] 🔌 断开 Chrome: ${closingSession.chromeUrl}`);
+                  console.log(
+                    `[HTTP] 🔌 断开 Chrome: ${closingSession.chromeUrl}`,
+                  );
                   // 断开连接（不关闭客户端的 Chrome）
                   if (typeof closingSession.browser.disconnect === 'function') {
                     await closingSession.browser.disconnect();
@@ -316,20 +358,20 @@ async function startHTTPServer() {
                   console.error(`[HTTP] ⚠️  断开 Chrome 失败:`, error);
                 }
               }
-              
+
               sessions.delete(sessionId);
             },
           });
-          
+
           // 创建 MCP Server
           const mcpServer = new McpServer(
             {name: 'chrome-extension-debug-mcp', version},
             {capabilities: {tools: {}}},
           );
-          
+
           // 使用会话专属的 browser 创建 Context
           const context = await McpContext.from(sessionBrowser, logger);
-          
+
           // 注册工具
           const tools = [
             ...Object.values(consoleTools),
@@ -346,9 +388,9 @@ async function startHTTPServer() {
           for (const tool of tools) {
             registerTool(mcpServer, tool as unknown as ToolDefinition, context);
           }
-          
+
           await mcpServer.connect(transport);
-          
+
           // 存储会话（包含 browser 引用）
           session = {
             transport,
@@ -358,25 +400,29 @@ async function startHTTPServer() {
             chromeUrl: clientChromeUrl,
             createdAt: Date.now(),
           };
-          
+
           // 等待 sessionId 生成
           if (transport.sessionId) {
             sessions.set(transport.sessionId, session);
             console.log(`[HTTP] 📝 会话已存储: ${transport.sessionId}`);
           }
-          
         } catch (error) {
-          console.error(`[HTTP] ❌ 连接 Chrome 失败: ${clientChromeUrl}`, error);
+          console.error(
+            `[HTTP] ❌ 连接 Chrome 失败: ${clientChromeUrl}`,
+            error,
+          );
           res.writeHead(500, {'Content-Type': 'application/json'});
-          res.end(JSON.stringify({
-            error: 'Failed to connect to Chrome',
-            chromeUrl: clientChromeUrl,
-            message: error instanceof Error ? error.message : String(error),
-          }));
+          res.end(
+            JSON.stringify({
+              error: 'Failed to connect to Chrome',
+              chromeUrl: clientChromeUrl,
+              message: error instanceof Error ? error.message : String(error),
+            }),
+          );
           return;
         }
       }
-      
+
       // 处理请求
       await session.transport.handleRequest(req, res);
       return;
@@ -466,6 +512,7 @@ startHTTPServer().catch(console.error);
 ### 方式 B：使用 HTTP 请求头
 
 修改 MCP SDK 或客户端，在请求时添加：
+
 ```
 X-Chrome-Url: http://192.168.1.100:9222
 ```
@@ -542,6 +589,7 @@ curl http://192.168.1.50:3000/health
 ```
 
 **预期输出**：
+
 ```json
 {
   "status": "ok",
@@ -596,14 +644,14 @@ curl http://192.168.1.50:3000/health
 
 ## 实现难度评估
 
-| 任务 | 难度 | 工作量 |
-|------|------|--------|
-| 修改 session 存储结构 | ⭐ 简单 | 10分钟 |
-| 从请求获取 Chrome URL | ⭐ 简单 | 15分钟 |
-| 会话级 browser 连接 | ⭐⭐ 中等 | 30分钟 |
-| 会话关闭时断开 | ⭐ 简单 | 10分钟 |
-| 测试和调试 | ⭐⭐ 中等 | 30分钟 |
-| **总计** | **⭐⭐ 中等** | **~2 小时** |
+| 任务                  | 难度          | 工作量      |
+| --------------------- | ------------- | ----------- |
+| 修改 session 存储结构 | ⭐ 简单       | 10分钟      |
+| 从请求获取 Chrome URL | ⭐ 简单       | 15分钟      |
+| 会话级 browser 连接   | ⭐⭐ 中等     | 30分钟      |
+| 会话关闭时断开        | ⭐ 简单       | 10分钟      |
+| 测试和调试            | ⭐⭐ 中等     | 30分钟      |
+| **总计**              | **⭐⭐ 中等** | **~2 小时** |
 
 ---
 
@@ -612,6 +660,7 @@ curl http://192.168.1.50:3000/health
 ### 1. 网络安全
 
 开发者机器需要：
+
 ```bash
 # 允许 MCP 服务器访问 Chrome 调试端口
 sudo ufw allow from 192.168.1.50 to any port 9222
@@ -637,12 +686,14 @@ chrome \
 ✅ **完全可以实现！**
 
 技术路径清晰：
+
 1. 修改 `server-http.ts`（约 2 小时工作量）
 2. 从客户端获取 Chrome URL（环境变量或请求头）
 3. 每个会话创建独立 browser
 4. 会话结束时断开连接
 
 实现后即可支持：
+
 - 集中式 MCP 服务器
 - 每个开发者使用各自的 Chrome
 - 完全隔离，互不干扰

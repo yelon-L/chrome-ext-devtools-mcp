@@ -1,3 +1,9 @@
+
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /**
  * 性能监控工具
  */
@@ -24,14 +30,14 @@ export class PerformanceMonitor {
   private stats = new Map<string, ApiStats>();
   private maxEntries: number;
 
-  constructor(maxEntries: number = 1000) {
+  constructor(maxEntries = 1000) {
     this.maxEntries = maxEntries;
   }
 
   /**
    * 记录 API 调用
    */
-  record(endpoint: string, method: string, duration: number, isError: boolean = false): void {
+  record(endpoint: string, method: string, duration: number, isError = false): void {
     const key = `${method} ${endpoint}`;
     const existing = this.stats.get(key);
 
@@ -88,7 +94,7 @@ export class PerformanceMonitor {
   /**
    * 获取热门端点（按调用次数排序）
    */
-  getTopEndpoints(limit: number = 10): ApiStats[] {
+  getTopEndpoints(limit = 10): ApiStats[] {
     return this.getStats()
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
@@ -97,7 +103,7 @@ export class PerformanceMonitor {
   /**
    * 获取最慢端点（按平均响应时间排序）
    */
-  getSlowestEndpoints(limit: number = 10): ApiStats[] {
+  getSlowestEndpoints(limit = 10): ApiStats[] {
     return this.getStats()
       .sort((a, b) => b.avgTime - a.avgTime)
       .slice(0, limit);
@@ -106,7 +112,7 @@ export class PerformanceMonitor {
   /**
    * 获取错误率最高的端点
    */
-  getHighErrorRateEndpoints(limit: number = 10): ApiStats[] {
+  getHighErrorRateEndpoints(limit = 10): ApiStats[] {
     return this.getStats()
       .filter(s => s.errors > 0)
       .sort((a, b) => {

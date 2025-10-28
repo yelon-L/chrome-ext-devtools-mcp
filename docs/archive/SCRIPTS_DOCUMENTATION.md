@@ -45,6 +45,7 @@ scripts/
 **调用时机：** `npm run build` 第一步
 
 **实现功能：**
+
 ```typescript
 // 读取 package.json 的 version
 // 生成 src/version.ts
@@ -52,6 +53,7 @@ export const VERSION = '0.8.2';
 ```
 
 **关键代码：**
+
 ```bash
 npm run build  # 自动调用
 ```
@@ -65,12 +67,14 @@ npm run build  # 自动调用
 **调用时机：** `npm run build` 最后一步
 
 **实现功能：**
+
 - 清理临时文件
 - 验证构建输出
 - 复制必要资源
 - 生成构建报告
 
 **使用方式：**
+
 ```bash
 # 自动执行，无需手动调用
 npm run build
@@ -85,12 +89,14 @@ npm run build
 **调用时机：** `npm publish` 之前自动执行
 
 **实现功能：**
+
 - 验证构建完整性
 - 检查版本号一致性
 - 确认所有测试通过
 - 生成发布清单
 
 **使用方式：**
+
 ```bash
 # npm 自动调用
 npm publish
@@ -103,11 +109,13 @@ npm publish
 **用途：** 使用 Bun 打包跨平台二进制文件
 
 **支持平台：**
+
 - Linux x64 / ARM64
 - macOS x64 / ARM64
 - Windows x64
 
 **使用方式：**
+
 ```bash
 # 打包所有平台
 bash scripts/package-bun.sh
@@ -122,6 +130,7 @@ ls -lh dist/
 ```
 
 **前置条件：**
+
 ```bash
 # 安装 Bun
 curl -fsSL https://bun.sh/install | bash
@@ -131,11 +140,13 @@ bun --version
 ```
 
 **执行流程：**
+
 1. 编译 TypeScript → `build/`
 2. 使用 Bun 打包 → `dist/`
 3. 显示文件列表和使用说明
 
 **输出示例：**
+
 ```
 ✅ 打包完成！
 
@@ -157,11 +168,13 @@ bun --version
 **用途：** 同步 package.json 和其他配置文件的版本号
 
 **实现功能：**
+
 - 读取 package.json 版本
 - 更新 server.json 版本
 - 确保版本一致性
 
 **使用方式：**
+
 ```bash
 npm run sync-server-json-version
 ```
@@ -175,12 +188,14 @@ npm run sync-server-json-version
 **用途：** 自动生成工具参考文档
 
 **实现功能：**
+
 - 扫描所有工具定义
 - 提取工具名称、描述、参数
 - 生成 Markdown 格式文档
 - 更新 README.md
 
 **使用方式：**
+
 ```bash
 npm run docs
 
@@ -189,16 +204,19 @@ npm run docs:generate
 ```
 
 **生成文件：**
+
 - `tool-reference.md` - 完整工具参考
 - README.md 更新 - 工具列表章节
 
 **输出示例：**
+
 ```markdown
 ## list_extensions
 
 List all installed Chrome extensions
 
 **Parameters:**
+
 - `includeDisabled` (boolean, optional): Include disabled extensions
 
 **Returns:** Markdown table with extension information
@@ -213,17 +231,20 @@ List all installed Chrome extensions
 **用途：** 为不同 IDE 生成 MCP 配置文件
 
 **支持 IDE：**
+
 - Claude Desktop
 - Cline (VS Code)
 - Cursor
 - Windsurf
 
 **实现功能：**
+
 - 检测项目路径
 - 生成标准 MCP 配置
 - 输出到控制台供复制
 
 **使用方式：**
+
 ```bash
 npm run generate-config
 
@@ -232,6 +253,7 @@ node scripts/generate-ide-config.js
 ```
 
 **输出示例：**
+
 ```json
 {
   "mcpServers": {
@@ -247,6 +269,7 @@ node scripts/generate-ide-config.js
 ```
 
 **配置文件位置：**
+
 - **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Cline**: VS Code 设置 → "Cline: Edit MCP Settings"
 - **Cursor**: `~/.config/Cursor/User/globalStorage/.../cline_mcp_settings.json`
@@ -258,6 +281,7 @@ node scripts/generate-ide-config.js
 **用途：** 一键安装和配置脚本
 
 **实现功能：**
+
 - 检查 Node.js 版本
 - 安装依赖
 - 构建项目
@@ -265,11 +289,13 @@ node scripts/generate-ide-config.js
 - 运行测试
 
 **使用方式：**
+
 ```bash
 bash scripts/install.sh
 ```
 
 **执行流程：**
+
 1. 环境检查
 2. `npm install`
 3. `npm run build`
@@ -289,11 +315,13 @@ bash scripts/install.sh
 **使用场景：** IDE 直接调用
 
 **使用方式：**
+
 ```bash
 bash scripts/start-mcp.sh
 ```
 
 **配置：**
+
 ```json
 {
   "command": "/path/to/scripts/start-mcp.sh"
@@ -307,6 +335,7 @@ bash scripts/start-mcp.sh
 **用途：** Windows 版本的 stdio 启动脚本
 
 **使用方式：**
+
 ```cmd
 scripts\start-mcp.bat
 ```
@@ -320,11 +349,13 @@ scripts\start-mcp.bat
 **模式：** Streamable HTTP
 
 **优势：**
+
 - 更简单、更稳定
 - 比 SSE 节省 75% 资源
 - 更好的兼容性
 
 **使用方式：**
+
 ```bash
 # 本地模式（MCP 和 Chrome 在同一机器）
 bash scripts/start-http-mcp.sh
@@ -335,6 +366,7 @@ bash scripts/start-http-mcp.sh
 ```
 
 **环境变量：**
+
 ```bash
 PORT=32123                              # 服务端口（默认 32123）
 BROWSER_URL=http://localhost:9222       # Chrome 调试地址
@@ -342,6 +374,7 @@ REMOTE_MODE=auto                        # auto/local/remote
 ```
 
 **输出：**
+
 ```
 ╔═══════════════════════════════════════════════════════════╗
 ║  Chrome Extension Debug MCP - Streamable HTTP 启动       ║
@@ -367,6 +400,7 @@ REMOTE_MODE=auto                        # auto/local/remote
 **使用场景：** 局域网多开发者共享
 
 **使用方式：**
+
 ```bash
 # 在服务器上启动
 PORT=3000 \
@@ -375,6 +409,7 @@ bash scripts/start-remote-mcp.sh
 ```
 
 **输出：**
+
 ```
 ✅ MCP 远程服务已启动
 
@@ -397,6 +432,7 @@ bash scripts/start-remote-mcp.sh
 **使用场景：** 团队开发，连接共享 MCP 服务器
 
 **使用方式：**
+
 ```bash
 # 生成配置
 bash scripts/client-config-generator.sh 192.168.1.50:3000
@@ -406,6 +442,7 @@ bash scripts/client-config-generator.sh 192.168.1.50:3000 developer-a
 ```
 
 **输出配置：**
+
 ```json
 {
   "mcpServers": {
@@ -420,6 +457,7 @@ bash scripts/client-config-generator.sh 192.168.1.50:3000 developer-a
 ```
 
 **执行流程：**
+
 1. 测试连接 MCP 服务器
 2. 验证健康检查 `/health`
 3. 生成客户端配置
@@ -434,11 +472,13 @@ bash scripts/client-config-generator.sh 192.168.1.50:3000 developer-a
 **使用场景：** 生产环境 HTTPS 部署
 
 **使用方式：**
+
 ```bash
 sudo bash scripts/setup-caddy-privileges.sh
 ```
 
 **实现功能：**
+
 - 设置 Caddy 绑定 80/443 端口权限
 - 配置 systemd 服务
 - 设置自动启动
@@ -452,17 +492,19 @@ sudo bash scripts/setup-caddy-privileges.sh
 **用途：** 自定义 ESLint 规则
 
 **包含：**
+
 - 项目特定规则
 - 规则文档
 - 配置示例
 
 **使用方式：**
+
 ```javascript
 // .eslintrc.js
 module.exports = {
   rules: {
-    './scripts/eslint_rules': ['error']
-  }
+    './scripts/eslint_rules': ['error'],
+  },
 };
 ```
 
@@ -472,35 +514,35 @@ module.exports = {
 
 ### 高频使用 ⭐⭐⭐⭐⭐
 
-| 脚本 | 使用场景 | 频率 |
-|------|---------|------|
-| `package-bun.sh` | 打包二进制文件 | 每次发布 |
-| `start-http-mcp.sh` | 启动开发服务器 | 每天多次 |
-| `generate-docs.ts` | 更新文档 | 添加新工具时 |
-| `client-config-generator.sh` | 团队配置 | 新成员加入 |
+| 脚本                         | 使用场景       | 频率         |
+| ---------------------------- | -------------- | ------------ |
+| `package-bun.sh`             | 打包二进制文件 | 每次发布     |
+| `start-http-mcp.sh`          | 启动开发服务器 | 每天多次     |
+| `generate-docs.ts`           | 更新文档       | 添加新工具时 |
+| `client-config-generator.sh` | 团队配置       | 新成员加入   |
 
 ### 中频使用 ⭐⭐⭐
 
-| 脚本 | 使用场景 | 频率 |
-|------|---------|------|
-| `start-remote-mcp.sh` | 共享服务器 | 启动服务器时 |
-| `generate-ide-config.js` | IDE 配置 | 首次设置 |
-| `install.sh` | 项目安装 | 首次克隆项目 |
+| 脚本                     | 使用场景   | 频率         |
+| ------------------------ | ---------- | ------------ |
+| `start-remote-mcp.sh`    | 共享服务器 | 启动服务器时 |
+| `generate-ide-config.js` | IDE 配置   | 首次设置     |
+| `install.sh`             | 项目安装   | 首次克隆项目 |
 
 ### 低频使用 ⭐
 
-| 脚本 | 使用场景 | 频率 |
-|------|---------|------|
-| `setup-caddy-privileges.sh` | 生产部署 | 一次性 |
+| 脚本                          | 使用场景 | 频率     |
+| ----------------------------- | -------- | -------- |
+| `setup-caddy-privileges.sh`   | 生产部署 | 一次性   |
 | `sync-server-json-version.ts` | 版本同步 | 自动执行 |
 
 ### 自动执行（无需手动调用）
 
-| 脚本 | 触发时机 |
-|------|---------|
+| 脚本                | 触发时机        |
+| ------------------- | --------------- |
 | `inject-version.ts` | `npm run build` |
-| `post-build.ts` | `npm run build` |
-| `prepare.ts` | `npm publish` |
+| `post-build.ts`     | `npm run build` |
+| `prepare.ts`        | `npm publish`   |
 
 ---
 
@@ -592,6 +634,7 @@ git push origin main v0.8.3
 ### 5. 团队部署
 
 **服务器端（管理员）：**
+
 ```bash
 # 在服务器上启动 MCP 服务
 cd chrome-ext-devtools-mcp
@@ -603,6 +646,7 @@ hostname -I
 ```
 
 **客户端（开发者）：**
+
 ```bash
 # 生成配置
 bash scripts/client-config-generator.sh 192.168.1.50:3000 alice
@@ -630,6 +674,7 @@ bash scripts/client-config-generator.sh 192.168.1.50:3000 alice
    - 加扩展名: `.sh`, `.ts`, `.js`
 
 3. **添加脚本头部**
+
 ```bash
 #!/bin/bash
 
@@ -647,6 +692,7 @@ set -e  # 遇到错误立即退出
 ### 脚本最佳实践
 
 **✅ 推荐：**
+
 - 使用 `set -e` 确保错误处理
 - 提供详细的帮助信息
 - 检查前置条件（依赖、权限等）
@@ -655,6 +701,7 @@ set -e  # 遇到错误立即退出
 - 提供示例用法
 
 **❌ 避免：**
+
 - 硬编码路径
 - 缺少错误处理
 - 无提示静默执行

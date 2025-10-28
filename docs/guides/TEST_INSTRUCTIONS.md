@@ -12,6 +12,7 @@
 ### 方案 A：在远程 Chrome 中加载扩展（推荐）
 
 1. **在 192.168.0.201 的 Chrome 中加载扩展**:
+
    ```
    1. 打开 chrome://extensions
    2. 开启"开发者模式"（右上角）
@@ -20,6 +21,7 @@
    ```
 
 2. **重新运行测试**:
+
    ```bash
    node test-all-extension-tools.mjs
    ```
@@ -36,6 +38,7 @@
 如果远程 Chrome 不方便加载扩展，可以用本地 Chrome：
 
 1. **启动本地 Chrome（调试模式）**:
+
    ```bash
    google-chrome \
      --remote-debugging-port=9222 \
@@ -49,9 +52,10 @@
    - 加载任意扩展
 
 3. **修改测试脚本连接本地**:
+
    ```javascript
    // test-all-extension-tools.mjs 第 8 行
-   const BROWSER_URL = 'http://localhost:9222';  // 改为本地
+   const BROWSER_URL = 'http://localhost:9222'; // 改为本地
    ```
 
 4. **运行测试**:
@@ -135,6 +139,7 @@
 ### diagnose_extension_errors 测试
 
 **输出示例**:
+
 ```markdown
 # Extension Health Diagnosis
 
@@ -142,31 +147,38 @@
 **Status**: ✅ Enabled
 
 ## Error Summary (Last 10 minutes)
+
 **Total Issues Found**: 5
 
 ### Error Breakdown
+
 - 🐛 **JavaScript Errors**: 3 occurrences
 - 🔌 **Chrome API Errors**: 2 occurrences
 
 ## Health Score: 🟢 85/100
+
 **Excellent!** Extension is running smoothly with minimal issues.
 ```
 
 ### inspect_extension_manifest 测试
 
 **输出示例**:
+
 ```markdown
 # Manifest Inspection Report
 
 **Manifest Version**: 3
 
 ## 🔒 Permission Analysis
+
 **Declared Permissions** (3):
+
 - 🟢 `storage` - Low risk
 - 🟡 `tabs` - Medium risk
 - 🟢 `activeTab` - Low risk
 
 ## 📊 Overall Assessment
+
 **Manifest Quality Score**: 🟢 90/100
 **Excellent!** Manifest is well-configured.
 ```
@@ -174,6 +186,7 @@
 ### check_content_script_injection 测试
 
 **输出示例**:
+
 ```markdown
 # Content Script Injection Check
 
@@ -182,36 +195,45 @@
 ## Content Script Rules (1)
 
 ### ✅ Rule 1
+
 **Match Patterns** (1):
-  - ✅ `*://github.com/*`
+
+- ✅ `*://github.com/*`
 
 **Files** (1): content.js
-**Run At**: document_idle
-**Result**: Matched pattern: *://github.com/*
+**Run At**: document*idle
+**Result**: Matched pattern: *://github.com/\_
 ```
 
 ### reload_extension 测试
 
 **输出示例**:
+
 ```markdown
 # Smart Extension Reload
 
 ## Step 1: Pre-Reload State
+
 **Service Worker**: active
 
 ## Step 2: Preserving Storage
+
 ✅ Saved 10 storage keys
 
 ## Step 3: Reloading Extension
+
 🔄 Reload command sent...
 
 ## Step 4: Verifying Reload
+
 ✅ Background context is active
 
 ## Step 5: Restoring Storage
+
 ✅ Storage data restored
 
 ## Step 6: Error Check
+
 ✅ No errors detected after reload
 
 ## ✅ Reload Complete
@@ -222,31 +244,37 @@
 ## 💡 故障排除
 
 ### 问题 1: 连接超时
+
 ```
 Error: Request timeout
 ```
 
 **解决方案**:
+
 - 确认 Chrome 的调试端口正确（9222）
 - 检查防火墙设置
 - 确认 Chrome 启动时使用了 `--remote-debugging-port=9222`
 
 ### 问题 2: 未检测到扩展
+
 ```
 ⚠️  无法找到有效的扩展 ID
 ```
 
 **解决方案**:
+
 - 在 Chrome 中加载至少一个扩展
 - 确认扩展已启用
 - 刷新 chrome://extensions 页面
 
 ### 问题 3: Service Worker 不活跃
+
 ```
 Service Worker: inactive
 ```
 
 **解决方案**:
+
 - 工具会自动激活 Service Worker
 - 或手动在 chrome://extensions 中点击扩展的"检查视图: Service Worker"
 

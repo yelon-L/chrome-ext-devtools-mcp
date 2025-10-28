@@ -25,18 +25,18 @@ function getCommand() {
   if (isGlobalInstall) {
     return {
       command: 'chrome-extension-debug-mcp',
-      args: ['--browser-url', 'http://localhost:9222']
+      args: ['--browser-url', 'http://localhost:9222'],
     };
   }
-  
+
   // 本地开发，使用 node 运行
   return {
     command: 'node',
     args: [
       path.join(projectPath, 'build/src/index.js'),
       '--browser-url',
-      'http://localhost:9222'
-    ]
+      'http://localhost:9222',
+    ],
   };
 }
 
@@ -47,52 +47,52 @@ const configs = {
     name: 'VS Code',
     file: '.vscode/settings.json',
     content: {
-      "mcpServers": {
-        "chrome-extension-debug": cmdConfig
-      }
+      mcpServers: {
+        'chrome-extension-debug': cmdConfig,
+      },
     },
-    description: '将此内容添加到 .vscode/settings.json'
+    description: '将此内容添加到 .vscode/settings.json',
   },
-  
+
   cline: {
     name: 'Cline (VS Code Extension)',
     file: 'configs/cline_mcp_settings.json',
     content: {
-      "mcpServers": {
-        "chrome-extension-debug": {
+      mcpServers: {
+        'chrome-extension-debug': {
           ...cmdConfig,
-          "disabled": false
-        }
-      }
+          disabled: false,
+        },
+      },
     },
-    description: '在 Cline 扩展设置中导入此配置'
+    description: '在 Cline 扩展设置中导入此配置',
   },
-  
+
   claude_desktop: {
     name: 'Claude Desktop',
     file: 'configs/claude_desktop_config.json',
     content: {
-      "mcpServers": {
-        "chrome-extension-debug": {
+      mcpServers: {
+        'chrome-extension-debug': {
           ...cmdConfig,
-          "env": {}
-        }
-      }
+          env: {},
+        },
+      },
     },
-    description: '复制到 Claude Desktop 配置文件'
+    description: '复制到 Claude Desktop 配置文件',
   },
 
   cursor: {
     name: 'Cursor IDE',
     file: 'configs/cursor_mcp_settings.json',
     content: {
-      "mcp": {
-        "servers": {
-          "chrome-extension-debug": cmdConfig
-        }
-      }
+      mcp: {
+        servers: {
+          'chrome-extension-debug': cmdConfig,
+        },
+      },
     },
-    description: 'Cursor IDE MCP 配置'
+    description: 'Cursor IDE MCP 配置',
   },
 
   npm_usage: {
@@ -123,8 +123,8 @@ npm run build
 node build/src/index.js --browser-url http://localhost:9222
 `,
     description: 'NPM 使用说明',
-    raw: true
-  }
+    raw: true,
+  },
 };
 
 console.log('╔═══════════════════════════════════════════════════════════╗');
@@ -140,15 +140,15 @@ if (!fs.existsSync(configsDir)) {
 Object.entries(configs).forEach(([key, config]) => {
   const filePath = path.join(rootDir, config.file);
   const dir = path.dirname(filePath);
-  
+
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, {recursive: true});
   }
-  
-  const content = config.raw 
-    ? config.content 
+
+  const content = config.raw
+    ? config.content
     : JSON.stringify(config.content, null, 2);
-  
+
   fs.writeFileSync(filePath, content);
   console.log(`✅ ${config.name}`);
   console.log(`   文件: ${config.file}`);

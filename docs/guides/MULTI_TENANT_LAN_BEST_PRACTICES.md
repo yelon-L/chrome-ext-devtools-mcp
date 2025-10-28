@@ -20,6 +20,7 @@
 ```
 
 **痛点：**
+
 1. 用户需要懂如何启动 Chrome 的 remote debugging
 2. 需要使用 curl 命令注册（技术门槛高）
 3. 需要手动编辑 JSON 配置文件
@@ -31,10 +32,10 @@
 
 ### 方案对比
 
-| 方案 | 浏览器位置 | 用户复杂度 | 适用场景 |
-|------|-----------|----------|---------|
-| **方案 A（推荐）** | 服务器统一管理 | ⭐ 简单 | 局域网、内部团队 |
-| **方案 B（当前）** | 用户自己管理 | ⭐⭐⭐ 复杂 | 外网、高安全要求 |
+| 方案               | 浏览器位置     | 用户复杂度  | 适用场景         |
+| ------------------ | -------------- | ----------- | ---------------- |
+| **方案 A（推荐）** | 服务器统一管理 | ⭐ 简单     | 局域网、内部团队 |
+| **方案 B（当前）** | 用户自己管理   | ⭐⭐⭐ 复杂 | 外网、高安全要求 |
 
 ---
 
@@ -177,23 +178,26 @@ export function setupAdminRoutes(server: MultiTenantMCPServer) {
 export class BrowserConnectionPool {
   async createUserBrowser(userId: string): Promise<Browser> {
     const port = 9222 + this.getUserIndex(userId);
-    
+
     // 启动 Docker 容器运行 Chrome
     await this.startChromeContainer(userId, port);
-    
+
     // 连接到容器中的 Chrome
     const browser = await puppeteer.connect({
       browserURL: `http://localhost:${port}`,
     });
-    
+
     return browser;
   }
-  
-  private async startChromeContainer(userId: string, port: number): Promise<void> {
-    const { exec } = require('child_process');
-    
+
+  private async startChromeContainer(
+    userId: string,
+    port: number,
+  ): Promise<void> {
+    const {exec} = require('child_process');
+
     const containerName = `chrome-${userId}`;
-    
+
     // 使用 Docker 启动 Chrome 容器
     const command = `
       docker run -d \
@@ -207,7 +211,7 @@ export class BrowserConnectionPool {
         --no-first-run \
         --user-data-dir=/data/${userId}
     `;
-    
+
     return new Promise((resolve, reject) => {
       exec(command, (error: any) => {
         if (error) reject(error);
@@ -225,17 +229,17 @@ export class BrowserConnectionPool {
 
 async handleRegister(req, res) {
   const { userId } = req.body;
-  
+
   // 自动创建 Chrome 容器
   const browser = await this.browserPool.createUserBrowser(userId);
-  
+
   // 创建会话
   const session = await this.sessionManager.createSession(
     userId,
     browser,
     // ... 其他参数
   );
-  
+
   res.json({
     success: true,
     userId,
@@ -250,20 +254,20 @@ async handleRegister(req, res) {
 ```typescript
 // GET /api/config/:userId
 router.get('/api/config/:userId', (req, res) => {
-  const { userId } = req.params;
+  const {userId} = req.params;
   const serverHost = req.headers.host;
-  
+
   const config = {
     mcpServers: {
       [`chrome-extension-debug-${userId}`]: {
         transport: {
           type: 'sse',
-          url: `http://${serverHost}/sse?userId=${userId}`
-        }
-      }
-    }
+          url: `http://${serverHost}/sse?userId=${userId}`,
+        },
+      },
+    },
   };
-  
+
   res.json(config);
 });
 ```
@@ -326,6 +330,7 @@ echo "请将内容复制到 Claude Desktop 配置文件中"
 ```
 
 **使用：**
+
 ```bash
 bash register-user.sh alice
 ```
@@ -337,17 +342,20 @@ bash register-user.sh alice
 ### 方案 A：服务器管理（推荐局域网）
 
 **优点：**
+
 - ⭐⭐⭐⭐⭐ 用户体验极简（3步完成）
 - ✅ 服务器统一管理，便于维护
 - ✅ 用户无需懂技术细节
 - ✅ 适合内部团队、培训场景
 
 **缺点：**
+
 - ⚠️ 服务器资源消耗较大（每用户一个Chrome容器）
 - ⚠️ 需要 Docker 环境
 - ⚠️ 不适合外网环境
 
 **实现成本：**
+
 - 需要开发 Web 管理界面
 - 需要集成 Docker 容器管理
 - 估计 2-3 天开发时间
@@ -357,17 +365,20 @@ bash register-user.sh alice
 ### 方案 B：用户自管理（当前实现）
 
 **优点：**
+
 - ✅ 服务器资源消耗小
 - ✅ 适合外网环境
 - ✅ 更高的安全性和隔离性
 - ✅ 用户可以使用自己的浏览器配置
 
 **缺点：**
+
 - ⭐⭐ 用户需要一定技术能力
 - ⚠️ 接入流程较复杂
 - ⚠️ 需要用户自己管理 Chrome
 
 **改进方案：**
+
 - 提供一键注册脚本
 - 提供图形化配置生成工具
 - 提供详细的分步指南
@@ -415,13 +426,13 @@ services:
   mcp-server:
     build: .
     ports:
-      - "32122:32122"
+      - '32122:32122'
     environment:
       - PORT=32122
       - AUTH_ENABLED=false
       - MAX_SESSIONS=50
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # 用于启动 Chrome 容器
+      - /var/run/docker.sock:/var/run/docker.sock # 用于启动 Chrome 容器
     networks:
       - mcp-network
 
@@ -439,12 +450,14 @@ networks:
 **推荐：方案 A（服务器管理浏览器）**
 
 **理由：**
+
 1. 用户在局域网内，安全性已有保障
 2. 简化用户接入流程最重要
 3. 服务器可以统一管理和监控
 4. 用户体验最好
 
 **实施步骤：**
+
 1. 开发 Web 管理界面（/admin）
 2. 集成 Docker 容器管理
 3. 提供配置自动下载
@@ -457,11 +470,13 @@ networks:
 **推荐：方案 B（用户自管理）+ 脚本辅助**
 
 **理由：**
+
 1. 浏览器在用户本地，安全性更高
 2. 服务器资源消耗小
 3. 适合分布式团队
 
 **实施步骤：**
+
 1. 提供一键注册脚本
 2. 提供配置生成工具
 3. 编写详细的使用文档

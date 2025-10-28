@@ -1402,7 +1402,7 @@ export class ExtensionHelper {
     session: any,
     method: string,
     params?: any,
-    timeoutMs: number = 3000
+    timeoutMs = 3000
   ): Promise<T> {
     const sendPromise = session.send(method, params);
     const timeoutPromise = new Promise<T>((_, reject) => {

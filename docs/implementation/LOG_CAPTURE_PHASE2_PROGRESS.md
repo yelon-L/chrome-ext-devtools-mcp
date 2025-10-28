@@ -1,33 +1,37 @@
 # 日志捕获功能 Phase 2 实施进度
 
 ## 实施时间
+
 2025-10-25 14:20
 
 ## 总体进度
 
-| 工具 | 状态 | 完成度 | 说明 |
-|------|------|--------|------|
-| **evaluate_in_extension** | ✅ 完成 | 100% | Phase 1 已完成 |
-| **activate_extension_service_worker** | ✅ 完成 | 100% | Phase 2 已完成 |
-| **reload_extension** | 🔄 进行中 | 50% | 已有错误捕获，需添加完整日志 |
-| **interact_with_popup** | ⏳ 待实现 | 0% | 待开始 |
-| **Content Script 日志** | ⏳ 待实现 | 0% | 待设计 |
+| 工具                                  | 状态      | 完成度 | 说明                         |
+| ------------------------------------- | --------- | ------ | ---------------------------- |
+| **evaluate_in_extension**             | ✅ 完成   | 100%   | Phase 1 已完成               |
+| **activate_extension_service_worker** | ✅ 完成   | 100%   | Phase 2 已完成               |
+| **reload_extension**                  | 🔄 进行中 | 50%    | 已有错误捕获，需添加完整日志 |
+| **interact_with_popup**               | ⏳ 待实现 | 0%     | 待开始                       |
+| **Content Script 日志**               | ⏳ 待实现 | 0%     | 待设计                       |
 
 ## Phase 1: 已完成 ✅
 
 ### 1. evaluate_in_extension ✅
 
 **功能**：
+
 - captureLogs: boolean (default: true)
 - logDuration: number (default: 3000ms)
 - 自动捕获 Background + Offscreen + Page 日志
 
 **实现要点**：
+
 - 先启动日志监听器，等待 200ms
 - 并行捕获所有组件日志
 - 格式化显示（图标 + 时间戳 + 消息）
 
 **测试结果**：
+
 ```
 ✅ 基本日志捕获 - 工作正常
 ✅ 多种日志级别 - 图标显示正确
@@ -39,17 +43,15 @@
 ### 2. 导出辅助函数 ✅
 
 **导出函数**：
+
 ```typescript
 export async function captureExtensionLogs(
   extensionId: string,
   duration: number,
-  context: any
-): Promise<[any, any]>
+  context: any,
+): Promise<[any, any]>;
 
-export function formatCapturedLogs(
-  logResults: any, 
-  response: any
-): void
+export function formatCapturedLogs(logResults: any, response: any): void;
 ```
 
 **用途**：供其他工具复用
@@ -59,26 +61,30 @@ export function formatCapturedLogs(
 ### 3. activate_extension_service_worker ✅
 
 **功能**：
+
 - captureLogs: boolean (default: false) - 不影响性能
 - logDuration: number (default: 3000ms)
 - 只在 single 模式下支持
 
 **实现要点**：
+
 - 在激活**之前**启动日志监听器
 - 捕获 Service Worker 启动日志
 - 格式化显示
 
 **使用示例**：
+
 ```typescript
 activate_extension_service_worker({
-  extensionId: "xxx",
-  mode: "single",
+  extensionId: 'xxx',
+  mode: 'single',
   captureLogs: true,
-  logDuration: 5000
-})
+  logDuration: 5000,
+});
 ```
 
 **测试结果**：
+
 ```
 ✅ 编译成功
 ✅ 参数工作正常
@@ -88,18 +94,21 @@ activate_extension_service_worker({
 ### 4. reload_extension 🔄
 
 **现状分析**：
+
 - ✅ 已有 `captureErrors` 参数
 - ✅ 已调用 getBackgroundLogs
 - ❌ 只过滤错误，不显示所有日志
 - ❌ 没有使用新的格式化函数
 
 **需要做的**：
+
 1. 添加 `captureLogs` 参数（默认 false）
 2. 在重载后捕获完整日志
 3. 使用 `formatCapturedLogs` 格式化
 4. 保持 `captureErrors` 用于快速错误检查
 
 **建议实现**：
+
 ```typescript
 schema: {
   // ... 现有参数 ...
@@ -114,6 +123,7 @@ schema: {
 ```
 
 **实现策略**：
+
 - 如果 `captureLogs=true`：使用新的完整日志捕获
 - 如果 `captureErrors=true` 且 `captureLogs=false`：保持现有错误检查
 - 两者可以共存
@@ -123,6 +133,7 @@ schema: {
 ### 5. interact_with_popup
 
 **设计方案**：
+
 ```typescript
 schema: {
   // ... 现有参数 ...
@@ -137,6 +148,7 @@ schema: {
 ```
 
 **实现要点**：
+
 - 在交互**之前**启动日志监听
 - 捕获 popup 页面的日志
 - 注意：页面方式和真正 popup 都需要支持
@@ -146,11 +158,13 @@ schema: {
 ### 6. Content Script 日志捕获
 
 **挑战**：
+
 - Content Script 运行在页面上下文
 - 需要获取页面的 CDP session
 - 可能有多个页面同时注入
 
 **设计方案（初步）**：
+
 ```typescript
 // 新工具或参数
 captureContentScriptLogs({
@@ -161,6 +175,7 @@ captureContentScriptLogs({
 ```
 
 **实现思路**：
+
 1. 获取所有注入了 Content Script 的页面
 2. 为每个页面创建 CDP session
 3. 监听 Runtime.consoleAPICalled
@@ -213,22 +228,24 @@ captureContentScriptLogs({
 
 ## 性能影响
 
-| 工具 | 默认日志 | 增加时间 | 说明 |
-|------|---------|---------|------|
-| **evaluate_in_extension** | ✅ 开启 | +3.2秒 | 调试工具，可接受 |
-| **activate_extension_service_worker** | ❌ 关闭 | 0秒 | 不影响激活速度 |
-| **reload_extension** | ❌ 关闭 | 0秒 | 重载已经很慢，不再增加 |
-| **interact_with_popup** | ❌ 关闭 | 0秒（规划） | 交互应该快速 |
+| 工具                                  | 默认日志 | 增加时间    | 说明                   |
+| ------------------------------------- | -------- | ----------- | ---------------------- |
+| **evaluate_in_extension**             | ✅ 开启  | +3.2秒      | 调试工具，可接受       |
+| **activate_extension_service_worker** | ❌ 关闭  | 0秒         | 不影响激活速度         |
+| **reload_extension**                  | ❌ 关闭  | 0秒         | 重载已经很慢，不再增加 |
+| **interact_with_popup**               | ❌ 关闭  | 0秒（规划） | 交互应该快速           |
 
 ## 下一步计划
 
 ### 立即完成（今天）
+
 1. ✅ evaluate_in_extension - 已完成
 2. ✅ activate_extension_service_worker - 已完成
 3. 🔄 reload_extension - 优化日志捕获
 4. ⏳ interact_with_popup - 添加日志捕获
 
 ### 后续计划（按需）
+
 5. ⏳ Content Script 日志捕获
 6. ⏳ 日志过滤和搜索功能
 7. ⏳ 日志导出功能
@@ -236,11 +253,13 @@ captureContentScriptLogs({
 ## 文档和测试
 
 ### 已创建文档
+
 - ✅ docs/analysis/AUTO_LOG_CAPTURE_DESIGN.md
 - ✅ docs/implementation/AUTO_LOG_CAPTURE_COMPLETE.md
 - 🔄 docs/implementation/LOG_CAPTURE_PHASE2_PROGRESS.md（本文档）
 
 ### 测试覆盖
+
 - ✅ evaluate_in_extension: 5个测试用例，全部通过
 - ✅ activate_extension_service_worker: 编译测试通过
 - ⏳ reload_extension: 待测试
@@ -249,18 +268,22 @@ captureContentScriptLogs({
 ## 总结
 
 ### 已完成
+
 - ✅ Phase 1: 核心工具 evaluate_in_extension
 - ✅ Phase 2: 激活工具 activate_extension_service_worker
 - ✅ 辅助函数导出和复用
 
 ### 进行中
+
 - 🔄 Phase 2: reload_extension 优化
 
 ### 待完成
+
 - ⏳ Phase 2: interact_with_popup
 - ⏳ Phase 3: Content Script 日志
 
 ### 核心价值
+
 - ✅ 一致性：所有工具遵循相同模式
 - ✅ 灵活性：AI 可控制是否捕获
 - ✅ 完整性：捕获所有组件日志

@@ -84,6 +84,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **类型**: `jsonl` | `postgresql`  
 **默认值**: `jsonl`  
 **推荐**:
+
 - 开发/测试: `jsonl`
 - 生产环境: `postgresql`
 
@@ -95,14 +96,15 @@ STORAGE_TYPE=jsonl
 
 仅在 `STORAGE_TYPE=jsonl` 时生效：
 
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `DATA_DIR` | 数据存储目录 | `./.mcp-data` |
-| `LOG_FILE_NAME` | 日志文件名 | `store-v2.jsonl` |
-| `SNAPSHOT_THRESHOLD` | 快照阈值 | `10000` |
-| `AUTO_COMPACTION` | 自动压缩 | `true` |
+| 配置项               | 说明         | 默认值           |
+| -------------------- | ------------ | ---------------- |
+| `DATA_DIR`           | 数据存储目录 | `./.mcp-data`    |
+| `LOG_FILE_NAME`      | 日志文件名   | `store-v2.jsonl` |
+| `SNAPSHOT_THRESHOLD` | 快照阈值     | `10000`          |
+| `AUTO_COMPACTION`    | 自动压缩     | `true`           |
 
 **示例**:
+
 ```bash
 DATA_DIR=/var/lib/mcp-data
 LOG_FILE_NAME=production.jsonl
@@ -114,17 +116,18 @@ AUTO_COMPACTION=true
 
 仅在 `STORAGE_TYPE=postgresql` 时生效：
 
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `DB_HOST` | 数据库地址 | `192.168.0.205` |
-| `DB_PORT` | 数据库端口 | `5432` |
-| `DB_NAME` | 数据库名称 | `mcp_extdebug` |
-| `DB_USER` | 用户名 | `admin` |
-| `DB_PASSWORD` | 密码 | `admin` |
-| `DB_MAX_CONNECTIONS` | 最大连接数 | `20` |
-| `DB_IDLE_TIMEOUT` | 空闲超时（毫秒）| `30000` |
+| 配置项               | 说明             | 默认值          |
+| -------------------- | ---------------- | --------------- |
+| `DB_HOST`            | 数据库地址       | `192.168.0.205` |
+| `DB_PORT`            | 数据库端口       | `5432`          |
+| `DB_NAME`            | 数据库名称       | `mcp_extdebug`  |
+| `DB_USER`            | 用户名           | `admin`         |
+| `DB_PASSWORD`        | 密码             | `admin`         |
+| `DB_MAX_CONNECTIONS` | 最大连接数       | `20`            |
+| `DB_IDLE_TIMEOUT`    | 空闲超时（毫秒） | `30000`         |
 
 **示例**:
+
 ```bash
 DB_HOST=localhost
 DB_PORT=5432
@@ -153,13 +156,14 @@ PORT=32122
 
 ### 会话配置
 
-| 配置项 | 说明 | 默认值 | 单位 |
-|--------|------|--------|------|
-| `SESSION_TIMEOUT` | 会话超时时间 | `3600000` | 毫秒 (1小时) |
-| `SESSION_CLEANUP_INTERVAL` | 清理间隔 | `60000` | 毫秒 (1分钟) |
-| `MAX_SESSIONS` | 最大会话数 | 无限制 | 数量 |
+| 配置项                     | 说明         | 默认值    | 单位         |
+| -------------------------- | ------------ | --------- | ------------ |
+| `SESSION_TIMEOUT`          | 会话超时时间 | `3600000` | 毫秒 (1小时) |
+| `SESSION_CLEANUP_INTERVAL` | 清理间隔     | `60000`   | 毫秒 (1分钟) |
+| `MAX_SESSIONS`             | 最大会话数   | 无限制    | 数量         |
 
 **示例**:
+
 ```bash
 # 30 分钟超时
 SESSION_TIMEOUT=1800000
@@ -175,15 +179,16 @@ MAX_SESSIONS=100
 
 ### 浏览器连接池配置
 
-| 配置项 | 说明 | 默认值 | 单位 |
-|--------|------|--------|------|
+| 配置项                          | 说明         | 默认值  | 单位 |
+| ------------------------------- | ------------ | ------- | ---- |
 | `BROWSER_HEALTH_CHECK_INTERVAL` | 健康检查间隔 | `30000` | 毫秒 |
-| `MAX_RECONNECT_ATTEMPTS` | 最大重连次数 | `3` | 次 |
-| `RECONNECT_DELAY` | 重连延迟 | `5000` | 毫秒 |
-| `CONNECTION_TIMEOUT` | 连接超时 | `30000` | 毫秒 |
-| `BROWSER_DETECTION_TIMEOUT` | 检测超时 | `3000` | 毫秒 |
+| `MAX_RECONNECT_ATTEMPTS`        | 最大重连次数 | `3`     | 次   |
+| `RECONNECT_DELAY`               | 重连延迟     | `5000`  | 毫秒 |
+| `CONNECTION_TIMEOUT`            | 连接超时     | `30000` | 毫秒 |
+| `BROWSER_DETECTION_TIMEOUT`     | 检测超时     | `3000`  | 毫秒 |
 
 **示例**:
+
 ```bash
 # 每 1 分钟检查一次浏览器健康状态
 BROWSER_HEALTH_CHECK_INTERVAL=60000
@@ -199,14 +204,15 @@ RECONNECT_DELAY=10000
 
 ### 性能配置
 
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `API_CACHE_TTL` | API 缓存 TTL（毫秒）| `30000` |
-| `API_CACHE_MAX_SIZE` | 缓存最大条目数 | `500` |
-| `MONITOR_BUFFER_SIZE` | 监控缓冲区大小 | `1000` |
-| `CONNECTION_TIMES_BUFFER_SIZE` | 连接时间缓冲 | `100` |
+| 配置项                         | 说明                 | 默认值  |
+| ------------------------------ | -------------------- | ------- |
+| `API_CACHE_TTL`                | API 缓存 TTL（毫秒） | `30000` |
+| `API_CACHE_MAX_SIZE`           | 缓存最大条目数       | `500`   |
+| `MONITOR_BUFFER_SIZE`          | 监控缓冲区大小       | `1000`  |
+| `CONNECTION_TIMES_BUFFER_SIZE` | 连接时间缓冲         | `100`   |
 
 **示例**:
+
 ```bash
 # 1 分钟缓存
 API_CACHE_TTL=60000
@@ -226,6 +232,7 @@ API_CACHE_MAX_SIZE=1000
 **默认值**: 无（允许所有 IP）
 
 **示例**:
+
 ```bash
 # 允许本地网络和特定 IP
 ALLOWED_IPS=192.168.1.0/24,10.0.0.*,127.0.0.1
@@ -235,6 +242,7 @@ ALLOWED_IPS=127.0.0.1,::1
 ```
 
 **语法**:
+
 - `192.168.1.100` - 单个 IP
 - `192.168.1.0/24` - CIDR 范围
 - `10.0.0.*` - 通配符（匹配 10.0.0.0 - 10.0.0.255）
@@ -247,6 +255,7 @@ ALLOWED_IPS=127.0.0.1,::1
 **默认值**: `*`（允许所有来源）
 
 **示例**:
+
 ```bash
 # 允许特定域名
 ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
@@ -293,10 +302,10 @@ ERROR_VERBOSITY=minimal
 
 ⚠️ **警告**: 不建议在生产环境启用
 
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `USE_CDP_HYBRID` | CDP 混合架构 | `false` |
-| `USE_CDP_OPERATIONS` | CDP 操作 | `false` |
+| 配置项               | 说明         | 默认值  |
+| -------------------- | ------------ | ------- |
+| `USE_CDP_HYBRID`     | CDP 混合架构 | `false` |
+| `USE_CDP_OPERATIONS` | CDP 操作     | `false` |
 
 ```bash
 # 启用实验性功能（仅开发环境）
@@ -490,4 +499,3 @@ ALLOWED_ORIGINS=https://app.example.com
 
 **文档完成**: 2025-10-16  
 **维护者**: Chrome Extension Debug MCP Team
-

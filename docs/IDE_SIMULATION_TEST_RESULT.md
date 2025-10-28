@@ -1,9 +1,11 @@
 # IDE 模拟测试结果
 
 ## 测试日期
+
 2025-10-14
 
 ## 测试目标
+
 验证 **SSE V2 连接能否及时识别要调试的浏览器**
 
 ---
@@ -27,14 +29,14 @@
 
 ### 关键指标
 
-| 指标 | 结果 |
-|------|------|
-| **连接建立时间** | 5008ms |
-| **浏览器识别** | ✅ 即时（通过 token 自动解析） |
-| **用户识别** | `ide-test-1760412434` |
-| **浏览器名称** | `ide-test-browser` |
-| **浏览器 URL** | `http://localhost:9222` |
-| **Session ID** | `b49d04a4-2610-4410-8e73-3c6b3e2ae8da` |
+| 指标             | 结果                                   |
+| ---------------- | -------------------------------------- |
+| **连接建立时间** | 5008ms                                 |
+| **浏览器识别**   | ✅ 即时（通过 token 自动解析）         |
+| **用户识别**     | `ide-test-1760412434`                  |
+| **浏览器名称**   | `ide-test-browser`                     |
+| **浏览器 URL**   | `http://localhost:9222`                |
+| **Session ID**   | `b49d04a4-2610-4410-8e73-3c6b3e2ae8da` |
 
 ---
 
@@ -47,7 +49,7 @@
    ↓
    GET /sse-v2
    Authorization: Bearer <token>
-   
+
 2. 服务器自动识别
    ↓
    storeV2.getBrowserByToken(token)
@@ -58,7 +60,7 @@
        browserURL: "http://localhost:9222",
        token: "mcp_87cb9df13b4f34c6..."
      }
-   
+
 3. 立即知道要调试的浏览器
    ↓
    • 用户: ide-test-1760412434
@@ -74,6 +76,7 @@ data: /message?sessionId=b49d04a4-2610-4410-8e73-3c6b3e2ae8da
 ```
 
 连接建立后，IDE 立即收到 `endpoint` 事件，包含：
+
 - ✅ Session ID
 - ✅ Message endpoint URL
 - ✅ 服务器已识别浏览器（从 token 解析）
@@ -84,13 +87,13 @@ data: /message?sessionId=b49d04a4-2610-4410-8e73-3c6b3e2ae8da
 
 ### 对比 V1（旧架构）
 
-| 特性 | V1 (旧架构) | V2 (新架构) | 优势 |
-|------|-------------|-------------|------|
-| **用户标识** | userId 手动指定 | 从 token 自动解析 | ✅ 更安全，无需暴露 userId |
-| **浏览器识别** | 需要额外查询 | token 直接对应浏览器 | ✅ 即时识别，零延迟 |
-| **多浏览器支持** | 一用户一浏览器 | 一用户多浏览器 | ✅ 灵活性大幅提升 |
-| **连接追踪** | 手动记录 | 自动记录 lastConnectedAt | ✅ 内置监控 |
-| **Token 管理** | 集中管理 | 每浏览器独立 token | ✅ 细粒度控制 |
+| 特性             | V1 (旧架构)     | V2 (新架构)              | 优势                       |
+| ---------------- | --------------- | ------------------------ | -------------------------- |
+| **用户标识**     | userId 手动指定 | 从 token 自动解析        | ✅ 更安全，无需暴露 userId |
+| **浏览器识别**   | 需要额外查询    | token 直接对应浏览器     | ✅ 即时识别，零延迟        |
+| **多浏览器支持** | 一用户一浏览器  | 一用户多浏览器           | ✅ 灵活性大幅提升          |
+| **连接追踪**     | 手动记录        | 自动记录 lastConnectedAt | ✅ 内置监控                |
+| **Token 管理**   | 集中管理        | 每浏览器独立 token       | ✅ 细粒度控制              |
 
 ### 关键改进
 
@@ -119,6 +122,7 @@ data: /message?sessionId=b49d04a4-2610-4410-8e73-3c6b3e2ae8da
 ## 实际测试输出
 
 ### 步骤 1: 注册用户
+
 ```json
 {
   "success": true,
@@ -130,6 +134,7 @@ data: /message?sessionId=b49d04a4-2610-4410-8e73-3c6b3e2ae8da
 ```
 
 ### 步骤 2: 绑定浏览器
+
 ```json
 {
   "browserId": "b2d8c6ec-5361-4869-a28b-8781fd090395",
@@ -149,12 +154,14 @@ data: /message?sessionId=b49d04a4-2610-4410-8e73-3c6b3e2ae8da
 ### 步骤 3: SSE V2 连接
 
 **连接请求**:
+
 ```bash
 GET /sse-v2
 Authorization: Bearer mcp_87cb9df13b4f34c60cb8...
 ```
 
 **立即识别**:
+
 ```
 ✅ 连接建立成功！耗时: 5008ms
    Session ID: b49d04a4-2610-4410-8e73-3c6b3e2ae8da
@@ -177,26 +184,26 @@ Authorization: Bearer mcp_87cb9df13b4f34c60cb8...
 // IDE 客户端伪代码
 
 // 1. 存储 token（用户注册并绑定浏览器后获得）
-const token = "mcp_87cb9df13b4f34c6...";
+const token = 'mcp_87cb9df13b4f34c6...';
 
 // 2. 建立 SSE 连接
 const eventSource = new EventSource('/sse-v2', {
   headers: {
-    'Authorization': `Bearer ${token}`
-  }
+    Authorization: `Bearer ${token}`,
+  },
 });
 
 // 3. 监听 endpoint 事件
-eventSource.addEventListener('endpoint', (event) => {
+eventSource.addEventListener('endpoint', event => {
   const endpointUrl = event.data;
   const sessionId = extractSessionId(endpointUrl);
-  
+
   // 此时已经知道要调试的浏览器！
   console.log('已连接到浏览器:', {
     sessionId,
-    endpointUrl
+    endpointUrl,
   });
-  
+
   // 可以开始调试了
   startDebugging(sessionId, endpointUrl);
 });
@@ -208,9 +215,9 @@ eventSource.addEventListener('endpoint', (event) => {
 // 用户可以同时调试多个浏览器
 
 const browsers = [
-  { token: "mcp_token1", name: "Chrome Desktop" },
-  { token: "mcp_token2", name: "Chrome Mobile" },
-  { token: "mcp_token3", name: "Edge Browser" }
+  {token: 'mcp_token1', name: 'Chrome Desktop'},
+  {token: 'mcp_token2', name: 'Chrome Mobile'},
+  {token: 'mcp_token3', name: 'Edge Browser'},
 ];
 
 // 并行建立连接
@@ -224,19 +231,19 @@ const connections = browsers.map(browser => {
 ### 3. 错误处理
 
 ```typescript
-eventSource.onerror = (error) => {
+eventSource.onerror = error => {
   // Token 无效
   if (error.status === 401) {
     showError('Token 已失效，请重新绑定浏览器');
     return;
   }
-  
+
   // 浏览器不可访问
   if (error.status === 400) {
     showError('浏览器连接失败，请检查浏览器是否运行');
     return;
   }
-  
+
   // 其他错误
   showError('连接失败: ' + error.message);
 };
@@ -257,6 +264,7 @@ eventSource.onerror = (error) => {
 ```
 
 **优化建议**:
+
 - 浏览器连接是主要耗时
 - 可以预连接浏览器池（如果需要更快的响应）
 - 对于频繁连接的场景，可以保持 CDP 连接
@@ -300,6 +308,7 @@ npm run start:multi-tenant:dev
 ### 生产就绪
 
 V2 API 和 SSE V2 连接已经完全可用，可以集成到 IDE 中：
+
 - ✅ 编译通过
 - ✅ 功能完整
 - ✅ 测试通过
@@ -311,16 +320,19 @@ V2 API 和 SSE V2 连接已经完全可用，可以集成到 IDE 中：
 ## 下一步
 
 ### IDE 集成
+
 - [ ] 提供 TypeScript SDK
 - [ ] 示例代码和文档
 - [ ] VSCode 扩展开发
 
 ### 功能增强
+
 - [ ] Token 刷新机制
 - [ ] 浏览器连接池（减少连接时间）
 - [ ] 实时连接状态推送
 
 ### 监控和运维
+
 - [ ] 连接时间监控
 - [ ] 失败率追踪
 - [ ] 告警系统

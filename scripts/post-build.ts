@@ -185,17 +185,22 @@ export const hostConfig = {};
   copyThirdPartyLicenseFiles();
 
   // 复制多租户 Web UI 静态文件
-  const publicSrcDir = path.join(process.cwd(), 'src', 'multi-tenant', 'public');
+  const publicSrcDir = path.join(
+    process.cwd(),
+    'src',
+    'multi-tenant',
+    'public',
+  );
   const publicDestDir = path.join(BUILD_DIR, 'src', 'multi-tenant', 'public');
-  
+
   if (fs.existsSync(publicSrcDir)) {
-    fs.mkdirSync(publicDestDir, { recursive: true });
-    
+    fs.mkdirSync(publicDestDir, {recursive: true});
+
     const files = fs.readdirSync(publicSrcDir);
     for (const file of files) {
       const srcFile = path.join(publicSrcDir, file);
       const destFile = path.join(publicDestDir, file);
-      
+
       if (fs.statSync(srcFile).isFile()) {
         fs.copyFileSync(srcFile, destFile);
         console.log(`✅ Copied public file: ${file}`);
@@ -204,17 +209,29 @@ export const hostConfig = {};
   }
 
   // 复制数据库迁移文件
-  const migrationsSrcDir = path.join(process.cwd(), 'src', 'multi-tenant', 'storage', 'migrations');
-  const migrationsDestDir = path.join(BUILD_DIR, 'src', 'multi-tenant', 'storage', 'migrations');
-  
+  const migrationsSrcDir = path.join(
+    process.cwd(),
+    'src',
+    'multi-tenant',
+    'storage',
+    'migrations',
+  );
+  const migrationsDestDir = path.join(
+    BUILD_DIR,
+    'src',
+    'multi-tenant',
+    'storage',
+    'migrations',
+  );
+
   if (fs.existsSync(migrationsSrcDir)) {
-    fs.mkdirSync(migrationsDestDir, { recursive: true });
-    
+    fs.mkdirSync(migrationsDestDir, {recursive: true});
+
     const migrationFiles = fs.readdirSync(migrationsSrcDir);
     for (const file of migrationFiles) {
       const srcFile = path.join(migrationsSrcDir, file);
       const destFile = path.join(migrationsDestDir, file);
-      
+
       if (fs.statSync(srcFile).isFile() && file.endsWith('.sql')) {
         fs.copyFileSync(srcFile, destFile);
         console.log(`✅ Copied migration file: ${file}`);

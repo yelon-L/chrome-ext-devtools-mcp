@@ -16,12 +16,14 @@ import {fileURLToPath} from 'node:url';
 
 import type {Kysely} from 'kysely';
 import type * as pg from 'pg';
-import type {StorageAdapter} from './StorageAdapter.js';
-import type {UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
-import {createLogger} from '../utils/Logger.js';
+
 import {StorageOperationError} from '../errors/index.js';
+import {createLogger} from '../utils/Logger.js';
+
 import {createDB} from './db.js';
+import type {UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
 import type {Database} from './schema.js';
+import type {StorageAdapter} from './StorageAdapter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

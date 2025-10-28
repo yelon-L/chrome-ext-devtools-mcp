@@ -8,6 +8,7 @@
 ## 📋 问题描述
 
 **用户反馈**:
+
 > "IDE 连接 stdio，在一个会话完成后，会话结束再次请求 MCP 工具时会提示连接断开"
 
 ---
@@ -34,13 +35,16 @@ let lastRequestTime = Date.now();
 const idleCheckInterval = setInterval(() => {
   const idle = Date.now() - lastRequestTime;
   if (idle > IDLE_TIMEOUT) {
-    console.log(`[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`);
+    console.log(
+      `[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`,
+    );
     cleanup('idle timeout').then(() => process.exit(0));
   }
 }, 30000);
 ```
 
 **问题**:
+
 - ❌ 实现了 5 分钟空闲超时
 - ❌ 超时后自动终止进程
 - ❌ 导致会话间隔较长时连接断开
@@ -52,6 +56,7 @@ const idleCheckInterval = setInterval(() => {
 ### 设计意图
 
 **空闲超时的目的**:
+
 1. 防止僵尸进程占用资源
 2. IDE 崩溃后自动清理
 3. 避免资源泄漏
@@ -59,6 +64,7 @@ const idleCheckInterval = setInterval(() => {
 ### 实际行为
 
 **正常使用场景被误杀**:
+
 1. 用户执行一系列工具调用
 2. 会话结束，停止操作
 3. 5 分钟后思考下一步操作
@@ -78,11 +84,13 @@ const IDLE_TIMEOUT = 1800000; // 30 minutes
 ```
 
 **优点**:
+
 - ✅ 简单直接
 - ✅ 保持清理机制
 - ✅ 给用户更多思考时间
 
 **缺点**:
+
 - ⚠️ 僵尸进程存活时间更长
 
 ### 方案 2: 禁用空闲超时（适合开发环境）
@@ -91,15 +99,17 @@ const IDLE_TIMEOUT = 1800000; // 30 minutes
 
 ```typescript
 // 通过环境变量控制
-const IDLE_TIMEOUT = process.env.STDIO_IDLE_TIMEOUT 
-  ? parseInt(process.env.STDIO_IDLE_TIMEOUT) 
+const IDLE_TIMEOUT = process.env.STDIO_IDLE_TIMEOUT
+  ? parseInt(process.env.STDIO_IDLE_TIMEOUT)
   : 0; // 0 表示永不超时
 
 if (IDLE_TIMEOUT > 0) {
   const idleCheckInterval = setInterval(() => {
     const idle = Date.now() - lastRequestTime;
     if (idle > IDLE_TIMEOUT) {
-      console.log(`[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`);
+      console.log(
+        `[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`,
+      );
       cleanup('idle timeout').then(() => process.exit(0));
     }
   }, 30000);
@@ -108,6 +118,7 @@ if (IDLE_TIMEOUT > 0) {
 ```
 
 **配置**:
+
 ```bash
 # .env
 # 禁用空闲超时
@@ -118,6 +129,7 @@ STDIO_IDLE_TIMEOUT=1800000  # 30 分钟
 ```
 
 **优点**:
+
 - ✅ 灵活配置
 - ✅ 开发环境可以禁用
 - ✅ 生产环境保持清理机制
@@ -141,7 +153,8 @@ process.stdin.on('end', () => {
 const idleCheckInterval = setInterval(() => {
   if (!ideConnected) {
     const idle = Date.now() - lastRequestTime;
-    if (idle > 60000) { // 断开后 1 分钟清理
+    if (idle > 60000) {
+      // 断开后 1 分钟清理
       cleanup('idle after disconnect').then(() => process.exit(0));
     }
   }
@@ -149,6 +162,7 @@ const idleCheckInterval = setInterval(() => {
 ```
 
 **优点**:
+
 - ✅ 正常使用永不超时
 - ✅ IDE 崩溃后快速清理
 - ✅ 最佳用户体验
@@ -160,13 +174,15 @@ const idleCheckInterval = setInterval(() => {
 ### Stdio 模式
 
 **特点**:
+
 - 进程级连接
 - 单一客户端
 - 长连接
 
 **生命周期**:
+
 ```
-IDE 启动 
+IDE 启动
   ↓
 启动 stdio 子进程
   ↓
@@ -180,6 +196,7 @@ IDE 关闭 或 空闲超时
 ```
 
 **连接断开原因**:
+
 1. IDE 主动关闭
 2. 空闲超时（当前 5 分钟）
 3. 进程崩溃
@@ -188,11 +205,13 @@ IDE 关闭 或 空闲超时
 ### Streamable (HTTP/SSE) 模式
 
 **特点**:
+
 - HTTP 长连接
 - 多客户端
 - 会话管理
 
 **生命周期**:
+
 ```
 服务器启动
   ↓
@@ -208,6 +227,7 @@ IDE 关闭 或 空闲超时
 ```
 
 **连接断开原因**:
+
 1. 会话超时（1 小时）
 2. 客户端主动断开
 3. 服务器重启
@@ -215,11 +235,13 @@ IDE 关闭 或 空闲超时
 ### Multi-Tenant 模式
 
 **特点**:
+
 - 独立的 HTTP 服务器
 - 多用户/多会话
 - Token 认证
 
 **生命周期**:
+
 ```
 服务器启动（独立进程）
   ↓
@@ -235,6 +257,7 @@ IDE 关闭 或 空闲超时
 ```
 
 **连接断开原因**:
+
 1. Token 过期
 2. 会话超时
 3. 服务器重启
@@ -305,10 +328,11 @@ DEBUG=mcp:* node build/src/main.js
 某些 IDE 可能有自己的超时设置：
 
 **VS Code / Windsurf**:
+
 ```json
 // settings.json
 {
-  "mcp.timeout": 600000,  // 10 分钟
+  "mcp.timeout": 600000, // 10 分钟
   "mcp.keepAlive": true
 }
 ```
@@ -336,7 +360,7 @@ STDIO_IDLE_TIMEOUT=60000
 // 定期输出心跳日志
 setInterval(() => {
   const idle = Date.now() - lastRequestTime;
-  console.log(`[stdio] Status: idle=${Math.round(idle/1000)}s`);
+  console.log(`[stdio] Status: idle=${Math.round(idle / 1000)}s`);
 }, 60000);
 ```
 
@@ -422,4 +446,3 @@ kill -9 <PID>
 
 **文档完成**: 2025-10-16  
 **状态**: 问题已识别，解决方案已提供
-

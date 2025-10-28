@@ -8,7 +8,12 @@
   "scripts": {
     "build": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/inject-version.ts && tsc && node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/post-build.ts",
     "typecheck": "tsc --noEmit",
-    "format": "eslint --cache --fix . && prettier --write --cache .",
+    "lint": "eslint --cache .",
+    "lint:fix": "eslint --cache --fix .",
+    "format": "prettier --write --cache .",
+    "format:check": "prettier --check --cache .",
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "fix": "npm run lint:fix && npm run format",
     "check-format": "eslint --cache . && prettier --check --cache .;",
     "docs": "npm run build && npm run docs:generate && npm run format",
     "docs:generate": "node --experimental-strip-types scripts/generate-docs.ts",

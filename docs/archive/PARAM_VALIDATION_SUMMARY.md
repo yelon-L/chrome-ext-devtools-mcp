@@ -5,6 +5,7 @@
 ### 1. 友好的错误提示系统
 
 创建了完整的参数验证器（`src/utils/paramValidator.ts`），提供：
+
 - ❌ **错误消息** - 阻止启动，必须修正
 - ⚠️ **警告消息** - 显示但继续运行
 - 💡 **解决方案** - 提供具体的修正命令
@@ -16,13 +17,15 @@
 ### 规则 1: 浏览器来源互斥 ❌
 
 **检测**:
+
 ```bash
 ❌ --browserUrl + --channel
-❌ --browserUrl + --executablePath  
+❌ --browserUrl + --executablePath
 ❌ --channel + --executablePath
 ```
 
 **示例错误**:
+
 ```bash
 $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --channel canary
 
@@ -53,11 +56,13 @@ $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --channel canary
 ### 规则 2: stdio 模式不需要端口 ⚠️
 
 **检测**:
+
 ```bash
 ⚠️ --transport stdio (默认) + --port
 ```
 
 **示例警告**:
+
 ```bash
 $ chrome-extension-debug-mcp --port 3000
 
@@ -91,6 +96,7 @@ $ chrome-extension-debug-mcp --port 3000
 ### 规则 3: browserUrl 时浏览器控制选项无效 ⚠️
 
 **检测**:
+
 ```bash
 ⚠️ --browserUrl + --headless
 ⚠️ --browserUrl + --isolated
@@ -101,6 +107,7 @@ $ chrome-extension-debug-mcp --port 3000
 ```
 
 **示例警告**:
+
 ```bash
 $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --headless --isolated
 
@@ -137,12 +144,14 @@ $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --headless --iso
 ### 规则 4: 端口范围验证 ❌/⚠️
 
 **检测**:
+
 ```bash
 ❌ 端口 < 1 或 > 65535
 ⚠️ 端口 < 1024（保留端口）
 ```
 
 **示例错误**:
+
 ```bash
 $ chrome-extension-debug-mcp --transport sse --port 99999
 
@@ -167,11 +176,13 @@ $ chrome-extension-debug-mcp --transport sse --port 99999
 ### 规则 5: headless 模式 viewport 限制 ⚠️
 
 **检测**:
+
 ```bash
 ⚠️ --headless + --viewport 超过 3840x2160
 ```
 
 **示例警告**:
+
 ```bash
 $ chrome-extension-debug-mcp --headless --viewport 5000x3000
 
@@ -197,24 +208,29 @@ $ chrome-extension-debug-mcp --headless --viewport 5000x3000
 ## 🎯 设计原则
 
 ### 1. 清晰说明问题
+
 - 显示当前配置
 - 指出具体问题
 
 ### 2. 解释原因
+
 - 为什么这是问题
 - 背后的技术原因
 
 ### 3. 提供解决方案
+
 - 给出多个方案
 - 提供完整的命令示例
 
 ### 4. 使用友好的格式
+
 - ❌ 红色 - 严重错误
 - ⚠️ 黄色 - 警告
 - ✅ 绿色 - 建议
 - 📋 蓝色 - 说明
 
 ### 5. 分级处理
+
 - **错误（❌）**: 阻止启动，必须修正
 - **警告（⚠️）**: 显示提示，但继续运行
 - **提示（💡）**: 优化建议
@@ -224,11 +240,13 @@ $ chrome-extension-debug-mcp --headless --viewport 5000x3000
 ## 📁 相关文件
 
 ### 新增文件
+
 1. **`src/utils/paramValidator.ts`** - 参数验证器实现
 2. **`PARAMETER_RELATIONSHIPS.md`** - 参数关系文档
 3. **`PARAM_VALIDATION_SUMMARY.md`** - 本文档
 
 ### 修改文件
+
 1. **`src/cli.ts`** - 集成验证器
    - 导入 `ParameterValidator`
    - 在解析后执行验证
@@ -239,30 +257,35 @@ $ chrome-extension-debug-mcp --headless --viewport 5000x3000
 ## 🧪 测试结果
 
 ### 测试 1: 浏览器来源冲突 ✅
+
 ```bash
 $ node build/src/index.js --browserUrl http://localhost:9222 --channel canary
 # 结果: ❌ 显示友好错误，阻止启动
 ```
 
 ### 测试 2: stdio + port 警告 ✅
+
 ```bash
 $ node build/src/index.js --port 3000
 # 结果: ⚠️ 显示警告，继续运行
 ```
 
 ### 测试 3: browserUrl + headless 警告 ✅
+
 ```bash
 $ node build/src/index.js --browserUrl http://localhost:9222 --headless
 # 结果: ⚠️ 显示警告，继续运行
 ```
 
 ### 测试 4: 无效端口 ✅
+
 ```bash
 $ node build/src/index.js --transport sse --port 99999
 # 结果: ❌ 显示友好错误，阻止启动
 ```
 
 ### 测试 5: 正确配置 ✅
+
 ```bash
 $ node build/src/index.js --browserUrl http://localhost:9222
 # 结果: 无错误或警告，正常启动
@@ -275,11 +298,13 @@ $ node build/src/index.js --browserUrl http://localhost:9222
 ### 场景 1: 新用户不熟悉参数
 
 **错误配置**:
+
 ```bash
 $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --channel canary
 ```
 
-**结果**: 
+**结果**:
+
 - 显示清晰的错误消息
 - 解释为什么不能同时使用
 - 提供4个可选方案
@@ -288,11 +313,13 @@ $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --channel canary
 ### 场景 2: 忘记 stdio 不需要端口
 
 **配置**:
+
 ```bash
 $ chrome-extension-debug-mcp --port 3000
 ```
 
 **结果**:
+
 - 显示警告（不阻止启动）
 - 解释 stdio 的工作原理
 - 建议改用 SSE 或 Streamable
@@ -301,11 +328,13 @@ $ chrome-extension-debug-mcp --port 3000
 ### 场景 3: 配置参数但连接现有浏览器
 
 **配置**:
+
 ```bash
 $ chrome-extension-debug-mcp --browserUrl http://localhost:9222 --headless --isolated
 ```
 
 **结果**:
+
 - 显示警告（不阻止启动）
 - 说明这些参数会被忽略
 - 解释原因

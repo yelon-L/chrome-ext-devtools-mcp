@@ -9,6 +9,7 @@
 基于 Google 的 [chrome-devtools-mcp](https://github.com/google/chrome-devtools-mcp)，增强了扩展调试能力、Multi-tenant 支持和生产就绪特性。
 
 > **🎉 v0.8.5 版本更新**
+>
 > - **严重问题修复：** 解决 Session 管理竞态条件（错误率从 100% 降至 0%）
 > - **帮助增强：** `--help` 输出中添加完整的 Multi-Tenant 模式文档
 > - **国际化：** 服务器日志改为英文，提升可访问性
@@ -19,14 +20,16 @@
 ## ✨ 核心特性
 
 ### 🔌 扩展调试（12 个专业工具）
+
 - **Service Worker 激活** - MV3 扩展调试必备
 - **Storage 检查** - 支持 local/sync/session/managed
 - **上下文切换** - Background/Popup/Content Script
 - **消息监控** - 追踪 runtime.sendMessage
-- **API 追踪** - chrome.* API 调用记录
+- **API 追踪** - chrome.\* API 调用记录
 - **日志收集** - 统一收集所有上下文日志
 
 ### 🚀 Multi-Tenant 模式（企业级）
+
 - **10-100 并发用户** - 独立会话隔离
 - **Token 认证** - crypto.randomBytes 生成
 - **IP 白名单** - ALLOWED_IPS 安全控制
@@ -35,6 +38,7 @@
 - **性能追踪** - 请求 ID 关联
 
 ### 🛠️ 浏览器自动化（26 个工具）
+
 - **页面管理** - 导航、刷新、关闭
 - **输入交互** - 点击、输入、选择
 - **性能分析** - Lighthouse insights
@@ -169,23 +173,23 @@ bash scripts/start-http-mcp.sh
 
 ### 🔌 扩展调试（12 个）
 
-| 工具 | 说明 |
-|------|------|
-| `list_extensions` | 列出所有扩展 |
-| `get_extension_details` | 获取扩展详情 |
-| `list_extension_contexts` | 列出扩展上下文 |
-| `switch_extension_context` | 切换上下文 |
-| `activate_service_worker` | 激活 Service Worker ⭐ |
-| `inspect_extension_storage` | 检查 Storage |
-| `watch_extension_storage` | 监控 Storage 变化 |
-| `get_extension_logs` | 收集日志 |
-| `evaluate_in_extension` | 执行代码 |
-| `reload_extension` | 智能热重载（增强版）⭐⭐⭐⭐⭐ |
-| `diagnose_extension_errors` | 错误诊断器（新增）⭐⭐⭐⭐⭐ |
-| `inspect_extension_manifest` | Manifest 深度检查（新增）⭐⭐⭐⭐ |
+| 工具                             | 说明                                |
+| -------------------------------- | ----------------------------------- |
+| `list_extensions`                | 列出所有扩展                        |
+| `get_extension_details`          | 获取扩展详情                        |
+| `list_extension_contexts`        | 列出扩展上下文                      |
+| `switch_extension_context`       | 切换上下文                          |
+| `activate_service_worker`        | 激活 Service Worker ⭐              |
+| `inspect_extension_storage`      | 检查 Storage                        |
+| `watch_extension_storage`        | 监控 Storage 变化                   |
+| `get_extension_logs`             | 收集日志                            |
+| `evaluate_in_extension`          | 执行代码                            |
+| `reload_extension`               | 智能热重载（增强版）⭐⭐⭐⭐⭐      |
+| `diagnose_extension_errors`      | 错误诊断器（新增）⭐⭐⭐⭐⭐        |
+| `inspect_extension_manifest`     | Manifest 深度检查（新增）⭐⭐⭐⭐   |
 | `check_content_script_injection` | Content Script 检查（新增）⭐⭐⭐⭐ |
-| `monitor_extension_messages` | 监控消息 |
-| `trace_extension_api_calls` | 追踪 API 调用 |
+| `monitor_extension_messages`     | 监控消息                            |
+| `trace_extension_api_calls`      | 追踪 API 调用                       |
 
 ### 🌐 浏览器自动化（26 个）
 
@@ -193,29 +197,36 @@ bash scripts/start-http-mcp.sh
 <summary>点击展开完整列表</summary>
 
 **页面管理（8 个）**
+
 - `list_pages`, `new_page`, `close_page`
 - `navigate_to_url`, `navigate_forward`, `navigate_back`
 - `reload_page`, `get_current_url`
 
 **输入交互（6 个）**
+
 - `click_element`, `fill_element`, `select_option`
 - `upload_file`, `press_key`, `handle_dialog`
 
 **性能分析（3 个）**
+
 - `performance_start_trace`, `performance_stop_trace`
 - `performance_analyze_insight`
 
 **网络监控（2 个）**
+
 - `list_network_requests`, `emulate_network`
 
 **截图快照（2 个）**
+
 - `take_screenshot`, `take_snapshot`
 
 **调试工具（3 个）**
+
 - `list_console_messages`, `evaluate_script`
 - `emulate_device`
 
 **其他（2 个）**
+
 - `wait_for`, `accessibility_snapshot`
 
 </details>
@@ -229,12 +240,14 @@ bash scripts/start-http-mcp.sh
 ### 环境变量
 
 #### stdio 模式
+
 ```bash
 DEBUG=mcp:*                # 启用调试日志
 NODE_ENV=production        # 生产模式
 ```
 
 #### Multi-tenant 模式
+
 ```bash
 # 服务器配置
 PORT=32122                                      # 服务端口
@@ -298,6 +311,7 @@ SESSION_TIMEOUT=1800000                         # 会话超时（30分钟）
 ```
 
 **关键特性:**
+
 - ✅ **会话隔离** - 每个用户独立会话
 - ✅ **连接池** - 自动健康检查和重连
 - ✅ **并发控制** - Session-level mutex
@@ -327,23 +341,27 @@ npm run server:multi-tenant
 ## 📚 文档导航
 
 ### 用户指南
+
 - [Multi-Tenant 快速开始](MULTI_TENANT_QUICK_START.md) - 5 分钟上手
 - [IP 白名单和配置格式](IP_WHITELIST_AND_CONFIG_FORMAT.md) - 安全配置
 - [认证功能使用](docs/archive/AUTH_ENABLED_FIX.md) - Token 生成和验证
 - [局域网部署最佳实践](MULTI_TENANT_LAN_BEST_PRACTICES.md) - 团队部署
 
 ### 开发者文档
+
 - [工具分析和路线图](docs/archive/TOOLS_ANALYSIS_AND_ROADMAP.md) - 功能规划
 - [Scripts 文档](docs/archive/SCRIPTS_DOCUMENTATION.md) - 脚本使用指南
 - [实施指南](docs/archive/IMPLEMENTATION_GUIDE.md) - 功能实现细节
 - [贡献指南](docs/archive/CONTRIBUTING.md) - 如何贡献
 
 ### 部署文档
+
 - [发布流程](docs/archive/RELEASE.md) - 版本发布步骤
 - [GitHub 设置](docs/archive/GITHUB_SETUP.md) - 项目规范化
 - [部署清单](docs/guides/DEPLOYMENT_CHECKLIST.md) - 生产部署
 
 ### 技术分析
+
 - [架构对比](docs/archive/ARCHITECTURE_COMPARISON.md) - 架构设计分析
 - [性能优化报告](docs/archive/ARCHITECTURE_OPTIMIZATION_REPORT.md) - 性能改进
 - [测试报告](docs/archive/FINAL_TEST_SUMMARY.md) - 完整测试结果
@@ -412,22 +430,22 @@ ls -lh dist/
 
 ### Multi-Tenant 模式
 
-| 指标 | 数值 |
-|------|------|
-| **并发用户** | 10-100 |
-| **P50 延迟** | < 50ms |
-| **P99 延迟** | < 500ms |
-| **内存稳定性** | 零泄漏 |
-| **CPU 利用率** | ~100%（多核） |
+| 指标           | 数值             |
+| -------------- | ---------------- |
+| **并发用户**   | 10-100           |
+| **P50 延迟**   | < 50ms           |
+| **P99 延迟**   | < 500ms          |
+| **内存稳定性** | 零泄漏           |
+| **CPU 利用率** | ~100%（多核）    |
 | **吞吐量提升** | 10-100x vs stdio |
 
 ### 启动性能
 
-| 模式 | 冷启动 | 热启动 |
-|------|--------|--------|
-| stdio | ~500ms | ~200ms |
-| Multi-tenant | ~2s | ~1s |
-| 二进制文件 | ~300ms | ~100ms |
+| 模式         | 冷启动 | 热启动 |
+| ------------ | ------ | ------ |
+| stdio        | ~500ms | ~200ms |
+| Multi-tenant | ~2s    | ~1s    |
+| 二进制文件   | ~300ms | ~100ms |
 
 📚 **详细报告:** [性能优化报告](docs/archive/ARCHITECTURE_OPTIMIZATION_REPORT.md)
 
@@ -511,12 +529,14 @@ Apache 2.0 - 详见 [LICENSE](LICENSE) 文件
 ## 🗺️ 路线图
 
 ### v0.9.0（已完成 Phase 1）✅
+
 - [x] `inspect_extension_manifest` - Manifest 深度检查 ✅
 - [x] `diagnose_extension_errors` - 错误诊断器 ✅
 - [x] 增强 `reload_extension` - 智能热重载 ✅
 - [x] `check_content_script_injection` - Content Script 检查 ✅
 
 ### v1.0.0（计划中）
+
 - [ ] `analyze_extension_permissions` - 权限分析
 - [ ] `analyze_api_usage` - API 使用统计
 - [ ] 性能监控面板

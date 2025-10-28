@@ -23,12 +23,14 @@
 - ✅ 详细的激活结果和状态反馈
 
 **核心特性**:
+
 ```typescript
 - extensionId: string (optional) - 32位小写字母的扩展ID
 - mode: 'single' | 'all' | 'inactive' (default: 'inactive')
 ```
 
 **激活逻辑**:
+
 ```javascript
 // 1. 检查是否在 chrome://extensions 页面
 // 2. 查找所有扩展项（extensions-item）
@@ -53,11 +55,13 @@ export {activateExtensionServiceWorker} from './service-worker-activation.js';
 ### 3. 测试和验证
 
 **创建的文件**:
+
 1. `verify-tool-registration.mjs` - 工具注册验证脚本
 2. `quick-test-sw-activation.mjs` - 快速功能测试
 3. `test-sw-activation.mjs` - 完整测试套件
 
 **验证结果**:
+
 ```
 ✅ 工具已成功注册
 ✅ 工具总数: 38
@@ -68,6 +72,7 @@ export {activateExtensionServiceWorker} from './service-worker-activation.js';
 ### 4. 文档
 
 **创建的文档**:
+
 - `docs/ACTIVATE_SERVICE_WORKER_GUIDE.md` - 完整使用指南
   - 工具概述和技术优势
   - 详细的使用方法和参数说明
@@ -84,10 +89,10 @@ export {activateExtensionServiceWorker} from './service-worker-activation.js';
 
 根据 `CHAIN_COMPARISON.md` 的测试数据：
 
-| 方案 | 耗时 | 效率 |
-|------|------|------|
-| **脚本方式（本工具）** | **4ms** | 基准 ✅ |
-| 工具链方式 | 932ms | 慢233倍 ❌ |
+| 方案                   | 耗时    | 效率       |
+| ---------------------- | ------- | ---------- |
+| **脚本方式（本工具）** | **4ms** | 基准 ✅    |
+| 工具链方式             | 932ms   | 慢233倍 ❌ |
 
 ### DOM 选择器策略
 
@@ -127,7 +132,7 @@ const isActive = !buttonText.toLowerCase().includes('inactive');
 // 如果需要导航，返回 retry: true
 if (!window.location.href.includes('chrome://extensions')) {
   window.location.href = 'chrome://extensions';
-  return { status: 'navigating', retry: true };
+  return {status: 'navigating', retry: true};
 }
 
 // 工具检测到 retry 后自动等待并重试
@@ -346,13 +351,13 @@ get_extension_logs()                 // 5. 查看日志
 
 ### 目标 vs 实际
 
-| 指标 | 目标 | 实际 | 状态 |
-|------|------|------|------|
-| 单次激活 | < 100ms | ~4ms | ✅ 超越 |
-| 批量激活（10个） | < 500ms | ~40ms | ✅ 超越 |
-| 首次调用 | < 5s | ~41s* | ⚠️ 待优化 |
+| 指标             | 目标    | 实际   | 状态      |
+| ---------------- | ------- | ------ | --------- |
+| 单次激活         | < 100ms | ~4ms   | ✅ 超越   |
+| 批量激活（10个） | < 500ms | ~40ms  | ✅ 超越   |
+| 首次调用         | < 5s    | ~41s\* | ⚠️ 待优化 |
 
-*首次调用包含延迟初始化时间（项目已知问题，不影响功能）
+\*首次调用包含延迟初始化时间（项目已知问题，不影响功能）
 
 ---
 
@@ -413,7 +418,7 @@ get_extension_logs()                 // 5. 查看日志
 ✅ **工具总数**: 37 → 38  
 ✅ **性能优异**: 4ms（快 233 倍）  
 ✅ **功能完整**: 3 种模式，完整错误处理  
-✅ **文档齐全**: 使用指南、测试脚本、实现总结  
+✅ **文档齐全**: 使用指南、测试脚本、实现总结
 
 ### 技术决策
 

@@ -8,6 +8,7 @@
 ## 🔍 问题描述
 
 ### 用户反馈
+
 1. Streamable 服务启动时配置了 `--browserUrl http://localhost:9222`
 2. 中间**没有重启** streamable 服务
 3. IDE 配置的 MCP 会手动**重连过几次**
@@ -15,6 +16,7 @@
 5. 但现在 streamable 服务连接的是 9226 而不是 9222
 
 ### 关键疑问
+
 - 配置是如何被修改的？
 - 为什么没有重启服务，浏览器连接却变了？
 
@@ -27,7 +29,7 @@
 **文件**: `src/browser.ts`
 
 ```typescript
-let browser: Browser | undefined;  // ❌ 全局变量
+let browser: Browser | undefined; // ❌ 全局变量
 let isExternalBrowser = false;
 ```
 
@@ -43,18 +45,19 @@ export async function ensureBrowserConnected(options: {
   if (browser?.connected) {
     return browser;  // ⚠️ 如果已连接，直接返回现有实例
   }
-  
+
   // 只有在未连接时才使用新的 browserURL
   browser = await puppeteer.connect({
     browserURL: options.browserURL,
     ...
   });
-  
+
   return browser;
 }
 ```
 
 **关键点**:
+
 1. 如果 `browser?.connected` 为 `true`，直接返回现有实例
 2. **忽略** `options.browserURL` 参数
 3. 不会重新连接到新的浏览器
@@ -73,9 +76,10 @@ const browser = args.browserUrl
 ```
 
 **每个新会话**:
+
 ```typescript
 // 每次 IDE 重连都会执行
-const context = await McpContext.from(browser, logger);  // 使用全局 browser
+const context = await McpContext.from(browser, logger); // 使用全局 browser
 ```
 
 ---
@@ -87,17 +91,20 @@ const context = await McpContext.from(browser, logger);  // 使用全局 browser
 #### 场景 1: 浏览器断线重连（最可能）
 
 **时间线**:
+
 1. **09:45** - Streamable 启动，连接到 9222
+
    ```typescript
-   browser = await puppeteer.connect({ browserURL: 'http://localhost:9222' });
+   browser = await puppeteer.connect({browserURL: 'http://localhost:9222'});
    ```
 
 2. **10:12** - 多租户测试，绑定 9226
    - 多租户是独立进程，不影响 streamable
 
 3. **某个时刻** - 9222 的 Chrome 断开连接或重启
+
    ```typescript
-   browser?.connected === false  // 连接断开
+   browser?.connected === false; // 连接断开
    ```
 
 4. **IDE 重连** - Streamable 重新初始化
@@ -111,12 +118,14 @@ const context = await McpContext.from(browser, logger);  // 使用全局 browser
 #### 场景 2: 环境变量污染
 
 **检查点**:
+
 - 是否有环境变量 `BROWSER_URL` 或类似的？
 - 多租户测试是否设置了环境变量？
 
 #### 场景 3: 配置文件被修改
 
 **检查点**:
+
 - 是否有配置文件会覆盖命令行参数？
 - IDE 配置是否影响了服务器配置？
 
@@ -127,11 +136,13 @@ const context = await McpContext.from(browser, logger);  // 使用全局 browser
 ### 1. 全局状态 (Critical)
 
 **问题**:
+
 ```typescript
-let browser: Browser | undefined;  // 全局变量，在模块间共享
+let browser: Browser | undefined; // 全局变量，在模块间共享
 ```
 
 **影响**:
+
 - 多个服务（虽然是不同进程）如果共享代码，可能产生混乱
 - 单个服务内，浏览器连接状态不明确
 - 无法同时连接多个浏览器
@@ -139,13 +150,15 @@ let browser: Browser | undefined;  // 全局变量，在模块间共享
 ### 2. 连接缓存逻辑不完善
 
 **问题**:
+
 ```typescript
 if (browser?.connected) {
-  return browser;  // 忽略 browserURL 参数
+  return browser; // 忽略 browserURL 参数
 }
 ```
 
 **风险**:
+
 - 如果浏览器断线重连，可能连接到错误的端口
 - 无法验证当前连接的浏览器是否是预期的
 - 没有日志记录实际连接的浏览器 URL
@@ -155,6 +168,7 @@ if (browser?.connected) {
 **问题**: 启动时验证了 browserURL，但运行时不验证
 
 **应该**:
+
 - 定期检查浏览器连接
 - 断线后重新连接到**正确的** browserURL
 - 记录连接变化
@@ -185,6 +199,7 @@ kill 30136
 #### 2. 添加日志验证
 
 在启动后检查日志，确认连接的浏览器：
+
 ```bash
 # 查看 streamable 进程的输出
 tail -f /tmp/streamable.log  # 如果有日志文件
@@ -210,17 +225,17 @@ export async function ensureBrowserConnected(options: {
     }
     return browser;
   }
-  
+
   console.log('[Browser] 📡 Connecting to: ' + options.browserURL);
-  
+
   browser = await puppeteer.connect({
     browserURL: options.browserURL,
     ...
   });
-  
+
   initialBrowserURL = options.browserURL;  // 保存初始 URL
   isExternalBrowser = true;
-  
+
   return browser;
 }
 ```
@@ -228,21 +243,23 @@ export async function ensureBrowserConnected(options: {
 #### 改进 2: 添加连接验证
 
 ```typescript
-export async function verifyBrowserConnection(expectedURL: string): Promise<boolean> {
+export async function verifyBrowserConnection(
+  expectedURL: string,
+): Promise<boolean> {
   if (!browser?.connected) {
     return false;
   }
-  
+
   try {
     const version = await browser.version();
     const wsEndpoint = browser.wsEndpoint();
-    
+
     console.log('[Browser] ✓ Connected:', {
       version,
       endpoint: wsEndpoint,
       expected: expectedURL,
     });
-    
+
     return true;
   } catch (error) {
     console.error('[Browser] ✗ Connection lost:', error);
@@ -256,7 +273,7 @@ export async function verifyBrowserConnection(expectedURL: string): Promise<bool
 ```typescript
 // src/server-http.ts
 const SERVER_CONFIG = {
-  browserURL: args.browserUrl,  // 保存配置
+  browserURL: args.browserUrl, // 保存配置
   port: port,
 };
 
@@ -265,7 +282,7 @@ if (browser && SERVER_CONFIG.browserURL) {
   const isConnected = await verifyBrowserConnection(SERVER_CONFIG.browserURL);
   if (!isConnected) {
     console.warn('[HTTP] Browser disconnected, reconnecting...');
-    browser = undefined;  // 清除旧连接
+    browser = undefined; // 清除旧连接
   }
 }
 ```
@@ -279,20 +296,20 @@ if (browser && SERVER_CONFIG.browserURL) {
 export class BrowserManager {
   private browser?: Browser;
   private config: BrowserConfig;
-  
+
   constructor(config: BrowserConfig) {
     this.config = config;
   }
-  
+
   async connect(): Promise<Browser> {
     if (this.browser?.connected) {
       return this.browser;
     }
-    
+
     this.browser = await puppeteer.connect({
       browserURL: this.config.browserURL,
     });
-    
+
     return this.browser;
   }
 }
@@ -400,4 +417,3 @@ curl -s http://localhost:9226/json/list | jq '[.[] | select(.type == "service_wo
 
 **诊断完成**: 2025-10-16 14:10  
 **状态**: ⚠️ 需要重启服务 + 代码改进
-

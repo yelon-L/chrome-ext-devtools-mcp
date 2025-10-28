@@ -9,13 +9,13 @@
 
 ## 📊 测试结果总览
 
-| 类别 | 工具数 | 成功 | 失败 | 成功率 |
-|------|--------|------|------|--------|
-| 浏览器信息 | 3 | 3 | 0 | 100% |
-| 页面操作 | 10 | 10 | 0 | 100% |
-| 扩展管理 | 7 | 7 | 0 | 100% |
-| 扩展诊断 | 3 | 1 | 2 | 33% |
-| **总计** | **23** | **21** | **2** | **91%** |
+| 类别       | 工具数 | 成功   | 失败  | 成功率  |
+| ---------- | ------ | ------ | ----- | ------- |
+| 浏览器信息 | 3      | 3      | 0     | 100%    |
+| 页面操作   | 10     | 10     | 0     | 100%    |
+| 扩展管理   | 7      | 7      | 0     | 100%    |
+| 扩展诊断   | 3      | 1      | 2     | 33%     |
+| **总计**   | **23** | **21** | **2** | **91%** |
 
 ---
 
@@ -24,49 +24,61 @@
 ### 1. 浏览器信息类（3/3）✅
 
 #### ✅ get_connected_browser
+
 ```
 Browser URL: http://localhost:9222
 Version: Chrome/141.0.7390.76
 Open Pages: 1
 ```
+
 **状态**: 正常  
 **性能**: < 100ms
 
 #### ✅ list_browser_capabilities（已优化）
+
 ```
 Browser Version: Chrome/141.0.7390.76
 CDP Domains: 45
 Available Domains:
 - Accessibility, Animation, Audits...
 ```
+
 **状态**: ✅ 优化生效  
-**改进**: 
+**改进**:
+
 - 无 Schema.getDomains 警告
 - 代码从 80+ 行简化到 30 行
 - 性能提升 80%
 - 始终成功，无错误
 
 #### ✅ list_pages
+
 ```
 0: chrome-extension://xxx/test-video-asr.html
 1: https://example.com/ [selected]
 ```
+
 **状态**: 正常
 
 ### 2. 页面操作类（10/10）✅
 
 #### ✅ new_page
+
 ```
 成功创建: https://example.com/
 ```
+
 **状态**: 正常
 
 #### ✅ navigate_page（已优化）
+
 ```
 成功导航到: https://httpbin.org/html
 ```
+
 **状态**: ✅ 优化生效  
 **改进**:
+
 - 使用 waitUntil: 'domcontentloaded'
 - 速度提升 30-50%
 - 描述中说明网络依赖
@@ -75,84 +87,107 @@ Available Domains:
 **测试场景**: 访问 httpbin.org - 成功（之前 google.com 超时）
 
 #### ✅ select_page
+
 ```
 成功选择页面 1
 ```
+
 **状态**: 正常
 
 #### ✅ take_snapshot
+
 ```
 uid=4_0 RootWebArea "Example Domains"
   uid=4_1 link "Homepage"
   ...67 个元素
 ```
+
 **状态**: 正常  
 **性能**: < 500ms
 
 #### ✅ evaluate_script
+
 ```javascript
 () => { return { title: document.title, url: window.location.href }; }
 返回: {"title":"Example Domain","url":"https://example.com/"}
 ```
+
 **状态**: 正常
 
 #### ✅ take_screenshot
+
 ```
 成功截图，PNG 格式
 ```
+
 **状态**: 正常  
 **文件大小**: ~50KB
 
 #### ✅ close_page
+
 ```
 成功关闭页面 1
 ```
+
 **状态**: 正常
 
 #### ✅ navigate_page_history
+
 ```
 成功后退到: about:blank
 ```
+
 **状态**: 正常
 
 #### ✅ click
+
 ```
 Successfully clicked on the element
 页面导航到: https://www.iana.org/help/example-domains
 ```
+
 **状态**: 正常  
 **注意**: 需要使用最新的 snapshot uid
 
 #### ✅ list_network_requests
+
 ```
 Showing 1-5 of 5
 https://www.iana.org/help/example-domains GET [success - 200]
 https://www.iana.org/static/_css/2025.01/iana_website.css GET [success - 200]
 ...
 ```
+
 **状态**: 正常
 
 #### ✅ resize_page
+
 ```
 成功调整到: 1280x720
 ```
+
 **状态**: 正常
 
 #### ✅ emulate_network
+
 ```
 设置为: No emulation
 ```
+
 **状态**: 正常
 
 #### ✅ emulate_cpu
+
 ```
 设置为: 1x (无限制)
 ```
+
 **状态**: 正常
 
 ### 3. 扩展管理类（7/7）✅
 
 #### ✅ list_extensions
+
 ```
 Video SRT Ext MVP
 - ID: lnidiajhkakibgicoamnbmfedgpmpafj
@@ -160,9 +195,11 @@ Video SRT Ext MVP
 - Manifest Version: 3
 - Service Worker: 🟢 Active
 ```
+
 **状态**: 正常
 
 #### ✅ get_extension_details
+
 ```
 完整显示扩展信息：
 - 基本信息
@@ -170,51 +207,64 @@ Video SRT Ext MVP
 - 3 个 Host 权限
 - Background 脚本 URL
 ```
+
 **状态**: 正常
 
 #### ✅ list_extension_contexts
+
 ```
 找到 2 个上下文:
 - BACKGROUND (Service Worker)
 - CONTENT_SCRIPT (扩展页面)
 ```
+
 **状态**: 正常
 
 #### ✅ activate_extension_service_worker
+
 ```
 ✅ Successfully activated: 1 / 1
 Status: (was active)
 ```
+
 **状态**: 正常
 
 #### ✅ diagnose_extension_errors
+
 ```
 ✅ No errors detected!
 Service Worker is active
 2 active context(s)
 ```
+
 **状态**: 正常
 
 #### ✅ get_extension_logs
+
 ```
 Total: 0 entries
 No logs found (正常情况)
 ```
+
 **状态**: 正常
 
 #### ✅ inspect_extension_storage
+
 ```
 Storage Usage: 0 / 5242880 bytes (0.00%)
 No data stored
 ```
+
 **状态**: 正常
 
 ### 4. 其他工具（1/1）✅
 
 #### ✅ list_console_messages
+
 ```
 <no console messages found>
 ```
+
 **状态**: 正常
 
 ---
@@ -224,6 +274,7 @@ No data stored
 ### 1. inspect_extension_manifest（已优化错误提示）
 
 **错误信息**（优化后）:
+
 ```
 ⚠️ **Unavailable**: Manifest not available
 
@@ -232,7 +283,7 @@ No data stored
 **Reason**: Extension manifest data is being loaded or unavailable
 
 **Why this happens**:
-Extension manifest data is loaded asynchronously from Chrome. 
+Extension manifest data is loaded asynchronously from Chrome.
 On first access, the data may not be ready yet.
 
 **What you can do right now**:
@@ -243,16 +294,22 @@ On first access, the data may not be ready yet.
 
 **Alternative approach**:
 ```
+
 # Step 1: Get basic info (works immediately)
+
 get_extension_details(extensionId="lnidiajhkakibgicoamnbmfedgpmpafj")
 
 # Step 2: Wait a moment, then try detailed analysis
+
 inspect_extension_manifest(extensionId="lnidiajhkakibgicoamnbmfedgpmpafj")
+
 ```
+
 ```
 
 **状态**: ✅ 优化生效  
 **改进效果**:
+
 - ✅ 清楚解释失败原因（异步加载）
 - ✅ 提供 3 个立即可用的替代工具
 - ✅ 给出 step-by-step 操作引导
@@ -276,14 +333,15 @@ inspect_extension_manifest(extensionId="lnidiajhkakibgicoamnbmfedgpmpafj")
 
 ### 优化 1: list_browser_capabilities
 
-| 指标 | 优化前 | 优化后 | 验证结果 |
-|------|--------|--------|----------|
-| 代码行数 | 80+ 行 | 30 行 | ✅ 已验证 |
-| 警告信息 | ⚠️ Schema.getDomains unavailable | 无警告 | ✅ 已验证 |
-| 性能 | ~500ms | ~100ms | ✅ 已验证 |
-| 可靠性 | 可能失败 | 始终成功 | ✅ 已验证 |
+| 指标     | 优化前                           | 优化后   | 验证结果  |
+| -------- | -------------------------------- | -------- | --------- |
+| 代码行数 | 80+ 行                           | 30 行    | ✅ 已验证 |
+| 警告信息 | ⚠️ Schema.getDomains unavailable | 无警告   | ✅ 已验证 |
+| 性能     | ~500ms                           | ~100ms   | ✅ 已验证 |
+| 可靠性   | 可能失败                         | 始终成功 | ✅ 已验证 |
 
 **测试输出**:
+
 ```
 Browser Version: Chrome/141.0.7390.76
 CDP Domains: 45
@@ -295,14 +353,15 @@ These are the standard Chrome DevTools Protocol domains.
 
 ### 优化 2: navigate_page
 
-| 指标 | 优化前 | 优化后 | 验证结果 |
-|------|--------|--------|----------|
-| 描述 | 无网络说明 | 说明网络依赖 | ✅ 已验证 |
-| 加载策略 | load | domcontentloaded | ✅ 已验证 |
-| 速度 | 慢 | 快 30-50% | ✅ 已验证 |
-| 错误提示 | 技术错误 | 友好故障排查 | ✅ 已验证 |
+| 指标     | 优化前     | 优化后           | 验证结果  |
+| -------- | ---------- | ---------------- | --------- |
+| 描述     | 无网络说明 | 说明网络依赖     | ✅ 已验证 |
+| 加载策略 | load       | domcontentloaded | ✅ 已验证 |
+| 速度     | 慢         | 快 30-50%        | ✅ 已验证 |
+| 错误提示 | 技术错误   | 友好故障排查     | ✅ 已验证 |
 
 **测试场景**: 导航到 httpbin.org/html - 成功
+
 - 优化前可能超时
 - 优化后快速完成
 - 使用 domcontentloaded 策略
@@ -311,14 +370,15 @@ These are the standard Chrome DevTools Protocol domains.
 
 ### 优化 3: inspect_extension_manifest
 
-| 指标 | 优化前 | 优化后 | 验证结果 |
-|------|--------|--------|----------|
-| 原因说明 | 模糊 | 清晰（异步加载）| ✅ 已验证 |
-| 替代方案 | 无 | 3 个工具 | ✅ 已验证 |
-| 操作引导 | 无 | Step-by-step | ✅ 已验证 |
-| 命令示例 | 无 | 复制即用 | ✅ 已验证 |
+| 指标     | 优化前 | 优化后           | 验证结果  |
+| -------- | ------ | ---------------- | --------- |
+| 原因说明 | 模糊   | 清晰（异步加载） | ✅ 已验证 |
+| 替代方案 | 无     | 3 个工具         | ✅ 已验证 |
+| 操作引导 | 无     | Step-by-step     | ✅ 已验证 |
+| 命令示例 | 无     | 复制即用         | ✅ 已验证 |
 
 **测试输出**: 优化后的错误提示包含：
+
 - Why this happens（原因）
 - What you can do right now（立即可用的方案）
 - Alternative approach（具体步骤）
@@ -345,12 +405,14 @@ These are the standard Chrome DevTools Protocol domains.
 **2 个失败工具都是相同原因**: Manifest 数据异步加载延迟
 
 **不是代码缺陷**:
+
 - ✅ 错误处理正确实现
 - ✅ 用户提示友好清晰
 - ✅ 提供替代方案
 - ✅ 不会导致服务崩溃
 
 **用户体验**:
+
 - 优化前: ❌ 用户困惑，不知道怎么办
 - 优化后: ✅ 用户清楚知道立即可以做什么
 
@@ -360,19 +422,19 @@ These are the standard Chrome DevTools Protocol domains.
 
 ### 响应时间
 
-| 工具类型 | 平均响应时间 | 评价 |
-|----------|-------------|------|
-| 信息查询 | < 100ms | ⭐⭐⭐⭐⭐ |
-| 页面操作 | 500ms-2s | ⭐⭐⭐⭐ |
-| 导航操作 | 1-3s | ⭐⭐⭐⭐ |
-| CDP 操作 | < 500ms | ⭐⭐⭐⭐⭐ |
+| 工具类型 | 平均响应时间 | 评价       |
+| -------- | ------------ | ---------- |
+| 信息查询 | < 100ms      | ⭐⭐⭐⭐⭐ |
+| 页面操作 | 500ms-2s     | ⭐⭐⭐⭐   |
+| 导航操作 | 1-3s         | ⭐⭐⭐⭐   |
+| CDP 操作 | < 500ms      | ⭐⭐⭐⭐⭐ |
 
 ### 优化前后对比
 
-| 工具 | 优化前 | 优化后 | 提升 |
-|------|--------|--------|------|
-| list_browser_capabilities | ~500ms | ~100ms | ↑80% |
-| navigate_page | 慢 | 快 | ↑30-50% |
+| 工具                      | 优化前 | 优化后 | 提升    |
+| ------------------------- | ------ | ------ | ------- |
+| list_browser_capabilities | ~500ms | ~100ms | ↑80%    |
+| navigate_page             | 慢     | 快     | ↑30-50% |
 
 ---
 
@@ -393,13 +455,15 @@ These are the standard Chrome DevTools Protocol domains.
 **测试**: example.com → click link → iana.org/help/example-domains
 
 **结果**: ✅ 成功
+
 - click 工具正常
 - 页面正确导航
 - 网络请求被捕获
 
 ### 场景 3: 网络模拟
 
-**测试**: 
+**测试**:
+
 - emulate_network: No emulation
 - emulate_cpu: 1x (无限制)
 
@@ -410,6 +474,7 @@ These are the standard Chrome DevTools Protocol domains.
 ## ✅ 验收标准
 
 ### 核心功能
+
 - [x] 浏览器连接和信息查询（100%）
 - [x] 页面创建和操作（100%）
 - [x] 导航和交互（100%）
@@ -418,12 +483,14 @@ These are the standard Chrome DevTools Protocol domains.
 - [x] 网络和性能监控（100%）
 
 ### 优化效果
+
 - [x] list_browser_capabilities 简化生效
 - [x] navigate_page 速度提升验证
 - [x] inspect_extension_manifest 错误提示改进
 - [x] 所有优化均正常工作
 
 ### 用户体验
+
 - [x] 错误信息友好清晰
 - [x] 提供替代方案和引导
 - [x] 不会让用户卡住
@@ -436,6 +503,7 @@ These are the standard Chrome DevTools Protocol domains.
 ### 1. ✅ 优化完全生效
 
 所有三个优化都在实际测试中验证：
+
 - list_browser_capabilities: 无警告，更快
 - navigate_page: 成功导航，速度提升
 - inspect_extension_manifest: 友好的错误引导
@@ -447,6 +515,7 @@ These are the standard Chrome DevTools Protocol domains.
 ### 3. ✅ 错误处理优秀
 
 失败的工具都有：
+
 - 清晰的原因说明
 - 立即可用的替代方案
 - Step-by-step 操作指引
@@ -478,12 +547,12 @@ These are the standard Chrome DevTools Protocol domains.
 
 ### 改进总结
 
-| 指标 | 优化前 | 优化后 | 提升 |
-|------|--------|--------|------|
-| 成功率 | 83% | 91% | ↑8% |
-| 代码行数 | 150+ | 90 | ↓40% |
-| 用户困惑度 | 高 | 低 | ↓90% |
-| 性能 | 一般 | 良好 | ↑30-80% |
+| 指标       | 优化前 | 优化后 | 提升    |
+| ---------- | ------ | ------ | ------- |
+| 成功率     | 83%    | 91%    | ↑8%     |
+| 代码行数   | 150+   | 90     | ↓40%    |
+| 用户困惑度 | 高     | 低     | ↓90%    |
+| 性能       | 一般   | 良好   | ↑30-80% |
 
 ---
 
@@ -521,4 +590,3 @@ These are the standard Chrome DevTools Protocol domains.
 **测试工具数**: 23  
 **成功率**: 91%  
 **状态**: ✅ 通过
-

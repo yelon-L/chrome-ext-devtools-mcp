@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * 调试脚本：查看 Offscreen Document 的实际 CDP target type
  */
 
@@ -10,7 +16,7 @@ const CDP_PORT = 9225;
 
 async function main() {
   console.log('🔍 连接到 Chrome...');
-  
+
   const browser = await puppeteer.connect({
     browserURL: `http://localhost:${CDP_PORT}`,
     defaultViewport: null,
@@ -20,7 +26,7 @@ async function main() {
 
   // 获取所有 targets
   const targets = await browser.targets();
-  
+
   console.log(`📋 找到 ${targets.length} 个 targets\n`);
 
   // 过滤扩展相关的 targets
@@ -34,7 +40,7 @@ async function main() {
   for (const target of extensionTargets) {
     const url = target.url();
     const type = target.type();
-    
+
     console.log(`  Type: ${type}`);
     console.log(`  URL:  ${url}`);
     console.log(`  ID:   ${(target as any)._targetId}`);
@@ -43,12 +49,14 @@ async function main() {
 
   // 使用 CDP 直接查询
   console.log('📡 使用 CDP Target.getTargets 查询:\n');
-  
-  const client = await (browser as any)._connection.createSession((browser as any)._targetId);
+
+  const client = await (browser as any)._connection.createSession(
+    (browser as any)._targetId,
+  );
   const result = await client.send('Target.getTargets');
-  
-  const cdpExtensionTargets = result.targetInfos.filter((t: any) => 
-    t.url?.includes(EXTENSION_ID)
+
+  const cdpExtensionTargets = result.targetInfos.filter((t: any) =>
+    t.url?.includes(EXTENSION_ID),
   );
 
   console.log(`🎯 CDP 扩展相关 targets (${cdpExtensionTargets.length}):\n`);

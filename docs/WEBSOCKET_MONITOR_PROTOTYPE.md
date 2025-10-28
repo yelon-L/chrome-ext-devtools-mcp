@@ -10,7 +10,7 @@
 
 **文件**: `src/tools/websocket-monitor.ts`
 
-```typescript
+````typescript
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -93,7 +93,9 @@ which provide access to the actual frame data that HTTPRequest API does not expo
     filterUrl: z
       .string()
       .optional()
-      .describe('Filter frames by WebSocket URL pattern (case-insensitive substring match).'),
+      .describe(
+        'Filter frames by WebSocket URL pattern (case-insensitive substring match).',
+      ),
     maxFrames: z
       .number()
       .positive()
@@ -107,7 +109,8 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       .describe('Include control frames (ping/pong/close). Default is false.'),
   },
   handler: async (request, response, context) => {
-    const {duration, filterUrl, maxFrames, includeControlFrames} = request.params;
+    const {duration, filterUrl, maxFrames, includeControlFrames} =
+      request.params;
 
     const page = context.getSelectedPage();
     let client: CDPSession | null = null;
@@ -115,7 +118,7 @@ which provide access to the actual frame data that HTTPRequest API does not expo
     try {
       // 1. 创建 CDP Session
       client = await page.target().createCDPSession();
-      
+
       // 2. 启用 Network 域
       await client.send('Network.enable');
 
@@ -130,15 +133,22 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       // 4. 监听接收帧事件
       client.on('Network.webSocketFrameReceived', (event: any) => {
         const url = websocketUrls.get(event.requestId);
-        
+
         // URL 过滤
-        if (filterUrl && url && !url.toLowerCase().includes(filterUrl.toLowerCase())) {
+        if (
+          filterUrl &&
+          url &&
+          !url.toLowerCase().includes(filterUrl.toLowerCase())
+        ) {
           return;
         }
 
         // 控制帧过滤
         const opcode = event.response.opcode;
-        if (!includeControlFrames && (opcode === 8 || opcode === 9 || opcode === 10)) {
+        if (
+          !includeControlFrames &&
+          (opcode === 8 || opcode === 9 || opcode === 10)
+        ) {
           return;
         }
 
@@ -160,15 +170,22 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       // 5. 监听发送帧事件
       client.on('Network.webSocketFrameSent', (event: any) => {
         const url = websocketUrls.get(event.requestId);
-        
+
         // URL 过滤
-        if (filterUrl && url && !url.toLowerCase().includes(filterUrl.toLowerCase())) {
+        if (
+          filterUrl &&
+          url &&
+          !url.toLowerCase().includes(filterUrl.toLowerCase())
+        ) {
           return;
         }
 
         // 控制帧过滤
         const opcode = event.response.opcode;
-        if (!includeControlFrames && (opcode === 8 || opcode === 9 || opcode === 10)) {
+        if (
+          !includeControlFrames &&
+          (opcode === 8 || opcode === 9 || opcode === 10)
+        ) {
           return;
         }
 
@@ -192,7 +209,9 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       if (filterUrl) {
         response.appendResponseLine(`**URL Filter**: ${filterUrl}`);
       }
-      response.appendResponseLine(`**Started**: ${new Date().toLocaleString()}\n`);
+      response.appendResponseLine(
+        `**Started**: ${new Date().toLocaleString()}\n`,
+      );
       response.appendResponseLine('⏳ Capturing frames...\n');
 
       // 6. 等待指定时间
@@ -201,30 +220,45 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       // 7. 格式化输出
       response.appendResponseLine(`\n## Capture Summary\n`);
       response.appendResponseLine(`**Total Frames**: ${frames.length}`);
-      
+
       const sentCount = frames.filter(f => f.direction === 'sent').length;
-      const receivedCount = frames.filter(f => f.direction === 'received').length;
-      
+      const receivedCount = frames.filter(
+        f => f.direction === 'received',
+      ).length;
+
       response.appendResponseLine(`- 📤 **Sent**: ${sentCount}`);
       response.appendResponseLine(`- 📥 **Received**: ${receivedCount}\n`);
 
       if (frames.length === 0) {
-        response.appendResponseLine('*No WebSocket frames captured during monitoring period.*\n');
+        response.appendResponseLine(
+          '*No WebSocket frames captured during monitoring period.*\n',
+        );
         response.appendResponseLine('**Possible reasons**:');
-        response.appendResponseLine('- No WebSocket connections are active on this page');
-        response.appendResponseLine('- WebSocket traffic did not occur during the monitoring window');
-        response.appendResponseLine('- URL filter did not match any WebSocket connections');
-        response.appendResponseLine('\n**Tip**: Ensure WebSocket connection is established and active before monitoring.');
+        response.appendResponseLine(
+          '- No WebSocket connections are active on this page',
+        );
+        response.appendResponseLine(
+          '- WebSocket traffic did not occur during the monitoring window',
+        );
+        response.appendResponseLine(
+          '- URL filter did not match any WebSocket connections',
+        );
+        response.appendResponseLine(
+          '\n**Tip**: Ensure WebSocket connection is established and active before monitoring.',
+        );
         response.setIncludePages(true);
         return;
       }
 
       // 按类型分组统计
-      const byType = frames.reduce((acc, f) => {
-        const typeName = OPCODE_NAMES[f.opcode] || `unknown(${f.opcode})`;
-        acc[typeName] = (acc[typeName] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      const byType = frames.reduce(
+        (acc, f) => {
+          const typeName = OPCODE_NAMES[f.opcode] || `unknown(${f.opcode})`;
+          acc[typeName] = (acc[typeName] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
       response.appendResponseLine('**Frame Types**:');
       for (const [type, count] of Object.entries(byType)) {
@@ -240,20 +274,23 @@ which provide access to the actual frame data that HTTPRequest API does not expo
         const icon = frame.direction === 'sent' ? '📤' : '📥';
         const time = new Date(frame.timestamp * 1000).toLocaleTimeString();
         const typeName = OPCODE_NAMES[frame.opcode] || `opcode ${frame.opcode}`;
-        
-        response.appendResponseLine(`### ${icon} ${frame.direction.toUpperCase()} - ${time}`);
+
+        response.appendResponseLine(
+          `### ${icon} ${frame.direction.toUpperCase()} - ${time}`,
+        );
         response.appendResponseLine(`**Type**: ${typeName}`);
         response.appendResponseLine(`**Masked**: ${frame.mask ? 'Yes' : 'No'}`);
-        
+
         // 限制 payload 显示长度
         let payload = frame.payloadData;
         const isLarge = payload.length > 200;
         if (isLarge) {
           payload = payload.substring(0, 200) + '... (truncated)';
         }
-        
+
         // 尝试解析 JSON
-        if (frame.opcode === 1) { // text frame
+        if (frame.opcode === 1) {
+          // text frame
           try {
             const parsed = JSON.parse(frame.payloadData);
             response.appendResponseLine('**Payload** (JSON):');
@@ -263,27 +300,37 @@ which provide access to the actual frame data that HTTPRequest API does not expo
           } catch {
             response.appendResponseLine(`**Payload** (text): ${payload}`);
           }
-        } else if (frame.opcode === 2) { // binary frame
-          response.appendResponseLine(`**Payload** (binary, ${frame.payloadData.length} bytes): ${payload.substring(0, 50)}...`);
+        } else if (frame.opcode === 2) {
+          // binary frame
+          response.appendResponseLine(
+            `**Payload** (binary, ${frame.payloadData.length} bytes): ${payload.substring(0, 50)}...`,
+          );
         } else {
           response.appendResponseLine(`**Payload**: ${payload}`);
         }
-        
+
         response.appendResponseLine('');
       }
 
       if (frames.length > 50) {
-        response.appendResponseLine(`\n*Showing first 50 of ${frames.length} frames*`);
+        response.appendResponseLine(
+          `\n*Showing first 50 of ${frames.length} frames*`,
+        );
       }
 
       response.appendResponseLine('\n**Tips**:');
-      response.appendResponseLine('- Use `filterUrl` to focus on specific WebSocket connections');
-      response.appendResponseLine('- Adjust `duration` based on expected traffic frequency');
-      response.appendResponseLine('- Set `includeControlFrames: true` to see ping/pong activity');
-
+      response.appendResponseLine(
+        '- Use `filterUrl` to focus on specific WebSocket connections',
+      );
+      response.appendResponseLine(
+        '- Adjust `duration` based on expected traffic frequency',
+      );
+      response.appendResponseLine(
+        '- Set `includeControlFrames: true` to see ping/pong activity',
+      );
     } catch (error) {
       response.appendResponseLine(
-        `Unable to monitor WebSocket traffic. ${error instanceof Error ? error.message : String(error)}`
+        `Unable to monitor WebSocket traffic. ${error instanceof Error ? error.message : String(error)}`,
       );
     } finally {
       // 9. 清理 CDP Session
@@ -299,7 +346,7 @@ which provide access to the actual frame data that HTTPRequest API does not expo
     response.setIncludePages(true);
   },
 });
-```
+````
 
 ### 2. 注册工具
 
@@ -312,12 +359,12 @@ import {monitorWebSocketTraffic} from './websocket-monitor.js';
 // 在 TOOL_REGISTRY 中添加
 export const TOOL_REGISTRY: ToolDefinition<ToolInputSchema>[] = [
   // ... existing tools ...
-  
+
   // Network tools
   listNetworkRequests,
   getNetworkRequest,
   monitorWebSocketTraffic, // 🆕 新增
-  
+
   // ... rest of tools ...
 ];
 ```
@@ -339,14 +386,14 @@ export enum ToolCategories {
 
 ```javascript
 // 1. 打开聊天页面
-navigate_page({ url: 'https://chat.example.com' });
+navigate_page({url: 'https://chat.example.com'});
 
 // 2. 等待 WebSocket 连接建立
 await new Promise(resolve => setTimeout(resolve, 2000));
 
 // 3. 开始监控 30 秒
-monitor_websocket_traffic({ 
-  duration: 30000 
+monitor_websocket_traffic({
+  duration: 30000,
 });
 
 // 4. 在监控期间发送消息（用户手动操作）
@@ -380,10 +427,10 @@ monitor_websocket_traffic({
 
 ```javascript
 // 只监控包含 "api.example.com" 的 WebSocket
-monitor_websocket_traffic({ 
+monitor_websocket_traffic({
   duration: 60000,
   filterUrl: 'api.example.com',
-  maxFrames: 50
+  maxFrames: 50,
 });
 ```
 
@@ -391,9 +438,9 @@ monitor_websocket_traffic({
 
 ```javascript
 // 查看 ping/pong 心跳
-monitor_websocket_traffic({ 
+monitor_websocket_traffic({
   duration: 30000,
-  includeControlFrames: true
+  includeControlFrames: true,
 });
 
 // 输出会包含:
@@ -412,13 +459,13 @@ monitor_websocket_traffic({
 
 ```javascript
 // 使用 websocket.org 的回显服务
-navigate_page({ url: 'https://websocket.org/echo.html' });
+navigate_page({url: 'https://websocket.org/echo.html'});
 
 // 等待页面加载
 await new Promise(resolve => setTimeout(resolve, 3000));
 
 // 开始监控
-monitor_websocket_traffic({ duration: 60000 });
+monitor_websocket_traffic({duration: 60000});
 
 // 手动点击 "Connect" 然后发送消息
 ```
@@ -430,69 +477,73 @@ monitor_websocket_traffic({ duration: 60000 });
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <title>WebSocket Test</title>
-</head>
-<body>
-  <h1>WebSocket Test Page</h1>
-  <button onclick="connect()">Connect</button>
-  <button onclick="send()">Send Message</button>
-  <div id="log"></div>
-  
-  <script>
-    let ws;
-    
-    function connect() {
-      ws = new WebSocket('wss://echo.websocket.org');
-      
-      ws.onopen = () => {
-        log('Connected');
-      };
-      
-      ws.onmessage = (event) => {
-        log('Received: ' + event.data);
-      };
-      
-      ws.onerror = (error) => {
-        log('Error: ' + error);
-      };
-    }
-    
-    function send() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const message = JSON.stringify({
-          type: 'test',
-          timestamp: Date.now(),
-          text: 'Hello WebSocket'
-        });
-        ws.send(message);
-        log('Sent: ' + message);
+  <head>
+    <title>WebSocket Test</title>
+  </head>
+  <body>
+    <h1>WebSocket Test Page</h1>
+    <button onclick="connect()">Connect</button>
+    <button onclick="send()">Send Message</button>
+    <div id="log"></div>
+
+    <script>
+      let ws;
+
+      function connect() {
+        ws = new WebSocket('wss://echo.websocket.org');
+
+        ws.onopen = () => {
+          log('Connected');
+        };
+
+        ws.onmessage = event => {
+          log('Received: ' + event.data);
+        };
+
+        ws.onerror = error => {
+          log('Error: ' + error);
+        };
       }
-    }
-    
-    function log(message) {
-      document.getElementById('log').innerHTML += '<p>' + message + '</p>';
-    }
-  </script>
-</body>
+
+      function send() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const message = JSON.stringify({
+            type: 'test',
+            timestamp: Date.now(),
+            text: 'Hello WebSocket',
+          });
+          ws.send(message);
+          log('Sent: ' + message);
+        }
+      }
+
+      function log(message) {
+        document.getElementById('log').innerHTML += '<p>' + message + '</p>';
+      }
+    </script>
+  </body>
 </html>
 ```
 
 ## 性能考虑
 
 ### 1. 帧数量限制
+
 - 默认限制 100 帧，防止内存溢出
 - 高频应用（游戏）可能每秒数百帧
 
 ### 2. Payload 大小
+
 - 自动截断超过 200 字符的 payload
 - 二进制数据只显示前 50 字节
 
 ### 3. Session 清理
+
 - 使用 `finally` 块确保 CDP Session 被正确 detach
 - 避免 Session 泄漏导致内存问题
 
 ### 4. 时间窗口
+
 - 默认 30 秒，可根据需求调整
 - 长时间监控可能捕获大量数据
 
@@ -502,14 +553,14 @@ monitor_websocket_traffic({ duration: 60000 });
 
 ```javascript
 // 1. 先查看所有 WebSocket 连接
-list_network_requests({ 
-  resourceTypes: ['websocket'] 
+list_network_requests({
+  resourceTypes: ['websocket'],
 });
 
 // 2. 针对性监控
-monitor_websocket_traffic({ 
+monitor_websocket_traffic({
   filterUrl: '<从步骤1找到的URL>',
-  duration: 60000
+  duration: 60000,
 });
 ```
 
@@ -521,7 +572,7 @@ monitor_websocket_traffic({
 // 在 diagnostics.ts 中
 if (extensionUsesWebSocket) {
   response.appendResponseLine(
-    '💡 **Tip**: Use `monitor_websocket_traffic` to inspect WebSocket communication'
+    '💡 **Tip**: Use `monitor_websocket_traffic` to inspect WebSocket communication',
   );
 }
 ```
@@ -534,12 +585,14 @@ if (extensionUsesWebSocket) {
 
 ```markdown
 #### `monitor_websocket_traffic`
+
 Monitor real-time WebSocket frame traffic, capturing sent and received messages with full payload content.
 ```
 
 ### 2. 创建专门文档
 
 `docs/WEBSOCKET_DEBUGGING.md`:
+
 - WebSocket 调试最佳实践
 - 常见问题排查
 - 与 HTTP 调试的区别
@@ -556,6 +609,7 @@ Monitor real-time WebSocket frame traffic, capturing sent and received messages 
 ✅ **可扩展**：易于添加新功能（统计、导出等）
 
 实现工作量：**4-6 小时**
+
 - 2h: 核心功能实现
 - 1h: 测试和调试
 - 1h: 文档和示例

@@ -340,7 +340,7 @@ export class ToolRegistry {
   /**
    * 获取最常用的工具
    */
-  getMostUsed(limit: number = 10): ToolUsageStats[] {
+  getMostUsed(limit = 10): ToolUsageStats[] {
     return this.getAllStats()
       .sort((a, b) => b.callCount - a.callCount)
       .slice(0, limit);
@@ -349,7 +349,7 @@ export class ToolRegistry {
   /**
    * 获取成功率最高的工具
    */
-  getMostReliable(limit: number = 10, minCalls: number = 10): ToolUsageStats[] {
+  getMostReliable(limit = 10, minCalls = 10): ToolUsageStats[] {
     return this.getAllStats()
       .filter(stat => stat.callCount >= minCalls)
       .sort((a, b) => {

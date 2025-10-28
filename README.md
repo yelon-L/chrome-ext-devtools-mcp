@@ -11,6 +11,7 @@
 Enhanced from Google's [chrome-devtools-mcp](https://github.com/google/chrome-devtools-mcp) with improved extension debugging capabilities, multi-tenant support, and production-ready features.
 
 > **🎉 What's New in v0.8.5**
+>
 > - **Critical Fix:** Resolved session management race condition (100% → 0% error rate)
 > - **Enhanced Help:** Complete Multi-Tenant mode documentation in `--help`
 > - **Internationalization:** English logging for better accessibility
@@ -21,14 +22,16 @@ Enhanced from Google's [chrome-devtools-mcp](https://github.com/google/chrome-de
 ## ✨ Core Features
 
 ### 🔌 Extension Debugging (12 Professional Tools)
+
 - **Service Worker Activation** - Essential for MV3 extension debugging
 - **Storage Inspection** - Supports local/sync/session/managed
 - **Context Switching** - Background/Popup/Content Script
 - **Message Monitoring** - Track runtime.sendMessage
-- **API Tracing** - Chrome.* API call logging
+- **API Tracing** - Chrome.\* API call logging
 - **Log Collection** - Unified logs from all contexts
 
 ### 🚀 Multi-Tenant Mode (Enterprise-Grade)
+
 - **10-100 Concurrent Users** - Isolated sessions
 - **Token Authentication** - crypto.randomBytes generation
 - **IP Whitelist** - ALLOWED_IPS security control
@@ -37,6 +40,7 @@ Enhanced from Google's [chrome-devtools-mcp](https://github.com/google/chrome-de
 - **Performance Tracking** - Request ID correlation
 
 ### 🛠️ Browser Automation (26 Tools)
+
 - **Page Management** - Navigate, refresh, close
 - **Input Interaction** - Click, type, select
 - **Performance Analysis** - Lighthouse insights
@@ -170,23 +174,23 @@ bash scripts/start-http-mcp.sh
 
 ### 🔌 Extension Debugging (12 Tools)
 
-| Tool | Description |
-|------|-------------|
-| `list_extensions` | List all extensions |
-| `get_extension_details` | Get extension details |
-| `list_extension_contexts` | List extension contexts |
-| `switch_extension_context` | Switch context |
-| `activate_service_worker` | Activate Service Worker ⭐ |
-| `inspect_extension_storage` | Inspect Storage |
-| `watch_extension_storage` | Watch Storage changes |
-| `get_extension_logs` | Collect logs |
-| `evaluate_in_extension` | Execute code |
-| `reload_extension` | Smart Hot Reload (Enhanced) ⭐⭐⭐⭐⭐ |
-| `diagnose_extension_errors` | Error Diagnostics (New) ⭐⭐⭐⭐⭐ |
-| `inspect_extension_manifest` | Deep Manifest Check (New) ⭐⭐⭐⭐ |
-| `check_content_script_injection` | Content Script Check (New) ⭐⭐⭐⭐ |
-| `monitor_extension_messages` | Monitor messages |
-| `trace_extension_api_calls` | Trace API calls |
+| Tool                             | Description                            |
+| -------------------------------- | -------------------------------------- |
+| `list_extensions`                | List all extensions                    |
+| `get_extension_details`          | Get extension details                  |
+| `list_extension_contexts`        | List extension contexts                |
+| `switch_extension_context`       | Switch context                         |
+| `activate_service_worker`        | Activate Service Worker ⭐             |
+| `inspect_extension_storage`      | Inspect Storage                        |
+| `watch_extension_storage`        | Watch Storage changes                  |
+| `get_extension_logs`             | Collect logs                           |
+| `evaluate_in_extension`          | Execute code                           |
+| `reload_extension`               | Smart Hot Reload (Enhanced) ⭐⭐⭐⭐⭐ |
+| `diagnose_extension_errors`      | Error Diagnostics (New) ⭐⭐⭐⭐⭐     |
+| `inspect_extension_manifest`     | Deep Manifest Check (New) ⭐⭐⭐⭐     |
+| `check_content_script_injection` | Content Script Check (New) ⭐⭐⭐⭐    |
+| `monitor_extension_messages`     | Monitor messages                       |
+| `trace_extension_api_calls`      | Trace API calls                        |
 
 ### 🌐 Browser Automation (26 Tools)
 
@@ -194,30 +198,37 @@ bash scripts/start-http-mcp.sh
 <summary>Click to expand full list</summary>
 
 **Page Management (8 tools)**
+
 - `list_pages`, `new_page`, `close_page`
 - `navigate_to_url`, `navigate_forward`, `navigate_back`
 - `reload_page`, `get_current_url`
 
 **Input Interaction (6 tools)**
+
 - `click_element`, `fill_element`, `select_option`
 - `upload_file`, `press_key`, `handle_dialog`
 
 **Performance Analysis (3 tools)**
+
 - `performance_start_trace`, `performance_stop_trace`
 - `performance_analyze_insight`
 
 **Network Monitoring (3 tools)**
+
 - `list_network_requests`, `emulate_network`
 - `monitor_websocket_traffic` - Real-time WebSocket frame monitoring
 
 **Screenshot & Snapshot (2 tools)**
+
 - `take_screenshot`, `take_snapshot`
 
 **Debugging Tools (3 tools)**
+
 - `list_console_messages`, `evaluate_script`
 - `emulate_device`
 
 **Others (2 tools)**
+
 - `wait_for`, `accessibility_snapshot`
 
 </details>
@@ -229,12 +240,14 @@ bash scripts/start-http-mcp.sh
 ### Environment Variables
 
 #### stdio Mode
+
 ```bash
 DEBUG=mcp:*                # Enable debug logs
 NODE_ENV=production        # Production mode
 ```
 
 #### Multi-tenant Mode
+
 ```bash
 # Server Configuration
 PORT=32122                                      # Server port
@@ -296,6 +309,7 @@ SESSION_TIMEOUT=1800000                         # Session timeout (30 min)
 ```
 
 **Key Features:**
+
 - ✅ **Session Isolation** - Independent session per user
 - ✅ **Connection Pool** - Auto health check and reconnect
 - ✅ **Concurrency Control** - Session-level mutex
@@ -325,18 +339,21 @@ npm run server:multi-tenant
 ## 📚 Documentation
 
 ### User Guides
+
 - [Multi-Tenant Quick Start](docs/guides/MULTI_TENANT_QUICK_START.md) - Get started in 5 minutes
 - [Multi-Tenant Architecture](docs/guides/MULTI_TENANT_ARCHITECTURE.md) - System design
 - [LAN Deployment Best Practices](docs/guides/MULTI_TENANT_LAN_BEST_PRACTICES.md) - Team deployment
 - [Testing Instructions](docs/guides/TEST_INSTRUCTIONS.md) - How to test
 
 ### Developer Docs
+
 - [Contributing Guide](CONTRIBUTING.md) - How to contribute
 - [Release Guide](RELEASE.md) - Version release steps
 - [Scripts Documentation](scripts/README.md) - Build scripts guide
 - [Documentation Index](docs/README.md) - Full documentation index
 
 ### Deployment Docs
+
 - [Deployment Checklist](docs/guides/DEPLOYMENT_CHECKLIST.md) - Production deployment
 - [Security Best Practices](#-security-best-practices) - Security configuration
 
@@ -402,22 +419,22 @@ ls -lh dist/
 
 ### Multi-Tenant Mode
 
-| Metric | Value |
-|--------|-------|
-| **Concurrent Users** | 10-100 |
-| **P50 Latency** | < 50ms |
-| **P99 Latency** | < 500ms |
-| **Memory Stability** | Zero leaks |
-| **CPU Utilization** | ~100% (multi-core) |
-| **Throughput Boost** | 10-100x vs stdio |
+| Metric               | Value              |
+| -------------------- | ------------------ |
+| **Concurrent Users** | 10-100             |
+| **P50 Latency**      | < 50ms             |
+| **P99 Latency**      | < 500ms            |
+| **Memory Stability** | Zero leaks         |
+| **CPU Utilization**  | ~100% (multi-core) |
+| **Throughput Boost** | 10-100x vs stdio   |
 
 ### Startup Performance
 
-| Mode | Cold Start | Hot Start |
-|------|-----------|-----------|
-| stdio | ~500ms | ~200ms |
-| Multi-tenant | ~2s | ~1s |
-| Binary | ~300ms | ~100ms |
+| Mode         | Cold Start | Hot Start |
+| ------------ | ---------- | --------- |
+| stdio        | ~500ms     | ~200ms    |
+| Multi-tenant | ~2s        | ~1s       |
+| Binary       | ~300ms     | ~100ms    |
 
 ---
 
@@ -497,12 +514,14 @@ Thanks to all contributors and community support!
 ## 🗺️ Roadmap
 
 ### v0.9.0 (Phase 1 Completed) ✅
+
 - [x] `inspect_extension_manifest` - Deep manifest check ✅
 - [x] `diagnose_extension_errors` - Error diagnostics ✅
 - [x] Enhanced `reload_extension` - Smart hot reload ✅
 - [x] `check_content_script_injection` - Content script check ✅
 
 ### v1.0.0 (Planned)
+
 - [ ] `analyze_extension_permissions` - Permission analysis
 - [ ] `analyze_api_usage` - API usage statistics
 - [ ] Performance monitoring dashboard

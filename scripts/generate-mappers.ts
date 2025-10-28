@@ -8,7 +8,7 @@
 
 /**
  * 自动生成数据库行映射函数
- * 
+ *
  * 使用方式:
  *   npm run generate-mappers
  */
@@ -24,9 +24,9 @@ const __dirname = path.dirname(__filename);
  * 表映射配置
  */
 interface TableMapping {
-  tableName: string;           // 数据库表名
-  typeName: string;            // TypeScript 类型名
-  recordType: string;          // 业务对象类型
+  tableName: string; // 数据库表名
+  typeName: string; // TypeScript 类型名
+  recordType: string; // 业务对象类型
   columns: ColumnMapping[];
 }
 
@@ -34,16 +34,16 @@ interface TableMapping {
  * 列映射配置
  */
 interface ColumnMapping {
-  dbName: string;              // 数据库列名
-  tsName: string;              // TypeScript 属性名
+  dbName: string; // 数据库列名
+  tsName: string; // TypeScript 属性名
   type: 'string' | 'number' | 'boolean' | 'json' | 'timestamp' | 'bigint';
   nullable: boolean;
-  transform?: string;          // 自定义转换函数
+  transform?: string; // 自定义转换函数
 }
 
 /**
  * 表映射配置
- * 
+ *
  * 添加新表时，在这里配置映射规则
  */
 const TABLE_MAPPINGS: TableMapping[] = [
@@ -55,8 +55,18 @@ const TABLE_MAPPINGS: TableMapping[] = [
       {dbName: 'user_id', tsName: 'userId', type: 'string', nullable: false},
       {dbName: 'email', tsName: 'email', type: 'string', nullable: false},
       {dbName: 'username', tsName: 'username', type: 'string', nullable: false},
-      {dbName: 'registered_at', tsName: 'registeredAt', type: 'bigint', nullable: false},
-      {dbName: 'updated_at', tsName: 'updatedAt', type: 'bigint', nullable: true},
+      {
+        dbName: 'registered_at',
+        tsName: 'registeredAt',
+        type: 'bigint',
+        nullable: false,
+      },
+      {
+        dbName: 'updated_at',
+        tsName: 'updatedAt',
+        type: 'bigint',
+        nullable: true,
+      },
       {dbName: 'metadata', tsName: 'metadata', type: 'json', nullable: true},
     ],
   },
@@ -65,14 +75,44 @@ const TABLE_MAPPINGS: TableMapping[] = [
     typeName: 'BrowsersTable',
     recordType: 'BrowserRecordV2',
     columns: [
-      {dbName: 'browser_id', tsName: 'browserId', type: 'string', nullable: false},
+      {
+        dbName: 'browser_id',
+        tsName: 'browserId',
+        type: 'string',
+        nullable: false,
+      },
       {dbName: 'user_id', tsName: 'userId', type: 'string', nullable: false},
-      {dbName: 'browser_url', tsName: 'browserURL', type: 'string', nullable: false},
-      {dbName: 'token_name', tsName: 'tokenName', type: 'string', nullable: false},
+      {
+        dbName: 'browser_url',
+        tsName: 'browserURL',
+        type: 'string',
+        nullable: false,
+      },
+      {
+        dbName: 'token_name',
+        tsName: 'tokenName',
+        type: 'string',
+        nullable: false,
+      },
       {dbName: 'token', tsName: 'token', type: 'string', nullable: false},
-      {dbName: 'created_at_ts', tsName: 'createdAt', type: 'bigint', nullable: false},
-      {dbName: 'last_connected_at', tsName: 'lastConnectedAt', type: 'bigint', nullable: true},
-      {dbName: 'tool_call_count', tsName: 'toolCallCount', type: 'number', nullable: false},
+      {
+        dbName: 'created_at_ts',
+        tsName: 'createdAt',
+        type: 'bigint',
+        nullable: false,
+      },
+      {
+        dbName: 'last_connected_at',
+        tsName: 'lastConnectedAt',
+        type: 'bigint',
+        nullable: true,
+      },
+      {
+        dbName: 'tool_call_count',
+        tsName: 'toolCallCount',
+        type: 'number',
+        nullable: false,
+      },
       {dbName: 'metadata', tsName: 'metadata', type: 'json', nullable: true},
     ],
   },
@@ -83,15 +123,15 @@ const TABLE_MAPPINGS: TableMapping[] = [
  */
 function generateColumnTransform(col: ColumnMapping): string {
   const accessor = `row.${col.dbName}`;
-  
+
   // 自定义转换
   if (col.transform) {
     return col.transform.replace('$value', accessor);
   }
-  
+
   // 标准转换
   let transform = accessor;
-  
+
   switch (col.type) {
     case 'number':
       transform = `Number(${accessor})`;
@@ -108,12 +148,12 @@ function generateColumnTransform(col: ColumnMapping): string {
       transform = `new Date(${accessor})`;
       break;
   }
-  
+
   // 处理可空字段
   if (col.nullable) {
     return `${accessor} ? ${transform} : undefined`;
   }
-  
+
   return transform;
 }
 
@@ -122,7 +162,7 @@ function generateColumnTransform(col: ColumnMapping): string {
  */
 function generateRowMapper(mapping: TableMapping): string {
   const functionName = `map${toPascalCase(mapping.tableName.replace('mcp_', ''))}Row`;
-  
+
   return `
 /**
  * 将数据库行映射为业务对象
@@ -130,9 +170,9 @@ function generateRowMapper(mapping: TableMapping): string {
  */
 export function ${functionName}(row: any): ${mapping.recordType} {
   return {
-${mapping.columns.map(col => 
-  `    ${col.tsName}: ${generateColumnTransform(col)},`
-).join('\n')}
+${mapping.columns
+  .map(col => `    ${col.tsName}: ${generateColumnTransform(col)},`)
+  .join('\n')}
   };
 }
 `;
@@ -171,8 +211,10 @@ import type {UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
 
 `;
 
-  const mappers = TABLE_MAPPINGS.map(mapping => generateRowMapper(mapping)).join('\n');
-  
+  const mappers = TABLE_MAPPINGS.map(mapping =>
+    generateRowMapper(mapping),
+  ).join('\n');
+
   return header + mappers;
 }
 
@@ -183,13 +225,13 @@ function main() {
   try {
     const outputPath = path.join(
       __dirname,
-      '../src/multi-tenant/storage/mappers.generated.ts'
+      '../src/multi-tenant/storage/mappers.generated.ts',
     );
-    
+
     const code = generateFile();
-    
+
     fs.writeFileSync(outputPath, code, 'utf-8');
-    
+
     console.log('✅ 成功生成映射函数:', outputPath);
     console.log(`📊 生成了 ${TABLE_MAPPINGS.length} 个表的映射函数`);
   } catch (error) {

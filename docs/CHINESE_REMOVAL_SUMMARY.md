@@ -50,13 +50,13 @@
 
 ## 📊 Changes Summary
 
-| File | Chinese Strings | Status |
-|------|-----------------|--------|
-| src/browser.ts | 1 | ✅ Fixed |
-| src/server-sse.ts | 13 | ✅ Fixed |
-| src/server-http.ts | 13 | ✅ Fixed |
-| src/utils/paramValidator.ts | 10 | ✅ Fixed |
-| **Total** | **37** | **✅ All Fixed** |
+| File                        | Chinese Strings | Status           |
+| --------------------------- | --------------- | ---------------- |
+| src/browser.ts              | 1               | ✅ Fixed         |
+| src/server-sse.ts           | 13              | ✅ Fixed         |
+| src/server-http.ts          | 13              | ✅ Fixed         |
+| src/utils/paramValidator.ts | 10              | ✅ Fixed         |
+| **Total**                   | **37**          | **✅ All Fixed** |
 
 ---
 
@@ -65,10 +65,12 @@
 ### Tool Descriptions and Response Content
 
 The following files still contain Chinese in:
+
 - Tool descriptions (user-facing, not logs)
 - Response formatted text (intentional for Chinese users)
 
 Files with Chinese tool descriptions:
+
 - `src/tools/ToolMetadata.ts` (73 matches)
 - `src/tools/extension/discovery.ts` (61 matches)
 - `src/tools/extension/manifest-inspector.ts` (47 matches)
@@ -86,6 +88,7 @@ Files with Chinese tool descriptions:
 ### Console Logs (English Only)
 
 All console.log/error/warn now use English:
+
 ```javascript
 ✅ console.log('[Browser] 📡 Connecting to existing browser: ...')
 ✅ console.log('[SSE] ✅ Session established: ...')
@@ -107,6 +110,7 @@ grep -r "console\..*[\u4e00-\u9fa5]" build/src/*.js
 ## 🎯 Impact
 
 ### Before
+
 ```
 [Browser] 📡 连接到已有浏览器: http://192.168.0.201:9242
 [SSE] ✅ 会话建立: abc123
@@ -116,6 +120,7 @@ grep -r "console\..*[\u4e00-\u9fa5]" build/src/*.js
 ```
 
 ### After
+
 ```
 [Browser] 📡 Connecting to existing browser: http://192.168.0.201:9242
 [SSE] ✅ Session established: abc123
@@ -129,6 +134,7 @@ Solutions:
 ## 📝 Guidelines for Future Development
 
 ### ✅ DO (Use English)
+
 - All console.log/error/warn messages
 - Error messages
 - Debug logs
@@ -136,6 +142,7 @@ Solutions:
 - Configuration summaries
 
 ### ⚠️ OPTIONAL (Can use Chinese if needed)
+
 - Tool descriptions (MCP tool metadata)
 - User-facing response text
 - Documentation

@@ -39,12 +39,15 @@
 ### 1.2 核心组件
 
 #### 1.2.1 Session Manager (会话管理器)
+
 **职责**：
+
 - 管理每个客户端的 SSE 连接会话
 - 跟踪会话状态和生命周期
 - 关联会话与用户和浏览器
 
 **数据结构**：
+
 ```typescript
 interface Session {
   sessionId: string;
@@ -59,12 +62,15 @@ interface Session {
 ```
 
 #### 1.2.2 Router Manager (路由管理器)
+
 **职责**：
+
 - 根据用户标识路由请求到正确的浏览器
 - 管理用户到浏览器的映射关系
 - 处理动态路由规则
 
 **数据结构**：
+
 ```typescript
 interface UserBrowserMapping {
   userId: string;
@@ -78,12 +84,15 @@ interface UserBrowserMapping {
 ```
 
 #### 1.2.3 Auth Manager (认证管理器)
+
 **职责**：
+
 - 验证用户身份
 - 管理 Token 和权限
 - 防止未授权访问
 
 **数据结构**：
+
 ```typescript
 interface AuthToken {
   token: string;
@@ -94,13 +103,16 @@ interface AuthToken {
 ```
 
 #### 1.2.4 Browser Connection Pool (浏览器连接池)
+
 **职责**：
+
 - 管理多个浏览器连接
 - 连接健康检查
 - 自动重连机制
 - 连接复用
 
 **数据结构**：
+
 ```typescript
 interface BrowserConnection {
   browserId: string;
@@ -120,12 +132,14 @@ interface BrowserConnection {
 **端点**: `POST /api/register`
 
 **请求头**:
+
 ```
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
 
 **请求体**:
+
 ```json
 {
   "userId": "developer-a",
@@ -138,6 +152,7 @@ Content-Type: application/json
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -152,6 +167,7 @@ Content-Type: application/json
 **端点**: `GET /health`
 
 **响应**:
+
 ```json
 {
   "status": "ok",
@@ -167,6 +183,7 @@ Content-Type: application/json
 **端点**: `GET /api/users/:userId/status`
 
 **响应**:
+
 ```json
 {
   "userId": "developer-a",
@@ -182,6 +199,7 @@ Content-Type: application/json
 **端点**: `GET /sse`
 
 **请求头**:
+
 ```
 X-User-Id: developer-a
 Authorization: Bearer <token>
@@ -234,16 +252,19 @@ Authorization: Bearer <token>
 ## 4. 隔离机制
 
 ### 4.1 会话隔离
+
 - 每个用户有独立的 SSE 会话
 - 会话 ID 唯一标识
 - 会话间不共享状态
 
 ### 4.2 浏览器隔离
+
 - 每个用户连接到自己的浏览器
 - 浏览器连接独立管理
 - 操作不会影响其他用户
 
 ### 4.3 上下文隔离
+
 - 每个会话有独立的 McpContext
 - Tab 操作限制在会话范围内
 - 扩展调试限制在用户浏览器范围
@@ -251,22 +272,26 @@ Authorization: Bearer <token>
 ## 5. 安全设计
 
 ### 5.1 认证机制
+
 - Token 基于认证
 - Token 定期轮换
 - 支持多种认证方式（Basic Auth, API Key, OAuth）
 
 ### 5.2 授权控制
+
 - 基于用户的权限管理
 - 工具级别的访问控制
 - 速率限制
 
 ### 5.3 网络安全
+
 - HTTPS 支持
 - CORS 配置
 - IP 白名单
 - 防火墙规则
 
 ### 5.4 数据安全
+
 - 敏感数据加密
 - 日志脱敏
 - 会话超时自动清理
@@ -274,21 +299,25 @@ Authorization: Bearer <token>
 ## 6. 可靠性设计
 
 ### 6.1 健康检查
+
 - 浏览器连接健康检查（每 30 秒）
 - 会话活跃度检查
 - 自动清理过期会话
 
 ### 6.2 重连机制
+
 - 浏览器断开自动重连
 - 指数退避策略
 - 最大重连次数限制
 
 ### 6.3 错误处理
+
 - 详细错误日志
 - 用户友好的错误消息
 - 故障转移策略
 
 ### 6.4 监控指标
+
 - 活跃会话数
 - 浏览器连接状态
 - API 调用频率
@@ -297,15 +326,18 @@ Authorization: Bearer <token>
 ## 7. 性能优化
 
 ### 7.1 连接复用
+
 - 同一用户的多个会话共享浏览器连接
 - 连接池管理
 
 ### 7.2 请求优化
+
 - 并发请求支持
 - 请求队列管理
 - 超时控制
 
 ### 7.3 资源管理
+
 - 会话自动清理
 - 内存使用监控
 - 连接数限制
@@ -313,16 +345,19 @@ Authorization: Bearer <token>
 ## 8. 扩展性
 
 ### 8.1 水平扩展
+
 - 支持多代理服务器部署
 - 负载均衡
 - 分布式会话管理
 
 ### 8.2 配置化
+
 - 环境变量配置
 - 配置文件支持
 - 动态配置更新
 
 ### 8.3 插件机制
+
 - 认证插件
 - 日志插件
 - 监控插件
@@ -330,6 +365,7 @@ Authorization: Bearer <token>
 ## 9. 部署架构
 
 ### 9.1 单机部署
+
 ```
 MCP Proxy Server (standalone)
 ├── All components in one process
@@ -337,6 +373,7 @@ MCP Proxy Server (standalone)
 ```
 
 ### 9.2 分布式部署
+
 ```
 Load Balancer
   ├── MCP Proxy Server 1

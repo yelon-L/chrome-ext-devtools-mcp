@@ -19,6 +19,7 @@ import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+
 import {captureExtensionLogs, formatCapturedLogs} from './execution.js';
 
 /**

@@ -6,25 +6,27 @@
 ## 📋 概述
 
 多租户服务器支持两种存储后端：
+
 1. **JSONL 文件存储**（默认）- 简单、无需配置
 2. **PostgreSQL 数据库** - 高性能、支持大规模部署
 
 ## 🗄️ 存储后端对比
 
-| 特性 | JSONL 文件 | PostgreSQL |
-|------|-----------|-----------|
-| 配置难度 | ⭐ 简单 | ⭐⭐⭐ 中等 |
-| 性能 | 中等（<1000用户） | 高（>1000用户） |
-| 扩展性 | 受限于单机 | 支持集群 |
-| 备份 | 复制文件 | SQL 导出 |
-| 查询能力 | 受限 | SQL 全功能 |
-| 推荐场景 | 开发/小团队 | 生产/大规模 |
+| 特性     | JSONL 文件        | PostgreSQL      |
+| -------- | ----------------- | --------------- |
+| 配置难度 | ⭐ 简单           | ⭐⭐⭐ 中等     |
+| 性能     | 中等（<1000用户） | 高（>1000用户） |
+| 扩展性   | 受限于单机        | 支持集群        |
+| 备份     | 复制文件          | SQL 导出        |
+| 查询能力 | 受限              | SQL 全功能      |
+| 推荐场景 | 开发/小团队       | 生产/大规模     |
 
 ## 📦 JSONL 文件存储（默认）
 
 ### 配置
 
 默认不需要任何配置，数据存储在：
+
 ```
 .mcp-data/store-v2.jsonl
 ```
@@ -60,6 +62,7 @@ DATA_DIR=./.mcp-data
 ### 安装 PostgreSQL
 
 #### Ubuntu/Debian
+
 ```bash
 sudo apt update
 sudo apt install postgresql postgresql-contrib
@@ -68,6 +71,7 @@ sudo systemctl enable postgresql
 ```
 
 #### CentOS/RHEL
+
 ```bash
 sudo yum install postgresql-server postgresql-contrib
 sudo postgresql-setup initdb
@@ -76,12 +80,14 @@ sudo systemctl enable postgresql
 ```
 
 #### macOS
+
 ```bash
 brew install postgresql
 brew services start postgresql
 ```
 
 #### Docker
+
 ```bash
 docker run -d \
   --name mcp-postgres \
@@ -223,6 +229,7 @@ maintenance_work_mem = 64MB
 ```
 
 重启 PostgreSQL:
+
 ```bash
 sudo systemctl restart postgresql
 ```
@@ -270,7 +277,7 @@ async function migrate() {
             op.data.registeredAt,
             op.data.updatedAt || null,
             JSON.stringify(op.data.metadata || {}),
-          ]
+          ],
         );
       } else if (op.op === 'bind_browser') {
         await pool.query(
@@ -287,7 +294,7 @@ async function migrate() {
             op.data.lastConnectedAt || null,
             op.data.toolCallCount || 0,
             JSON.stringify(op.data.metadata || {}),
-          ]
+          ],
         );
       }
     } catch (error) {
@@ -303,6 +310,7 @@ migrate().catch(console.error);
 ```
 
 运行迁移:
+
 ```bash
 node migrate-to-postgres.js
 ```
@@ -335,6 +343,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO mcp_readonly;
 ### 2. SSL 连接
 
 在 `postgresql.conf` 中启用 SSL:
+
 ```ini
 ssl = on
 ssl_cert_file = 'server.crt'
@@ -342,6 +351,7 @@ ssl_key_file = 'server.key'
 ```
 
 客户端配置:
+
 ```bash
 DB_SSL=true
 DB_SSL_REJECT_UNAUTHORIZED=true
@@ -366,14 +376,14 @@ sudo ufw allow from 192.168.1.100 to any port 5432
 ### 查看连接数
 
 ```sql
-SELECT count(*) FROM pg_stat_activity 
+SELECT count(*) FROM pg_stat_activity
 WHERE datname = 'mcp_devtools';
 ```
 
 ### 查看表大小
 
 ```sql
-SELECT 
+SELECT
   relname AS table_name,
   pg_size_pretty(pg_total_relation_size(relid)) AS total_size
 FROM pg_catalog.pg_statio_user_tables
@@ -383,7 +393,7 @@ ORDER BY pg_total_relation_size(relid) DESC;
 ### 查看慢查询
 
 ```sql
-SELECT 
+SELECT
   query,
   calls,
   total_time,
@@ -397,7 +407,7 @@ LIMIT 10;
 
 ```sql
 -- 删除30天前的未使用浏览器
-DELETE FROM mcp_browsers 
+DELETE FROM mcp_browsers
 WHERE last_connected_at < EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days') * 1000;
 
 -- 真空清理
@@ -440,7 +450,7 @@ FROM pg_stat_user_indexes
 WHERE idx_scan = 0;
 
 -- 检查表膨胀
-SELECT schemaname, tablename, 
+SELECT schemaname, tablename,
   pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
 FROM pg_tables
 WHERE schemaname = 'public';

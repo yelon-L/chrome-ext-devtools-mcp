@@ -26,6 +26,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **输出**：
+
 ```
 📋 Configuration:
    Session: timeout=3600000ms, cleanup=60000ms, persistent=true
@@ -45,6 +46,7 @@ PERSISTENT_MODE=true
 ```
 
 启动服务：
+
 ```bash
 node build/src/multi-tenant/server-multi-tenant.js
 ```
@@ -60,6 +62,7 @@ PERSISTENT_MODE=false
 ```
 
 **输出**：
+
 ```
 📋 Configuration:
    Session: timeout=3600000ms, cleanup=60000ms, persistent=false
@@ -111,12 +114,12 @@ curl http://localhost:32122/health | jq '.sessions'
 
 ## 📊 默认行为规则
 
-| 场景 | MAX_SESSIONS | PERSISTENT_MODE | 结果 |
-|------|--------------|-----------------|------|
-| 开发环境 | 未设置 | 未设置 | ✅ 自动启用 |
-| 多租户 | 100 | 未设置 | ❌ 自动禁用 |
-| 强制启用 | 100 | true | ✅ 显式启用 |
-| 强制禁用 | 未设置 | false | ❌ 显式禁用 |
+| 场景     | MAX_SESSIONS | PERSISTENT_MODE | 结果        |
+| -------- | ------------ | --------------- | ----------- |
+| 开发环境 | 未设置       | 未设置          | ✅ 自动启用 |
+| 多租户   | 100          | 未设置          | ❌ 自动禁用 |
+| 强制启用 | 100          | true            | ✅ 显式启用 |
+| 强制禁用 | 未设置       | false           | ❌ 显式禁用 |
 
 ---
 
@@ -125,6 +128,7 @@ curl http://localhost:32122/health | jq '.sessions'
 ### Q1: 持久模式会导致内存泄漏吗？
 
 **A**: 不会。持久会话仍然可以通过以下方式清理：
+
 - IDE主动断开连接
 - 服务器重启
 - 手动调用清理API
@@ -169,6 +173,7 @@ SESSION_TIMEOUT=1800000  # 30分钟
 ## 📚 完整文档
 
 详细信息请参考：
+
 - **使用指南**: `docs/PERSISTENT_CONNECTION_MODE.md`
 - **实现总结**: `PERSISTENT_CONNECTION_IMPLEMENTATION.md`
 - **环境变量**: `.env.example`

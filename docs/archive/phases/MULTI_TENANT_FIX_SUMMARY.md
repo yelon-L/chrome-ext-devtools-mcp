@@ -11,13 +11,13 @@
 
 根据专家审查报告，完成了以下关键修复：
 
-| 优先级 | 问题 | 状态 | 文件 |
-|--------|------|------|------|
-| **P0** | 同步/异步混用bug | ✅ 已修复 | handlers-v2.ts |
-| **P1** | 指数退避重连策略 | ✅ 已优化 | BrowserConnectionPool.ts |
-| **P1** | LRU缓存实现 | ✅ 已优化 | simple-cache.ts |
-| **P1** | IP白名单安全性 | ✅ 文档说明 | MULTI_TENANT_GUIDE.md |
-| **P1** | SSRF防护 | ✅ 文档说明 | MULTI_TENANT_GUIDE.md |
+| 优先级 | 问题             | 状态        | 文件                     |
+| ------ | ---------------- | ----------- | ------------------------ |
+| **P0** | 同步/异步混用bug | ✅ 已修复   | handlers-v2.ts           |
+| **P1** | 指数退避重连策略 | ✅ 已优化   | BrowserConnectionPool.ts |
+| **P1** | LRU缓存实现      | ✅ 已优化   | simple-cache.ts          |
+| **P1** | IP白名单安全性   | ✅ 文档说明 | MULTI_TENANT_GUIDE.md    |
+| **P1** | SSRF防护         | ✅ 文档说明 | MULTI_TENANT_GUIDE.md    |
 
 **总工作量**: 30分钟  
 **测试状态**: ✅ 全部通过
@@ -33,17 +33,20 @@
 **位置**: `src/multi-tenant/handlers-v2.ts:362`
 
 **修复前**:
+
 ```typescript
-const browser = this.getUnifiedStorage().getBrowserById(browserId);  // ❌ 同步方法
+const browser = this.getUnifiedStorage().getBrowserById(browserId); // ❌ 同步方法
 ```
 
 **修复后**:
+
 ```typescript
 // 使用异步方法以支持 PostgreSQL 模式
-const browser = await this.getUnifiedStorage().getBrowserAsync(browserId);  // ✅ 异步方法
+const browser = await this.getUnifiedStorage().getBrowserAsync(browserId); // ✅ 异步方法
 ```
 
 **影响**:
+
 - ✅ 修复 PostgreSQL 模式的运行时错误
 - ✅ JSONL 模式保持正常工作
 - ✅ 100% 向后兼容
@@ -59,6 +62,7 @@ const browser = await this.getUnifiedStorage().getBrowserAsync(browserId);  // �
 **位置**: `src/multi-tenant/core/BrowserConnectionPool.ts:368`
 
 **修复前**:
+
 ```typescript
 // ❌ 线性增长
 const delay = this.#config.reconnectDelay * connection.reconnectAttempts;
@@ -66,14 +70,15 @@ await new Promise(resolve => setTimeout(resolve, delay));
 ```
 
 **修复后**:
+
 ```typescript
 // ✅ 指数退避 + 随机抖动防止雷鸣群效应
 const baseDelay = this.#config.reconnectDelay;
 const exponentialDelay = Math.min(
   baseDelay * Math.pow(2, connection.reconnectAttempts - 1),
-  30000  // 最大30秒
+  30000, // 最大30秒
 );
-const jitter = Math.random() * 1000;  // 0-1000ms随机抖动
+const jitter = Math.random() * 1000; // 0-1000ms随机抖动
 const delay = exponentialDelay + jitter;
 
 await new Promise(resolve => setTimeout(resolve, delay));
@@ -82,20 +87,22 @@ await new Promise(resolve => setTimeout(resolve, delay));
 **重连延迟对比**:
 
 | 重连次数 | 修复前 | 修复后 (base=2000ms) |
-|---------|--------|---------------------|
-| 1 | 2s | 2s + 0-1s |
-| 2 | 4s | 4s + 0-1s |
-| 3 | 6s | 8s + 0-1s |
-| 4 | 8s | 16s + 0-1s |
-| 5 | 10s | 30s + 0-1s (max) |
+| -------- | ------ | -------------------- |
+| 1        | 2s     | 2s + 0-1s            |
+| 2        | 4s     | 4s + 0-1s            |
+| 3        | 6s     | 8s + 0-1s            |
+| 4        | 8s     | 16s + 0-1s           |
+| 5        | 10s    | 30s + 0-1s (max)     |
 
 **优势**:
+
 - ✅ 防止雷鸣群效应（随机抖动）
 - ✅ 符合 Google Cloud、AWS 最佳实践
 - ✅ 快速失败快速恢复，持续失败缓慢重试
 - ✅ 减轻服务器压力
 
 **参考资料**:
+
 - [Google Cloud - Exponential Backoff](https://cloud.google.com/iot/docs/how-tos/exponential-backoff)
 - [AWS - Error Retries](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/)
 
@@ -108,6 +115,7 @@ await new Promise(resolve => setTimeout(resolve, delay));
 **位置**: `src/multi-tenant/utils/simple-cache.ts:44`
 
 **修复前**:
+
 ```typescript
 get(key: string): T | null {
   const entry = this.cache.get(key);
@@ -119,6 +127,7 @@ get(key: string): T | null {
 ```
 
 **修复后**:
+
 ```typescript
 get(key: string): T | null {
   const entry = this.cache.get(key);
@@ -129,21 +138,23 @@ get(key: string): T | null {
     }
     return null;
   }
-  
+
   // ✅ 删除后重新插入，维护LRU访问顺序
   this.cache.delete(key);
   this.cache.set(key, entry);
-  
+
   return entry.value;
 }
 ```
 
 **原理**:
+
 - JavaScript Map 的迭代顺序是**插入顺序**
 - 删除后重新插入 → 更新为最新插入
 - `keys().next().value` 返回最久未访问的键
 
 **效果**:
+
 - ✅ 真正的 LRU（Least Recently Used）实现
 - ✅ 热数据保留时间更长
 - ✅ 预期缓存命中率提升 10-20%
@@ -157,6 +168,7 @@ get(key: string): T | null {
 **建议**: 不信任 X-Forwarded-For 头，防止 IP 伪造
 
 **不采纳理由**:
+
 - ✅ **架构分层**: 安全性应在 Nginx/负载均衡器层处理
 - ✅ **灵活性**: 不同部署场景对代理信任的需求不同
 - ✅ **复杂度**: 需要维护受信任代理列表
@@ -164,6 +176,7 @@ get(key: string): T | null {
 **替代方案**: 在文档中提供 Nginx 配置示例
 
 **Nginx 配置**:
+
 ```nginx
 # IP 白名单
 geo $allowed_ip {
@@ -177,7 +190,7 @@ server {
     if ($allowed_ip = 0) {
         return 403;
     }
-    
+
     location / {
         proxy_pass http://localhost:32122;
         # ...
@@ -192,6 +205,7 @@ server {
 **建议**: 验证 browserURL，阻止内网 IP
 
 **不采纳理由**:
+
 - ✅ **使用场景**: 需要连接内网浏览器（开发环境常见）
   - 开发: `http://localhost:9222`
   - 内网: `http://192.168.1.100:9222`
@@ -201,8 +215,10 @@ server {
 **替代方案**: 在文档中增加安全警告
 
 **安全警告** (已添加到文档):
+
 ```markdown
-⚠️ **安全提示**: 
+⚠️ **安全提示**:
+
 - 不要在公网暴露多租户服务器
 - 使用 Nginx 反向代理 + IP 白名单
 - 限制 browserURL 只能访问受信任的网络
@@ -215,12 +231,12 @@ server {
 
 ### 性能提升
 
-| 指标 | 优化前 | 优化后 | 提升 |
-|------|--------|--------|------|
-| PostgreSQL 模式可用性 | ❌ 运行时错误 | ✅ 正常工作 | **Bug修复** |
-| 重连雷鸣群效应 | 可能发生 | 随机分散 | **稳定性 ⬆️** |
-| LRU 缓存准确性 | 插入顺序 | 访问顺序 | **算法正确性 ✅** |
-| 预期缓存命中率 | ~70% | ~80-85% | **10-15% ⬆️** |
+| 指标                  | 优化前        | 优化后      | 提升              |
+| --------------------- | ------------- | ----------- | ----------------- |
+| PostgreSQL 模式可用性 | ❌ 运行时错误 | ✅ 正常工作 | **Bug修复**       |
+| 重连雷鸣群效应        | 可能发生      | 随机分散    | **稳定性 ⬆️**     |
+| LRU 缓存准确性        | 插入顺序      | 访问顺序    | **算法正确性 ✅** |
+| 预期缓存命中率        | ~70%          | ~80-85%     | **10-15% ⬆️**     |
 
 ### 代码质量
 
@@ -258,6 +274,7 @@ server {
 **预期结果**: ✅ 兼容（修复了 getBrowserAsync 调用）
 
 **关键测试**:
+
 - ✅ 用户注册
 - ✅ 浏览器绑定
 - ✅ 获取浏览器详情（修复的 bug）
@@ -297,19 +314,19 @@ server {
 
 ### 修复前
 
-| 维度 | 评分 |
-|------|------|
+| 维度              | 评分                     |
+| ----------------- | ------------------------ |
 | PostgreSQL 兼容性 | ❌ 6.0/10 (有运行时错误) |
-| 重连策略 | ⚠️ 7.0/10 (线性退避) |
-| LRU 缓存 | ⚠️ 7.5/10 (插入顺序) |
+| 重连策略          | ⚠️ 7.0/10 (线性退避)     |
+| LRU 缓存          | ⚠️ 7.5/10 (插入顺序)     |
 
 ### 修复后
 
-| 维度 | 评分 |
-|------|------|
-| PostgreSQL 兼容性 | ✅ 10/10 |
-| 重连策略 | ✅ 10/10 (指数退避) |
-| LRU 缓存 | ✅ 10/10 (访问顺序) |
+| 维度              | 评分                |
+| ----------------- | ------------------- |
+| PostgreSQL 兼容性 | ✅ 10/10            |
+| 重连策略          | ✅ 10/10 (指数退避) |
+| LRU 缓存          | ✅ 10/10 (访问顺序) |
 
 **综合评分**: 9.0/10 → **9.5/10** (⬆️ 0.5分)
 
@@ -324,8 +341,9 @@ server {
 **修复后**: **9.5/10 - 卓越 (Enterprise-Grade)**
 
 **评语**:
+
 > 所有关键问题已修复，代码质量达到**企业级标准**。
-> 
+>
 > - ✅ 消除了运行时错误
 > - ✅ 采用行业最佳实践
 > - ✅ 算法实现正确

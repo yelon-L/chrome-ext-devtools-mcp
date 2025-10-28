@@ -4,14 +4,14 @@
 
 ### 两个独立但互补的工具
 
-| 工具 | `diagnose_extension_errors` | `enhance_extension_error_capture` |
-|------|---------------------------|--------------------------------|
-| **性质** | 只读分析工具 | 侵入式增强工具 |
-| **职责** | 分析现有错误数据 | 增强错误捕获能力 |
-| **副作用** | 无 | 注入代码到扩展运行时 |
-| **使用时机** | 随时可用 | 需要先激活SW |
-| **持久性** | 每次独立分析 | 持续生效直到扩展重载 |
-| **readOnlyHint** | true | false |
+| 工具             | `diagnose_extension_errors` | `enhance_extension_error_capture` |
+| ---------------- | --------------------------- | --------------------------------- |
+| **性质**         | 只读分析工具                | 侵入式增强工具                    |
+| **职责**         | 分析现有错误数据            | 增强错误捕获能力                  |
+| **副作用**       | 无                          | 注入代码到扩展运行时              |
+| **使用时机**     | 随时可用                    | 需要先激活SW                      |
+| **持久性**       | 每次独立分析                | 持续生效直到扩展重载              |
+| **readOnlyHint** | true                        | false                             |
 
 ---
 
@@ -23,16 +23,16 @@
 graph TB
     Start[开始调试] --> Check[diagnose_extension_errors]
     Check --> HasErrors{发现错误?}
-    
+
     HasErrors -->|是| Analyze[分析现有错误]
     HasErrors -->|否| Enhance[enhance_extension_error_capture]
-    
+
     Enhance --> Trigger[触发扩展操作]
     Trigger --> ReCheck[再次diagnose]
-    
+
     Analyze --> Fix[修复代码]
     ReCheck --> Fix
-    
+
     Fix --> Done[完成]
 ```
 
@@ -113,6 +113,7 @@ diagnose_extension_errors({
 ```
 
 **合并后的问题**：
+
 - 职责混乱（一个工具做两件事）
 - 用户无法选择是否注入代码
 - 无法独立调用诊断功能
@@ -134,6 +135,7 @@ enhance_extension_error_capture:
 ```
 
 **用户选择权**：
+
 - 大多数情况只需要诊断（只读）
 - 只有特殊情况需要增强（侵入）
 
@@ -187,7 +189,7 @@ enhance_extension_error_capture:
 ```typescript
 // 大多数情况下，现有日志已足够
 await diagnose_extension_errors({
-  extensionId: "xxx"
+  extensionId: 'xxx',
 });
 
 // 如果发现错误 → 修复代码
@@ -199,7 +201,7 @@ await diagnose_extension_errors({
 ```typescript
 // 1. 增强捕获（一次性）
 await enhance_extension_error_capture({
-  extensionId: "xxx"
+  extensionId: 'xxx',
 });
 
 // 2. 触发操作（手动或自动）
@@ -207,7 +209,7 @@ await enhance_extension_error_capture({
 
 // 3. 诊断分析（多次）
 await diagnose_extension_errors({
-  extensionId: "xxx"
+  extensionId: 'xxx',
 });
 ```
 
@@ -243,27 +245,27 @@ fi
 
 ### 功能覆盖
 
-| 功能 | diagnose | enhance | 组合使用 |
-|------|----------|---------|----------|
-| **捕获console错误** | ✅ | - | ✅ |
-| **捕获未处理错误** | ⚠️ 部分 | ✅ | ✅✅ |
-| **捕获Promise拒绝** | ⚠️ 部分 | ✅ | ✅✅ |
-| **错误分类** | ✅ | - | ✅ |
-| **错误统计** | ✅ | - | ✅ |
-| **堆栈跟踪** | ✅ | ✅ | ✅ |
-| **诊断建议** | ✅ | - | ✅ |
-| **健康评分** | ✅ | - | ✅ |
-| **持续监控** | - | ✅ | ✅ |
+| 功能                | diagnose | enhance | 组合使用 |
+| ------------------- | -------- | ------- | -------- |
+| **捕获console错误** | ✅       | -       | ✅       |
+| **捕获未处理错误**  | ⚠️ 部分  | ✅      | ✅✅     |
+| **捕获Promise拒绝** | ⚠️ 部分  | ✅      | ✅✅     |
+| **错误分类**        | ✅       | -       | ✅       |
+| **错误统计**        | ✅       | -       | ✅       |
+| **堆栈跟踪**        | ✅       | ✅      | ✅       |
+| **诊断建议**        | ✅       | -       | ✅       |
+| **健康评分**        | ✅       | -       | ✅       |
+| **持续监控**        | -        | ✅      | ✅       |
 
 ### 使用成本
 
-| 方面 | diagnose | enhance | 组合 |
-|------|----------|---------|------|
-| **学习成本** | 低 | 中 | 中 |
-| **调用复杂度** | 简单 | 简单 | 中等 |
-| **副作用** | 无 | 有 | 有 |
-| **性能影响** | 极小 | 极小 | 极小 |
-| **维护成本** | 低 | 低 | 低 |
+| 方面           | diagnose | enhance | 组合 |
+| -------------- | -------- | ------- | ---- |
+| **学习成本**   | 低       | 中      | 中   |
+| **调用复杂度** | 简单     | 简单    | 中等 |
+| **副作用**     | 无       | 有      | 有   |
+| **性能影响**   | 极小     | 极小    | 极小 |
+| **维护成本**   | 低       | 低      | 低   |
 
 ---
 
@@ -293,14 +295,14 @@ diagnose_extension_errors({extensionId: "xxx"})
 // 每天凌晨3点运行
 async function dailyHealthCheck() {
   const extensions = await list_extensions();
-  
+
   for (const ext of extensions) {
     // 只需诊断，不需要增强
     const report = await diagnose_extension_errors({
       extensionId: ext.id,
-      timeRange: 1440  // 24小时
+      timeRange: 1440, // 24小时
     });
-    
+
     if (report.healthScore < 80) {
       sendAlert(`Extension ${ext.name} health: ${report.healthScore}`);
     }
@@ -313,28 +315,28 @@ async function dailyHealthCheck() {
 ```typescript
 // 开发新功能时
 async function developmentDebug() {
-  const extensionId = "xxx";
-  
+  const extensionId = 'xxx';
+
   // 启用增强捕获（开发期间一直保持）
   await enhance_extension_error_capture({
     extensionId,
-    captureStackTraces: true
+    captureStackTraces: true,
   });
-  
+
   // 开发过程中随时诊断
   while (developing) {
     // ... 修改代码 ...
     await reload_extension({extensionId});
-    
+
     // 重新增强（因为reload会清除）
     await enhance_extension_error_capture({extensionId});
-    
+
     // ... 测试功能 ...
-    
+
     // 检查错误
     await diagnose_extension_errors({
       extensionId,
-      timeRange: 5
+      timeRange: 5,
     });
   }
 }
@@ -347,11 +349,13 @@ async function developmentDebug() {
 ### ✅ 推荐做法
 
 1. **默认使用诊断工具**
+
    ```bash
    diagnose_extension_errors({extensionId: "xxx"})
    ```
 
 2. **需要时再增强**
+
    ```bash
    # 仅在以下情况使用：
    # - 现有日志不足
@@ -361,10 +365,11 @@ async function developmentDebug() {
    ```
 
 3. **增强后定期诊断**
+
    ```bash
    # 增强是一次性的
    enhance_extension_error_capture(...)
-   
+
    # 诊断可以多次调用
    diagnose_extension_errors(...)  # 每小时
    diagnose_extension_errors(...)  # 收到报告后
@@ -373,6 +378,7 @@ async function developmentDebug() {
 ### ❌ 避免的做法
 
 1. **不要每次诊断前都增强**
+
    ```bash
    # ❌ 错误
    enhance_extension_error_capture({extensionId: "xxx"})
@@ -381,12 +387,13 @@ async function developmentDebug() {
    ```
 
 2. **不要在生产环境频繁增强**
+
    ```bash
    # ❌ 错误
    setInterval(() => {
      enhance_extension_error_capture(...)  # 浪费资源
    }, 60000)
-   
+
    # ✅ 正确
    enhance_extension_error_capture(...)  # 仅一次
    setInterval(() => {
@@ -412,13 +419,13 @@ diagnose_extension_errors:
 
 ### 为什么独立比合并好？
 
-| 优势 | 独立工具 | 合并工具 |
-|------|----------|----------|
+| 优势         | 独立工具    | 合并工具    |
+| ------------ | ----------- | ----------- |
 | **职责清晰** | ✅ 各司其职 | ❌ 职责混乱 |
 | **用户选择** | ✅ 按需使用 | ❌ 强制增强 |
 | **代码维护** | ✅ 解耦独立 | ❌ 耦合复杂 |
 | **测试简单** | ✅ 单元测试 | ❌ 集成测试 |
-| **扩展性** | ✅ 易于扩展 | ❌ 难以扩展 |
+| **扩展性**   | ✅ 易于扩展 | ❌ 难以扩展 |
 
 ### 协作关系
 

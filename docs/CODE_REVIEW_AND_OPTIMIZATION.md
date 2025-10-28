@@ -1,6 +1,7 @@
 # 代码审查与优化报告
 
 ## 审查日期
+
 2025-10-14
 
 ---
@@ -15,15 +16,16 @@
 
 以下 Legacy API 方法与 V2 API 功能重复，建议根据需求决定是否保留：
 
-| Legacy 方法 | V2 方法 | 状态 | 建议 |
-|-------------|---------|------|------|
-| `handleRegister()` | `handleRegisterUserV2()` | 重复 | 保留用于向后兼容 |
-| `handleGenerateToken()` | Token 集成在浏览器绑定中 | 部分重复 | 保留用于独立 token 管理 |
-| `handleListUsers()` | `handleListUsersV2()` | 重复 | 可删除（未使用） |
-| `handleUserStatus()` | `handleGetUserV2()` | 重复 | 可删除（未使用） |
-| `handleUpdateBrowser()` | `handleUpdateBrowserV2()` | 重复 | 保留用于向后兼容 |
+| Legacy 方法             | V2 方法                   | 状态     | 建议                    |
+| ----------------------- | ------------------------- | -------- | ----------------------- |
+| `handleRegister()`      | `handleRegisterUserV2()`  | 重复     | 保留用于向后兼容        |
+| `handleGenerateToken()` | Token 集成在浏览器绑定中  | 部分重复 | 保留用于独立 token 管理 |
+| `handleListUsers()`     | `handleListUsersV2()`     | 重复     | 可删除（未使用）        |
+| `handleUserStatus()`    | `handleGetUserV2()`       | 重复     | 可删除（未使用）        |
+| `handleUpdateBrowser()` | `handleUpdateBrowserV2()` | 重复     | 保留用于向后兼容        |
 
 **路由检查**:
+
 ```typescript
 // Legacy API 路由（保留用于向后兼容）
 - POST /api/register              → handleRegister()
@@ -60,10 +62,12 @@ private async handleUserStatus()    // 行 818
 #### 📦 存储层重复
 
 **双存储系统**:
+
 - `PersistentStore` - 旧的存储（向后兼容）
 - `PersistentStoreV2` - 新的存储（V2 API）
 
 **状态**: 合理
+
 - 旧存储用于 Legacy API
 - 新存储用于 V2 API
 - 两者独立，不影响
@@ -94,23 +98,26 @@ private async handleUserStatus()    // 行 818
 #### ⚠️ 需要改进
 
 1. **代码重复**
+
    ```typescript
    // detectBrowser() 在 handlers-v2.ts 中被调用多次
    // 建议：提取为独立的工具函数
    ```
 
 2. **类型安全**
+
    ```typescript
    // handlers-v2.ts 中使用 `this: any`
    // 建议：定义明确的 Server 接口
    ```
 
 3. **magic numbers**
+
    ```typescript
    // server-multi-tenant.ts
    timeout: 3600000,  // 1 hour
    cleanupInterval: 60000,  // 1 minute
-   
+
    // 建议：提取为常量
    ```
 
@@ -125,6 +132,7 @@ private async handleUserStatus()    // 行 818
 **文件**: `src/multi-tenant/server-multi-tenant.ts`
 
 删除以下未在路由中使用的方法：
+
 - `handleListUsers()` (行 794-811)
 - `handleUserStatus()` (行 818-855)
 
@@ -162,21 +170,21 @@ export async function detectBrowser(browserURL: string): Promise<{
     const versionURL = `${browserURL}/json/version`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
-    
+
     const response = await fetch(versionURL, {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json' },
+      headers: {Accept: 'application/json'},
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       return {
         connected: false,
         error: `HTTP ${response.status}: ${response.statusText}`,
       };
     }
-    
+
     const browserInfo = await response.json();
     return {
       connected: true,
@@ -214,12 +222,13 @@ export interface MultiTenantServerContext {
 ```
 
 在 `handlers-v2.ts` 中使用：
+
 ```typescript
 export async function handleRegisterUserV2(
-  this: MultiTenantServerContext,  // 替换 any
+  this: MultiTenantServerContext, // 替换 any
   req: http.IncomingMessage,
-  res: http.ServerResponse
-): Promise<void>
+  res: http.ServerResponse,
+): Promise<void>;
 ```
 
 ---
@@ -234,14 +243,20 @@ export function sendErrorResponse(
   statusCode: number,
   error: string,
   message?: string,
-  suggestions?: string[]
+  suggestions?: string[],
 ): void {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({
-    error,
-    message,
-    suggestions,
-  }, null, 2));
+  res.writeHead(statusCode, {'Content-Type': 'application/json'});
+  res.end(
+    JSON.stringify(
+      {
+        error,
+        message,
+        suggestions,
+      },
+      null,
+      2,
+    ),
+  );
 }
 ```
 
@@ -252,6 +267,7 @@ export function sendErrorResponse(
 #### 优化 6: 迁移 Legacy API 到 V2
 
 逐步废弃 Legacy API：
+
 1. 在 Legacy API 响应中添加 deprecation 警告
 2. 更新文档，推荐使用 V2 API
 3. 设置废弃时间表
@@ -270,16 +286,17 @@ export function sendErrorResponse(
 
 ### 3.1 测试脚本清单
 
-| 文件 | 用途 | 状态 | 建议 |
-|------|------|------|------|
-| `test-v2-complete.sh` | 完整 V2 API 测试 | ✅ 保留 | 主要测试脚本 |
-| `test-ide-v2-simple.sh` | IDE 模拟测试 | ✅ 保留 | 模拟 IDE 连接 |
-| `test-ide-simulator-v2.mjs` | Node.js IDE 模拟 | ⚠️ 有问题 | 修复或删除 |
-| `docs/examples/test-email-registration-v2.sh` | 邮箱注册测试 | ✅ 保留 | 文档示例 |
+| 文件                                          | 用途             | 状态      | 建议          |
+| --------------------------------------------- | ---------------- | --------- | ------------- |
+| `test-v2-complete.sh`                         | 完整 V2 API 测试 | ✅ 保留   | 主要测试脚本  |
+| `test-ide-v2-simple.sh`                       | IDE 模拟测试     | ✅ 保留   | 模拟 IDE 连接 |
+| `test-ide-simulator-v2.mjs`                   | Node.js IDE 模拟 | ⚠️ 有问题 | 修复或删除    |
+| `docs/examples/test-email-registration-v2.sh` | 邮箱注册测试     | ✅ 保留   | 文档示例      |
 
 ### 3.2 测试覆盖
 
 ✅ **已覆盖**:
+
 - 用户注册
 - 浏览器绑定
 - SSE V2 连接
@@ -287,6 +304,7 @@ export function sendErrorResponse(
 - 清理流程
 
 ❌ **未覆盖**:
+
 - 并发连接测试
 - 错误场景（浏览器不可用）
 - Token 失效测试
@@ -345,12 +363,14 @@ export function sendErrorResponse(
 **整体评分**: ⭐⭐⭐⭐ (4/5)
 
 ✅ **优点**:
+
 - 架构清晰，分层合理
 - V2 API 设计优秀
 - 错误处理完善
 - 性能优化到位
 
 ⚠️ **缺点**:
+
 - 存在未使用的代码
 - 部分类型不够明确
 - Magic numbers 未提取
@@ -358,14 +378,14 @@ export function sendErrorResponse(
 
 ### 优化价值
 
-| 优化项 | 价值 | 难度 | 优先级 |
-|--------|------|------|--------|
-| 删除未使用方法 | 中 | 低 | 🔥 高 |
-| 提取常量 | 中 | 低 | 🔥 高 |
-| 提取工具函数 | 高 | 低 | 🔥 高 |
-| 类型安全 | 高 | 中 | ⭐ 中 |
-| 统一错误响应 | 中 | 中 | ⭐ 中 |
-| API 版本控制 | 低 | 高 | 💤 低 |
+| 优化项         | 价值 | 难度 | 优先级 |
+| -------------- | ---- | ---- | ------ |
+| 删除未使用方法 | 中   | 低   | 🔥 高  |
+| 提取常量       | 中   | 低   | 🔥 高  |
+| 提取工具函数   | 高   | 低   | 🔥 高  |
+| 类型安全       | 高   | 中   | ⭐ 中  |
+| 统一错误响应   | 中   | 中   | ⭐ 中  |
+| API 版本控制   | 低   | 高   | 💤 低  |
 
 ### 下一步行动
 

@@ -9,6 +9,7 @@
 **修改文件**: `src/tools/extension/service-worker-activation.ts`
 
 **改进内容**:
+
 - ✅ Description 改为英文
 - ✅ 参数描述改为英文
 - ✅ 错误消息改为英文
@@ -16,9 +17,10 @@
 - ✅ 所有提示信息改为英文
 
 **关键改进示例**:
+
 ```typescript
 // Before:
-description: `激活一个或多个Chrome扩展的Service Worker...`
+description: `激活一个或多个Chrome扩展的Service Worker...`;
 
 // After:
 description: `Activate Service Worker(s) for one or more Chrome extensions.
@@ -27,16 +29,18 @@ Automatically activates the Service Worker for specified extension(s) using Chro
 ...
 
 💡 **Important**: For MV3 extensions, the Service Worker must be active before using tools like 
-evaluate_in_extension, list_extension_contexts, or get_extension_logs.`
+evaluate_in_extension, list_extension_contexts, or get_extension_logs.`;
 ```
 
 #### 2. 工具间引导机制
 
 **修改文件**:
+
 - `src/tools/extension/execution.ts`
 - `src/tools/extension/contexts.ts`
 
 **改进内容**:
+
 - ✅ `evaluate_in_extension` 失败时提示使用激活工具
 - ✅ `list_extension_contexts` 空结果时提示激活
 - ✅ `reload_extension` 错误时提示先激活
@@ -44,17 +48,24 @@ evaluate_in_extension, list_extension_contexts, or get_extension_logs.`
 **具体改进**:
 
 ##### `evaluate_in_extension` (第 163 行)
+
 ```typescript
 response.appendResponseLine('- Service Worker is not running (for MV3)');
-response.appendResponseLine('\n💡 **Tip**: If the Service Worker is inactive, use `activate_extension_service_worker` to activate it first');
+response.appendResponseLine(
+  '\n💡 **Tip**: If the Service Worker is inactive, use `activate_extension_service_worker` to activate it first',
+);
 ```
 
 ##### `reload_extension` (第 59 行)
+
 ```typescript
-throw new Error('chrome.runtime.reload() is not available. Service Worker may be inactive. Try activate_extension_service_worker first.');
+throw new Error(
+  'chrome.runtime.reload() is not available. Service Worker may be inactive. Try activate_extension_service_worker first.',
+);
 ```
 
 ##### `list_extension_contexts` (第 53-55 行)
+
 ```typescript
 response.appendResponseLine(
   '\n💡 **Tip**: For MV3 extensions, try `activate_extension_service_worker` to activate the Service Worker',
@@ -68,9 +79,11 @@ response.appendResponseLine(
 ### 测试执行
 
 #### Test 1: 基础功能测试
+
 **文件**: `test-sw-activation-single.mjs`
 
 **结果**:
+
 ```
 ✅ 通过: 7/7 (100%)
 - 工具已注册
@@ -83,9 +96,11 @@ response.appendResponseLine(
 ```
 
 #### Test 2: 集成测试（核心验证）
+
 **文件**: `test-sw-integration.mjs`
 
 **结果**:
+
 ```
 ✅ 通过: 8/8 (100%)
 - 获取扩展ID
@@ -99,16 +114,20 @@ response.appendResponseLine(
 ```
 
 **关键发现**:
+
 - 激活后，所有依赖 SW 的工具都能正常工作 ✅
 - Chrome API 完全可用 ✅
 - 性能优异（平均 4.60ms）✅
 
 #### Test 3 & 4: AB 测试
-**文件**: 
+
+**文件**:
+
 - `test-ab-sw-activation.mjs`
 - `test-ab-sw-cold-start.mjs`
 
-**结果**: 
+**结果**:
+
 - 两组都成功（因为测试环境 SW 保持活跃）
 - 但集成测试已充分验证工具有效性
 
@@ -189,6 +208,7 @@ API 使用：✅ 一致
    - 改进：添加工具引导提示
 
 ### 编译状态
+
 ```bash
 $ npm run build
 ✅ 编译成功（0 错误）
@@ -266,17 +286,17 @@ $ npm run build
 
 ## 量化指标
 
-| 指标 | 数值 | 目标 | 状态 |
-|------|------|------|------|
-| 功能测试通过率 | 100% (7/7) | 100% | ✅ |
-| 集成测试通过率 | 100% (8/8) | 100% | ✅ |
-| 激活性能（首次） | 624ms | < 1000ms | ✅ |
-| 激活性能（检查） | 7-12ms | < 100ms | ✅ |
-| 后续工具性能 | 3-9ms | < 50ms | ✅ |
-| 格式一致性 | 100% | 95%+ | ✅ |
-| 语言统一性 | 100% | 100% | ✅ |
-| 工具引导覆盖 | 100% (3/3) | 100% | ✅ |
-| 编译成功 | ✅ | ✅ | ✅ |
+| 指标             | 数值       | 目标     | 状态 |
+| ---------------- | ---------- | -------- | ---- |
+| 功能测试通过率   | 100% (7/7) | 100%     | ✅   |
+| 集成测试通过率   | 100% (8/8) | 100%     | ✅   |
+| 激活性能（首次） | 624ms      | < 1000ms | ✅   |
+| 激活性能（检查） | 7-12ms     | < 100ms  | ✅   |
+| 后续工具性能     | 3-9ms      | < 50ms   | ✅   |
+| 格式一致性       | 100%       | 95%+     | ✅   |
+| 语言统一性       | 100%       | 100%     | ✅   |
+| 工具引导覆盖     | 100% (3/3) | 100%     | ✅   |
+| 编译成功         | ✅         | ✅       | ✅   |
 
 ---
 
@@ -286,26 +306,26 @@ $ npm run build
 
 ```typescript
 // 1. 列出扩展
-await callTool('list_extensions', {})
+await callTool('list_extensions', {});
 // 输出: 扩展列表，包含 SW 状态（Active/Inactive）
 
 // 2. 如果 SW 是 Inactive，激活它
 await callTool('activate_extension_service_worker', {
   extensionId: 'abc...xyz',
-  mode: 'single'
-})
+  mode: 'single',
+});
 // 输出: Successfully activated 1/1
 
 // 3. 现在可以使用依赖 SW 的工具
 await callTool('evaluate_in_extension', {
   extensionId: 'abc...xyz',
-  code: 'chrome.runtime.getManifest()'
-})
+  code: 'chrome.runtime.getManifest()',
+});
 // 输出: Manifest 内容（成功！）
 
 await callTool('list_extension_contexts', {
-  extensionId: 'abc...xyz'
-})
+  extensionId: 'abc...xyz',
+});
 // 输出: SERVICE_WORKER 上下文（检测到！）
 ```
 
@@ -361,14 +381,14 @@ await callTool('evaluate_in_extension', { ... })
 
 ### 综合评分
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| **功能完整性** | ⭐⭐⭐⭐⭐ 5/5 | 所有功能都已实现并验证 |
-| **性能表现** | ⭐⭐⭐⭐⭐ 5/5 | 毫秒级响应，性能优异 |
-| **格式一致性** | ⭐⭐⭐⭐⭐ 5/5 | 与现有工具完全一致 |
-| **工具集成** | ⭐⭐⭐⭐⭐ 5/5 | 引导机制完善 |
-| **代码质量** | ⭐⭐⭐⭐⭐ 5/5 | 错误处理完善，可维护性强 |
-| **文档完整** | ⭐⭐⭐⭐⭐ 5/5 | 分析、测试、总结文档齐全 |
+| 维度           | 评分           | 说明                     |
+| -------------- | -------------- | ------------------------ |
+| **功能完整性** | ⭐⭐⭐⭐⭐ 5/5 | 所有功能都已实现并验证   |
+| **性能表现**   | ⭐⭐⭐⭐⭐ 5/5 | 毫秒级响应，性能优异     |
+| **格式一致性** | ⭐⭐⭐⭐⭐ 5/5 | 与现有工具完全一致       |
+| **工具集成**   | ⭐⭐⭐⭐⭐ 5/5 | 引导机制完善             |
+| **代码质量**   | ⭐⭐⭐⭐⭐ 5/5 | 错误处理完善，可维护性强 |
+| **文档完整**   | ⭐⭐⭐⭐⭐ 5/5 | 分析、测试、总结文档齐全 |
 
 ### 总分：⭐⭐⭐⭐⭐ 5/5 - 优秀
 
@@ -396,6 +416,7 @@ await callTool('evaluate_in_extension', { ... })
 ### 推荐行动
 
 **立即使用** `activate_extension_service_worker` 工具来：
+
 - 确保扩展 Service Worker 处于活跃状态
 - 在扩展调试前准备环境
 - 自动化测试中初始化扩展状态

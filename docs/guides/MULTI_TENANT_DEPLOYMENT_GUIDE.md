@@ -23,6 +23,7 @@
 ### 什么是多租户模式？
 
 多租户模式允许多个用户通过同一个 MCP 服务器连接和调试各自的 Chrome 浏览器，每个用户都有独立的：
+
 - ✅ 用户账户（基于邮箱）
 - ✅ 浏览器实例（可绑定多个）
 - ✅ 访问令牌（独立的 token）
@@ -113,6 +114,7 @@ curl http://localhost:32122/health
 每个用户需要在自己的机器上启动 Chrome 调试端口：
 
 **Windows:**
+
 ```powershell
 "C:\Program Files\Google\Chrome\Application\chrome.exe" `
   --remote-debugging-port=9222 `
@@ -120,6 +122,7 @@ curl http://localhost:32122/health
 ```
 
 **Mac:**
+
 ```bash
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
   --remote-debugging-port=9222 \
@@ -127,6 +130,7 @@ curl http://localhost:32122/health
 ```
 
 **Linux:**
+
 ```bash
 google-chrome \
   --remote-debugging-port=9222 \
@@ -134,6 +138,7 @@ google-chrome \
 ```
 
 **验证浏览器**:
+
 ```bash
 curl http://localhost:9222/json/version
 ```
@@ -159,6 +164,7 @@ curl -X POST http://localhost:32122/api/v2/users \
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -193,6 +199,7 @@ curl -X POST http://localhost:32122/api/v2/users/alice/browsers \
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -218,6 +225,7 @@ curl -X POST http://localhost:32122/api/v2/users/alice/browsers \
 #### Claude Desktop
 
 编辑配置文件:
+
 - **Mac**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
@@ -339,6 +347,7 @@ http://localhost:32122/api/v2
 #### 1. 用户管理
 
 ##### 注册用户
+
 ```http
 POST /api/v2/users
 Content-Type: application/json
@@ -350,16 +359,19 @@ Content-Type: application/json
 ```
 
 ##### 获取所有用户
+
 ```http
 GET /api/v2/users
 ```
 
 ##### 获取单个用户
+
 ```http
 GET /api/v2/users/:userId
 ```
 
 ##### 更新用户名
+
 ```http
 PATCH /api/v2/users/:userId
 Content-Type: application/json
@@ -370,6 +382,7 @@ Content-Type: application/json
 ```
 
 ##### 删除用户
+
 ```http
 DELETE /api/v2/users/:userId
 ```
@@ -377,6 +390,7 @@ DELETE /api/v2/users/:userId
 #### 2. 浏览器管理
 
 ##### 绑定浏览器
+
 ```http
 POST /api/v2/users/:userId/browsers
 Content-Type: application/json
@@ -389,16 +403,19 @@ Content-Type: application/json
 ```
 
 ##### 获取用户的所有浏览器
+
 ```http
 GET /api/v2/users/:userId/browsers
 ```
 
 ##### 获取单个浏览器信息
+
 ```http
 GET /api/v2/users/:userId/browsers/:browserId
 ```
 
 ##### 更新浏览器
+
 ```http
 PATCH /api/v2/users/:userId/browsers/:browserId
 Content-Type: application/json
@@ -410,6 +427,7 @@ Content-Type: application/json
 ```
 
 ##### 解绑浏览器
+
 ```http
 DELETE /api/v2/users/:userId/browsers/:browserId
 ```
@@ -417,16 +435,19 @@ DELETE /api/v2/users/:userId/browsers/:browserId
 #### 3. 系统端点
 
 ##### 健康检查
+
 ```http
 GET /health
 ```
 
 ##### 性能指标
+
 ```http
 GET /metrics
 ```
 
 ##### SSE 连接
+
 ```http
 GET /api/v2/sse?token=mcp_xxx...
 ```
@@ -441,14 +462,15 @@ GET /api/v2/sse?token=mcp_xxx...
 
 ### 环境变量
 
-| 变量 | 说明 | 必需 | 示例 |
-|------|------|------|------|
-| `CHROME_REMOTE_URL` | SSE 连接地址 | 是 | `http://localhost:32122/api/v2/sse` |
-| `CHROME_TOKEN` | 浏览器访问令牌 | 是 | `mcp_62918815...` |
+| 变量                | 说明           | 必需 | 示例                                |
+| ------------------- | -------------- | ---- | ----------------------------------- |
+| `CHROME_REMOTE_URL` | SSE 连接地址   | 是   | `http://localhost:32122/api/v2/sse` |
+| `CHROME_TOKEN`      | 浏览器访问令牌 | 是   | `mcp_62918815...`                   |
 
 ### 配置示例
 
 #### 本地开发
+
 ```json
 {
   "CHROME_REMOTE_URL": "http://localhost:32122/api/v2/sse",
@@ -457,6 +479,7 @@ GET /api/v2/sse?token=mcp_xxx...
 ```
 
 #### 局域网部署
+
 ```json
 {
   "CHROME_REMOTE_URL": "http://192.168.1.100:32122/api/v2/sse",
@@ -465,6 +488,7 @@ GET /api/v2/sse?token=mcp_xxx...
 ```
 
 #### 远程部署（HTTPS）
+
 ```json
 {
   "CHROME_REMOTE_URL": "https://mcp.yourdomain.com/api/v2/sse",
@@ -502,6 +526,7 @@ WantedBy=multi-user.target
 ```
 
 启动:
+
 ```bash
 sudo systemctl enable mcp-multi-tenant
 sudo systemctl start mcp-multi-tenant
@@ -509,6 +534,7 @@ sudo systemctl status mcp-multi-tenant
 ```
 
 查看日志:
+
 ```bash
 sudo journalctl -u mcp-multi-tenant -f
 ```
@@ -553,7 +579,7 @@ services:
   mcp-server:
     build: .
     ports:
-      - "32122:32122"
+      - '32122:32122'
     volumes:
       - ./data:/app/.mcp-data
     environment:
@@ -561,13 +587,14 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 ```
 
 构建和运行:
+
 ```bash
 docker-compose up -d
 docker-compose logs -f
@@ -608,32 +635,32 @@ upstream mcp_backend {
 server {
     listen 443 ssl http2;
     server_name mcp.yourdomain.com;
-    
+
     ssl_certificate /path/to/fullchain.pem;
     ssl_certificate_key /path/to/privkey.pem;
-    
+
     # SSL 配置
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
-    
+
     # 代理设置
     location / {
         proxy_pass http://mcp_backend;
         proxy_http_version 1.1;
-        
+
         # SSE 支持
         proxy_set_header Connection '';
         proxy_buffering off;
         proxy_cache off;
         chunked_transfer_encoding off;
-        
+
         # Headers
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Timeouts
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
@@ -711,6 +738,7 @@ docker-compose logs -f mcp-server
 **症状**: `curl: (7) Failed to connect to localhost port 32122`
 
 **解决方案**:
+
 1. 检查服务器是否运行: `ps aux | grep server-multi-tenant`
 2. 检查端口是否监听: `lsof -i :32122`
 3. 查看服务器日志查找错误
@@ -721,6 +749,7 @@ docker-compose logs -f mcp-server
 **症状**: `Failed to connect to browser`
 
 **解决方案**:
+
 1. 验证浏览器调试端口:
    ```bash
    curl http://localhost:9222/json/version
@@ -734,6 +763,7 @@ docker-compose logs -f mcp-server
 **症状**: `Invalid token` 或 `Token not found`
 
 **解决方案**:
+
 1. 检查 Token 是否正确复制（完整的 64 字符）
 2. 验证浏览器是否已解绑
 3. 在 Web UI 中重新查看 Token
@@ -744,6 +774,7 @@ docker-compose logs -f mcp-server
 **症状**: IDE 显示 "Connection lost"
 
 **解决方案**:
+
 1. 检查网络连接
 2. 查看服务器日志
 3. 增加代理服务器的超时时间（如 Nginx）
@@ -754,6 +785,7 @@ docker-compose logs -f mcp-server
 **症状**: 响应慢或超时
 
 **解决方案**:
+
 1. 查看性能指标: `/metrics`
 2. 检查慢端点: `curl -s http://localhost:32122/metrics | jq '.slowestEndpoints'`
 3. 增加服务器资源（CPU/内存）
@@ -803,22 +835,22 @@ A: 复制 `.mcp-data/` 目录到新服务器即可。
 
 ### 环境变量完整列表
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | 32122 | 服务器端口 |
-| `NODE_ENV` | development | 运行环境 |
-| `ALLOWED_IPS` | 无 | IP 白名单（逗号分隔） |
-| `ALLOWED_ORIGINS` | * | CORS 允许的来源 |
-| `MAX_SESSIONS` | 无限制 | 最大会话数 |
-| `SESSION_TIMEOUT` | 3600000 | 会话超时（毫秒） |
+| 变量              | 默认值      | 说明                  |
+| ----------------- | ----------- | --------------------- |
+| `PORT`            | 32122       | 服务器端口            |
+| `NODE_ENV`        | development | 运行环境              |
+| `ALLOWED_IPS`     | 无          | IP 白名单（逗号分隔） |
+| `ALLOWED_ORIGINS` | \*          | CORS 允许的来源       |
+| `MAX_SESSIONS`    | 无限制      | 最大会话数            |
+| `SESSION_TIMEOUT` | 3600000     | 会话超时（毫秒）      |
 
 ### 端口列表
 
-| 端口 | 用途 |
-|------|------|
-| 32122 | 多租户服务器默认端口 |
-| 9222 | Chrome 调试端口（默认） |
-| 9223+ | 额外的 Chrome 实例 |
+| 端口  | 用途                    |
+| ----- | ----------------------- |
+| 32122 | 多租户服务器默认端口    |
+| 9222  | Chrome 调试端口（默认） |
+| 9223+ | 额外的 Chrome 实例      |
 
 ### 文件结构
 

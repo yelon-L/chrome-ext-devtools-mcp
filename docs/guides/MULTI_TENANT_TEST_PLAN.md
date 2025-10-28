@@ -19,26 +19,31 @@
 ### 1.2 测试类型
 
 #### 单元测试 (Unit Tests)
+
 - **目标**: 测试单个函数/类的功能
 - **工具**: Node.js Test Runner + Sinon
 - **覆盖率目标**: >80%
 
 #### 集成测试 (Integration Tests)
+
 - **目标**: 测试组件间交互
 - **工具**: Node.js Test Runner + Puppeteer
 - **覆盖率目标**: 核心流程 100%
 
 #### 端到端测试 (E2E Tests)
+
 - **目标**: 测试完整用户场景
 - **工具**: Node.js Test Runner + 真实浏览器
 - **覆盖率目标**: 主要场景覆盖
 
 #### 性能测试 (Performance Tests)
+
 - **目标**: 验证系统性能指标
 - **工具**: 自定义性能测试脚本
 - **指标**: 响应时间、吞吐量、并发数
 
 #### 安全测试 (Security Tests)
+
 - **目标**: 验证安全机制
 - **工具**: 手动测试 + 自动化脚本
 - **覆盖**: 认证、授权、注入攻击
@@ -255,30 +260,30 @@ describe('Session Management', () => {
 describe('E2E: Complete User Scenario', () => {
   it('开发者 A 和 B 独立调试各自扩展', async () => {
     // 场景：两个开发者同时使用系统
-    
+
     // 1. 开发者 A 启动 Chrome A
-    const chromeA = await launchChrome({ port: 9222 });
-    
+    const chromeA = await launchChrome({port: 9222});
+
     // 2. 开发者 B 启动 Chrome B
-    const chromeB = await launchChrome({ port: 9223 });
-    
+    const chromeB = await launchChrome({port: 9223});
+
     // 3. 启动多租户代理
     const proxy = await startMultiTenantProxy();
-    
+
     // 4. 开发者 A 注册
     await proxy.register('dev-a', 'http://localhost:9222');
-    
+
     // 5. 开发者 B 注册
     await proxy.register('dev-b', 'http://localhost:9223');
-    
+
     // 6. 开发者 A 连接并操作
     const clientA = await connectSSE('dev-a');
     await clientA.callTool('list_extensions');
-    
+
     // 7. 开发者 B 连接并操作
     const clientB = await connectSSE('dev-b');
     await clientB.callTool('list_extensions');
-    
+
     // 8. 验证操作隔离
     // 9. 验证结果正确
   });
@@ -292,20 +297,20 @@ describe('E2E: Stress Test', () => {
   it('应该支持 10 个并发用户', async () => {
     const users = 10;
     const clients = [];
-    
+
     // 创建多个用户和浏览器
     for (let i = 0; i < users; i++) {
-      const chrome = await launchChrome({ port: 9222 + i });
+      const chrome = await launchChrome({port: 9222 + i});
       await proxy.register(`user-${i}`, chrome.url);
       const client = await connectSSE(`user-${i}`);
       clients.push(client);
     }
-    
+
     // 并发调用工具
     await Promise.all(
-      clients.map(client => client.callTool('list_extensions'))
+      clients.map(client => client.callTool('list_extensions')),
     );
-    
+
     // 验证所有调用成功
   });
 });
@@ -355,14 +360,18 @@ describe('Performance: Response Time', () => {
 describe('Performance: Concurrency', () => {
   it('应该支持 50 个并发 SSE 连接', async () => {
     const connections = await Promise.all(
-      Array(50).fill(0).map((_, i) => connectSSE(`user-${i}`))
+      Array(50)
+        .fill(0)
+        .map((_, i) => connectSSE(`user-${i}`)),
     );
     expect(connections.length).toBe(50);
   });
 
   it('应该支持 100 个并发工具调用', async () => {
     const results = await Promise.all(
-      Array(100).fill(0).map(() => client.callTool('list_pages'))
+      Array(100)
+        .fill(0)
+        .map(() => client.callTool('list_pages')),
     );
     expect(results.filter(r => r.success).length).toBe(100);
   });
@@ -375,21 +384,21 @@ describe('Performance: Concurrency', () => {
 describe('Performance: Resource Usage', () => {
   it('内存使用应保持稳定', async () => {
     const baseline = process.memoryUsage().heapUsed;
-    
+
     // 创建 100 个会话
     for (let i = 0; i < 100; i++) {
       await sessionManager.createSession(`user-${i}`, 'http://...');
     }
-    
+
     // 清理所有会话
     await sessionManager.cleanupAll();
-    
+
     // 强制 GC
     if (global.gc) global.gc();
-    
+
     const after = process.memoryUsage().heapUsed;
     const growth = (after - baseline) / baseline;
-    
+
     expect(growth).toBeLessThan(0.1); // 增长小于 10%
   });
 });
@@ -403,7 +412,7 @@ describe('Performance: Resource Usage', () => {
 describe('Security: Authentication', () => {
   it('应该拒绝无效的 Token', async () => {
     const response = await request('/sse', {
-      headers: { Authorization: 'Bearer invalid_token' }
+      headers: {Authorization: 'Bearer invalid_token'},
     });
     expect(response.status).toBe(401);
   });
@@ -419,11 +428,11 @@ describe('Security: Authentication', () => {
 describe('Security: Authorization', () => {
   it('用户 A 不能访问用户 B 的会话', async () => {
     const sessionB = await sessionManager.createSession('user-b', '...');
-    
+
     const response = await request(`/message?sessionId=${sessionB.id}`, {
-      headers: { 'X-User-Id': 'user-a' }
+      headers: {'X-User-Id': 'user-a'},
     });
-    
+
     expect(response.status).toBe(403);
   });
 
@@ -436,12 +445,12 @@ describe('Security: Authorization', () => {
 ```typescript
 describe('Security: Injection Attacks', () => {
   it('应该防止 SQL 注入（如果使用数据库）', async () => {});
-  
+
   it('应该防止 XSS 攻击', async () => {
     const maliciousUserId = '<script>alert("xss")</script>';
-    await expect(
-      proxy.register(maliciousUserId, 'http://...')
-    ).rejects.toThrow('Invalid userId');
+    await expect(proxy.register(maliciousUserId, 'http://...')).rejects.toThrow(
+      'Invalid userId',
+    );
   });
 
   it('应该防止命令注入', async () => {});
@@ -531,11 +540,13 @@ const MOCK_BROWSER = {
 ### 9.1 覆盖率报告
 
 生成覆盖率报告：
+
 ```bash
 npm run test:coverage
 ```
 
 目标覆盖率：
+
 - **Statements**: >80%
 - **Branches**: >75%
 - **Functions**: >80%
@@ -544,6 +555,7 @@ npm run test:coverage
 ### 9.2 性能报告
 
 性能指标：
+
 - SSE 连接时间: < 1s
 - 工具调用响应: < 3s
 - 并发连接数: > 50
@@ -552,23 +564,27 @@ npm run test:coverage
 ## 10. 测试执行计划
 
 ### Phase 1: 单元测试 (Week 1)
+
 - [ ] SessionManager 测试
 - [ ] RouterManager 测试
 - [ ] AuthManager 测试
 - [ ] BrowserConnectionPool 测试
 
 ### Phase 2: 集成测试 (Week 2)
+
 - [ ] 用户注册流程
 - [ ] SSE 连接流程
 - [ ] 工具调用流程
 - [ ] 会话管理
 
 ### Phase 3: E2E 测试 (Week 3)
+
 - [ ] 完整用户场景
 - [ ] 多用户并发场景
 - [ ] 故障恢复场景
 
 ### Phase 4: 性能和安全测试 (Week 4)
+
 - [ ] 性能测试
 - [ ] 安全测试
 - [ ] 压力测试
@@ -583,19 +599,21 @@ npm run test:coverage
 **标题**: [BUG] 简短描述
 
 **环境**:
-- OS: 
-- Node.js: 
+
+- OS:
+- Node.js:
 - 浏览器:
 
 **重现步骤**:
+
 1. ...
 2. ...
 
-**期望行为**: 
+**期望行为**:
 
-**实际行为**: 
+**实际行为**:
 
-**测试用例**: 
+**测试用例**:
 
 **优先级**: High / Medium / Low
 ```

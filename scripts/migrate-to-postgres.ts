@@ -9,8 +9,9 @@
  * 数据迁移工具：JSONL → PostgreSQL
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+
 import pg from 'pg';
 
 const {Pool} = pg;
@@ -66,7 +67,7 @@ async function migrate(config: MigrationConfig) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
+
     try {
       const op = JSON.parse(line);
 
@@ -84,12 +85,13 @@ async function migrate(config: MigrationConfig) {
             op.data.registeredAt,
             op.data.updatedAt || null,
             JSON.stringify(op.data.metadata || {}),
-          ]
+          ],
         );
         userCount++;
-        process.stdout.write(`\r用户: ${userCount}, 浏览器: ${browserCount}, 错误: ${errorCount}`);
-      } 
-      else if (op.op === 'bind_browser') {
+        process.stdout.write(
+          `\r用户: ${userCount}, 浏览器: ${browserCount}, 错误: ${errorCount}`,
+        );
+      } else if (op.op === 'bind_browser') {
         await pool.query(
           `INSERT INTO mcp_browsers (browser_id, user_id, browser_url, token_name, token, created_at_ts, last_connected_at, tool_call_count, metadata)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -107,60 +109,65 @@ async function migrate(config: MigrationConfig) {
             op.data.lastConnectedAt || null,
             op.data.toolCallCount || 0,
             JSON.stringify(op.data.metadata || {}),
-          ]
+          ],
         );
         browserCount++;
-        process.stdout.write(`\r用户: ${userCount}, 浏览器: ${browserCount}, 错误: ${errorCount}`);
-      }
-      else if (op.op === 'update_username') {
+        process.stdout.write(
+          `\r用户: ${userCount}, 浏览器: ${browserCount}, 错误: ${errorCount}`,
+        );
+      } else if (op.op === 'update_username') {
         await pool.query(
           `UPDATE mcp_users SET username = $1, updated_at = $2 WHERE user_id = $3`,
-          [op.username, op.timestamp, op.userId]
+          [op.username, op.timestamp, op.userId],
         );
-      }
-      else if (op.op === 'update_browser') {
+      } else if (op.op === 'update_browser') {
         const setParts: string[] = [];
         const values: any[] = [];
-        
+
         if (op.browserURL) {
           setParts.push('browser_url = $1');
           values.push(op.browserURL);
         }
         if (op.description) {
           const paramIndex = values.length + 1;
-          setParts.push(`metadata = jsonb_set(COALESCE(metadata, '{}'), '{description}', $${paramIndex})`);
+          setParts.push(
+            `metadata = jsonb_set(COALESCE(metadata, '{}'), '{description}', $${paramIndex})`,
+          );
           values.push(JSON.stringify(op.description));
         }
-        
+
         if (setParts.length > 0) {
           values.push(op.browserId);
           await pool.query(
             `UPDATE mcp_browsers SET ${setParts.join(', ')} WHERE browser_id = $${values.length}`,
-            values
+            values,
           );
         }
-      }
-      else if (op.op === 'delete_user') {
-        await pool.query('DELETE FROM mcp_users WHERE user_id = $1', [op.userId]);
-      }
-      else if (op.op === 'unbind_browser') {
-        await pool.query('DELETE FROM mcp_browsers WHERE browser_id = $1', [op.browserId]);
-      }
-      else if (op.op === 'update_last_connected') {
+      } else if (op.op === 'delete_user') {
+        await pool.query('DELETE FROM mcp_users WHERE user_id = $1', [
+          op.userId,
+        ]);
+      } else if (op.op === 'unbind_browser') {
+        await pool.query('DELETE FROM mcp_browsers WHERE browser_id = $1', [
+          op.browserId,
+        ]);
+      } else if (op.op === 'update_last_connected') {
         await pool.query(
           'UPDATE mcp_browsers SET last_connected_at = $1 WHERE browser_id = $2',
-          [op.timestamp, op.browserId]
+          [op.timestamp, op.browserId],
         );
-      }
-      else if (op.op === 'increment_tool_call') {
+      } else if (op.op === 'increment_tool_call') {
         await pool.query(
           'UPDATE mcp_browsers SET tool_call_count = tool_call_count + 1 WHERE browser_id = $1',
-          [op.browserId]
+          [op.browserId],
         );
       }
     } catch (error) {
       errorCount++;
-      console.error(`\n⚠️  导入失败 (行 ${i + 1}):`, error instanceof Error ? error.message : error);
+      console.error(
+        `\n⚠️  导入失败 (行 ${i + 1}):`,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
@@ -174,7 +181,7 @@ async function migrate(config: MigrationConfig) {
   console.log('🔍 验证数据...');
   const userResult = await pool.query('SELECT COUNT(*) FROM mcp_users');
   const browserResult = await pool.query('SELECT COUNT(*) FROM mcp_browsers');
-  
+
   console.log(`   - 数据库用户数: ${userResult.rows[0].count}`);
   console.log(`   - 数据库浏览器数: ${browserResult.rows[0].count}\n`);
 
@@ -224,7 +231,9 @@ if (args.includes('--help') || args.includes('-h')) {
 // 执行迁移
 console.log('配置信息:');
 console.log(`  JSONL 文件: ${config.jsonlPath}`);
-console.log(`  数据库: ${config.dbUser}@${config.dbHost}:${config.dbPort}/${config.dbName}\n`);
+console.log(
+  `  数据库: ${config.dbUser}@${config.dbHost}:${config.dbPort}/${config.dbName}\n`,
+);
 
 migrate(config).catch(error => {
   console.error('❌ 迁移失败:', error);

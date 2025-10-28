@@ -34,6 +34,7 @@
 ```
 
 **返回示例**:
+
 ```json
 {
   "status": "completed",
@@ -76,21 +77,19 @@
 
 ### 参数说明
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `extensionId` | string | 否 | 32位小写字母的扩展ID。mode为single时必填 |
-| `mode` | enum | 否 | 激活模式，默认为 `inactive` |
+| 参数          | 类型   | 必填 | 说明                                     |
+| ------------- | ------ | ---- | ---------------------------------------- |
+| `extensionId` | string | 否   | 32位小写字母的扩展ID。mode为single时必填 |
+| `mode`        | enum   | 否   | 激活模式，默认为 `inactive`              |
 
 #### mode 参数详解
 
 - **`inactive`** (默认): 只激活未激活的 SW
   - 推荐用于日常使用
   - 避免重复点击已激活的 SW
-  
 - **`single`**: 只激活指定 extensionId 的 SW
   - 需要配合 extensionId 参数使用
   - 用于精确控制单个扩展
-  
 - **`all`**: 激活所有扩展的 SW
   - 包括已激活的（会重新点击）
   - 用于确保所有扩展 SW 都被触发
@@ -101,13 +100,13 @@
 
 ```javascript
 // 1. 列出所有扩展
-list_extensions()
+list_extensions();
 
 // 2. 激活所有未激活的 SW
-activate_extension_service_worker({ mode: "inactive" })
+activate_extension_service_worker({mode: 'inactive'});
 
 // 3. 开始调试
-evaluate_in_extension({ extensionId: "...", code: "..." })
+evaluate_in_extension({extensionId: '...', code: '...'});
 ```
 
 ### 场景 2: 自动化测试
@@ -115,7 +114,7 @@ evaluate_in_extension({ extensionId: "...", code: "..." })
 ```javascript
 // 测试流程开始前，确保 SW 激活
 async function setupTest() {
-  await activate_extension_service_worker({ mode: "all" });
+  await activate_extension_service_worker({mode: 'all'});
   await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 SW 就绪
   // 继续测试...
 }
@@ -125,13 +124,13 @@ async function setupTest() {
 
 ```javascript
 // 激活所有扩展，然后监控它们的行为
-activate_extension_service_worker({ mode: "all" });
+activate_extension_service_worker({mode: 'all'});
 
 // 查看各扩展的上下文
-list_extension_contexts({ extensionId: "..." });
+list_extension_contexts({extensionId: '...'});
 
 // 监控消息
-monitor_extension_messages({ extensionId: "...", duration: 5000 });
+monitor_extension_messages({extensionId: '...', duration: 5000});
 ```
 
 ## 返回格式
@@ -204,8 +203,9 @@ monitor_extension_messages({ extensionId: "...", duration: 5000 });
 ### Q2: 激活后扩展功能仍不工作？
 
 **A**: SW 激活后可能需要短暂延迟才能完全就绪，建议：
+
 ```javascript
-activate_extension_service_worker({ mode: "inactive" });
+activate_extension_service_worker({mode: 'inactive'});
 await new Promise(resolve => setTimeout(resolve, 500)); // 等待500ms
 // 继续操作
 ```
@@ -213,23 +213,26 @@ await new Promise(resolve => setTimeout(resolve, 500)); // 等待500ms
 ### Q3: 提示"未找到任何扩展"？
 
 **A**: 可能原因：
+
 1. Chrome 未安装扩展
 2. 页面未完全加载
 3. Chrome 版本不兼容（DOM 结构变化）
 
 解决方法：
+
 ```javascript
 // 先导航到扩展页面
-navigate_page({ url: "chrome://extensions" });
+navigate_page({url: 'chrome://extensions'});
 // 等待加载
 await new Promise(resolve => setTimeout(resolve, 1000));
 // 再激活
-activate_extension_service_worker({ mode: "inactive" });
+activate_extension_service_worker({mode: 'inactive'});
 ```
 
 ### Q4: mode=single 但提示参数错误？
 
 **A**: `single` 模式必须提供 `extensionId`：
+
 ```javascript
 // ❌ 错误
 { mode: "single" }
@@ -241,8 +244,9 @@ activate_extension_service_worker({ mode: "inactive" });
 ### Q5: 如何获取 extensionId？
 
 **A**: 使用 `list_extensions` 工具：
+
 ```javascript
-list_extensions()
+list_extensions();
 // 输出包含所有扩展的 ID 和名称
 ```
 
@@ -252,15 +256,15 @@ list_extensions()
 
 ```javascript
 // 推荐：日常使用
-activate_extension_service_worker({ mode: "inactive" });
+activate_extension_service_worker({mode: 'inactive'});
 
 // 谨慎：可能重复激活
-activate_extension_service_worker({ mode: "all" });
+activate_extension_service_worker({mode: 'all'});
 
 // 精确：指定扩展
-activate_extension_service_worker({ 
-  mode: "single", 
-  extensionId: "xxx...xxx" 
+activate_extension_service_worker({
+  mode: 'single',
+  extensionId: 'xxx...xxx',
 });
 ```
 
@@ -268,18 +272,18 @@ activate_extension_service_worker({
 
 ```javascript
 try {
-  const result = await activate_extension_service_worker({ mode: "inactive" });
-  
-  if (result.status === "error") {
-    console.error("激活失败:", result.message);
+  const result = await activate_extension_service_worker({mode: 'inactive'});
+
+  if (result.status === 'error') {
+    console.error('激活失败:', result.message);
     // 处理错误
   } else if (result.activated === 0) {
-    console.log("无需激活");
+    console.log('无需激活');
   } else {
     console.log(`成功激活 ${result.activated} 个 SW`);
   }
 } catch (error) {
-  console.error("调用失败:", error);
+  console.error('调用失败:', error);
 }
 ```
 
@@ -289,28 +293,28 @@ try {
 // 完整的扩展调试工作流
 async function debugExtension(extensionId) {
   // 1. 激活 SW
-  await activate_extension_service_worker({ 
-    mode: "single", 
-    extensionId 
+  await activate_extension_service_worker({
+    mode: 'single',
+    extensionId,
   });
-  
+
   // 2. 等待 SW 就绪
   await new Promise(resolve => setTimeout(resolve, 500));
-  
+
   // 3. 查看上下文
-  const contexts = await list_extension_contexts({ extensionId });
-  console.log("扩展上下文:", contexts);
-  
+  const contexts = await list_extension_contexts({extensionId});
+  console.log('扩展上下文:', contexts);
+
   // 4. 执行代码
   const result = await evaluate_in_extension({
     extensionId,
-    code: "chrome.runtime.getManifest()"
+    code: 'chrome.runtime.getManifest()',
   });
-  console.log("清单:", result);
-  
+  console.log('清单:', result);
+
   // 5. 查看日志
-  const logs = await get_extension_logs({ extensionId });
-  console.log("日志:", logs);
+  const logs = await get_extension_logs({extensionId});
+  console.log('日志:', logs);
 }
 ```
 
@@ -318,10 +322,10 @@ async function debugExtension(extensionId) {
 
 根据 `CHAIN_COMPARISON.md` 的性能测试：
 
-| 方案 | 耗时 | 说明 |
-|------|------|------|
-| 脚本方式（本工具） | **4ms** | ⚡ 推荐 |
-| 工具链方式 | 932ms | 慢 233 倍 ❌ |
+| 方案               | 耗时    | 说明         |
+| ------------------ | ------- | ------------ |
+| 脚本方式（本工具） | **4ms** | ⚡ 推荐      |
+| 工具链方式         | 932ms   | 慢 233 倍 ❌ |
 
 **结论**: 脚本方式性能优异，是自动化场景的最佳选择。
 
@@ -339,6 +343,7 @@ async function debugExtension(extensionId) {
 ## 更新日志
 
 ### v0.8.1 (2025-10-12)
+
 - ✨ 新增 `activate_extension_service_worker` 工具
 - 🚀 使用高性能脚本方式（4ms）
 - 📦 支持 3 种激活模式
@@ -352,14 +357,15 @@ async function debugExtension(extensionId) {
 
 ```javascript
 // 主选择器
-item.querySelector('#service-worker-button')
+item.querySelector('#service-worker-button');
 
 // 备用选择器
-item.querySelector('[id*="service-worker"]')
+item.querySelector('[id*="service-worker"]');
 
 // 降级方案：文本匹配
-Array.from(item.querySelectorAll('button'))
-  .find(btn => btn.textContent.includes('service worker'))
+Array.from(item.querySelectorAll('button')).find(btn =>
+  btn.textContent.includes('service worker'),
+);
 ```
 
 ### 兼容性
@@ -380,6 +386,7 @@ Array.from(item.querySelectorAll('button'))
 ---
 
 **相关文档**:
+
 - [CHAIN_COMPARISON.md](../CHAIN_COMPARISON.md) - 性能对比详情
 - [NEXT_SESSION_PROMPT.md](../NEXT_SESSION_PROMPT.md) - 实现详细规格
 - [测试脚本](../test-sw-activation.mjs) - 功能测试代码

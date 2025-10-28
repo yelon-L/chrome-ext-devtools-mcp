@@ -35,20 +35,21 @@ import {getAllTools} from '../tools/registry.js';
 import type {ToolDefinition} from '../tools/ToolDefinition.js';
 import {displayMultiTenantModeInfo} from '../utils/modeMessages.js';
 import {VERSION} from '../version.js';
-import {createLogger} from './utils/Logger.js';
-import {RateLimiter, PerUserRateLimiter} from './utils/RateLimiter.js';
+
 
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
 import {SessionManager} from './core/SessionManager.js';
+import * as v2Handlers from './handlers-v2.js';
 import {PersistentStoreV2, type UserRecordV2, type BrowserRecordV2} from './storage/PersistentStoreV2.js';
 import {StorageAdapterFactory, type StorageAdapter} from './storage/StorageAdapter.js';
 import {UnifiedStorage} from './storage/UnifiedStorageAdapter.js';
-import * as v2Handlers from './handlers-v2.js';
-import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
 import {detectBrowser} from './utils/browser-detector.js';
-import {PerformanceMonitor} from './utils/performance-monitor.js';
-import {SimpleCache} from './utils/simple-cache.js';
 import {CircularBuffer} from './utils/circular-buffer.js';
+import {parseAllowedIPs, isIPAllowed, getPatternDescription} from './utils/ip-matcher.js';
+import {createLogger} from './utils/Logger.js';
+import {PerformanceMonitor} from './utils/performance-monitor.js';
+import {RateLimiter, PerUserRateLimiter} from './utils/RateLimiter.js';
+import {SimpleCache} from './utils/simple-cache.js';
 
 /**
  * 多租户 MCP 代理服务器

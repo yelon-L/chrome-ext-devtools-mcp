@@ -7,12 +7,14 @@
 ## 🎯 解决的问题
 
 **之前的行为**:
+
 - 配置了 `--browserUrl` 参数但浏览器未运行
 - MCP服务器会启动并等待工具调用
 - 只有在第一次工具调用时才会发现连接失败
 - 错误消息不够明确，调试困难
 
 **现在的行为**:
+
 - 启动时立即验证浏览器连接
 - 连接失败时快速失败（fail-fast）
 - 显示详细的错误消息和解决建议
@@ -21,6 +23,7 @@
 ## ✅ 支持的传输模式
 
 验证功能支持所有传输模式：
+
 - ✅ **stdio** - 标准输入输出模式
 - ✅ **sse** - Server-Sent Events模式
 - ✅ **streamable** - Streamable HTTP模式
@@ -28,15 +31,19 @@
 ## 🔍 验证过程
 
 ### 1. 验证时机
+
 验证发生在MCP服务器启动时，在建立Puppeteer连接之前。
 
 ### 2. 验证方法
+
 通过HTTP请求检查浏览器的 `/json/version` 端点：
+
 ```javascript
 GET http://localhost:9222/json/version
 ```
 
 ### 3. 验证内容
+
 - HTTP响应状态码（期望200）
 - 响应包含必需字段：`Browser` 或 `webSocketDebuggerUrl`
 - 连接超时时间：5秒
@@ -54,6 +61,7 @@ node build/src/index.js --browserUrl http://localhost:9222
 ```
 
 **输出**:
+
 ```
 [MCP] Chrome Extension Debug MCP v0.8.10
 [MCP] Transport: stdio
@@ -77,6 +85,7 @@ node build/src/index.js --browserUrl http://localhost:9999
 ```
 
 **输出**:
+
 ```
 [MCP] Chrome Extension Debug MCP v0.8.10
 [MCP] Transport: stdio
@@ -86,8 +95,8 @@ node build/src/index.js --browserUrl http://localhost:9999
 
 ❌ Browser Connection Validation Failed
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Error: Cannot connect to browser at http://localhost:9999. 
-Please ensure Chrome is running with --remote-debugging-port. 
+Error: Cannot connect to browser at http://localhost:9999.
+Please ensure Chrome is running with --remote-debugging-port.
 Error: fetch failed
 
 📝 Please check:
@@ -116,22 +125,22 @@ export async function validateBrowserURL(browserURL: string): Promise<void> {
     const response = await fetch(url.toString(), {
       signal: AbortSignal.timeout(5000), // 5秒超时
     });
-    
+
     if (!response.ok) {
       throw new Error(`Browser returned HTTP ${response.status}`);
     }
-    
+
     const data = await response.json();
     if (!data.Browser && !data.webSocketDebuggerUrl) {
       throw new Error('Invalid browser response');
     }
-    
+
     console.log(`[Browser] ✅ Validated: ${data.Browser || 'Unknown'}`);
   } catch (error) {
     // 友好的错误消息
     throw new Error(
       `Cannot connect to browser at ${browserURL}. ` +
-      `Please ensure Chrome is running with --remote-debugging-port.`
+        `Please ensure Chrome is running with --remote-debugging-port.`,
     );
   }
 }
@@ -140,6 +149,7 @@ export async function validateBrowserURL(browserURL: string): Promise<void> {
 ### 集成点
 
 **main.ts (stdio模式)**:
+
 ```typescript
 // 如果配置了 --browserUrl，在启动时验证浏览器连接
 if (args.browserUrl) {
@@ -154,6 +164,7 @@ if (args.browserUrl) {
 ```
 
 **server-sse.ts (SSE模式)**:
+
 ```typescript
 if (args.browserUrl) {
   await validateBrowserURL(args.browserUrl);
@@ -161,6 +172,7 @@ if (args.browserUrl) {
 ```
 
 **server-http.ts (HTTP模式)**:
+
 ```typescript
 if (args.browserUrl) {
   await validateBrowserURL(args.browserUrl);
@@ -170,22 +182,26 @@ if (args.browserUrl) {
 ## ✅ 测试结果
 
 ### 测试1: 正确的浏览器URL
+
 - ✅ 成功验证浏览器连接
 - ✅ 显示浏览器版本信息
 - ✅ MCP服务器正常启动
 
 ### 测试2: 错误的浏览器URL
+
 - ✅ 检测到连接失败
 - ✅ 显示详细错误消息
 - ✅ 进程以退出码1退出
 
 ### 测试3: SSE模式验证
+
 - ✅ SSE模式正确验证浏览器
 - ✅ 与stdio模式行为一致
 
 ## 🎯 最佳实践
 
 ### 1. 启动顺序
+
 ```bash
 # 推荐: 先启动Chrome，再启动MCP
 google-chrome --remote-debugging-port=9222
@@ -195,6 +211,7 @@ node build/src/index.js --browserUrl http://localhost:9222
 ### 2. 配置文件示例
 
 **Claude Desktop配置** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
 ```json
 {
   "mcpServers": {
@@ -226,30 +243,36 @@ CMD ["node", "build/src/index.js", "--browserUrl", "http://localhost:9222"]
 ## 🐛 故障排查
 
 ### 问题1: 验证超时
+
 ```
 Error: Cannot connect to browser at http://localhost:9222
 ```
 
 **解决方案**:
+
 1. 检查Chrome是否正在运行: `ps aux | grep chrome`
 2. 检查端口是否正确: `curl http://localhost:9222/json/version`
 3. 检查防火墙设置
 
 ### 问题2: 端口被占用
+
 ```
 Error: Browser returned HTTP 403: Forbidden
 ```
 
 **解决方案**:
+
 1. 确认端口未被其他应用占用
 2. 尝试使用其他端口: `--remote-debugging-port=9223`
 
 ### 问题3: 远程浏览器连接
+
 ```
 Error: fetch failed
 ```
 
 **解决方案**:
+
 1. 确保网络可达性
 2. 检查浏览器是否允许远程连接
 3. 使用完整URL: `http://192.168.1.100:9222`
@@ -264,6 +287,7 @@ Error: fetch failed
 ## 🔄 未来改进
 
 可能的增强功能：
+
 - [ ] 支持重试机制（启动时自动重试3次）
 - [ ] 支持等待浏览器就绪（--wait-for-browser标志）
 - [ ] 支持健康检查端点（定期验证连接）

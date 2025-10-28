@@ -38,6 +38,7 @@ dist/
 ```
 
 **好处：**
+
 - ✅ 仓库体积小
 - ✅ 版本历史清晰
 - ✅ 避免二进制文件冲突
@@ -51,6 +52,7 @@ dist/
 **触发条件：** 推送版本标签（例如 `v0.8.2`）
 
 **自动化流程：**
+
 1. 检出代码
 2. 安装依赖（Node.js + Bun）
 3. 构建项目
@@ -60,6 +62,7 @@ dist/
 7. 上传文件到 Release
 
 **支持平台：**
+
 - Linux x64
 - Linux ARM64
 - macOS x64 (Intel)
@@ -76,12 +79,15 @@ dist/
 ## [0.8.2] - 2025-10-13
 
 ### Added
+
 - 新功能描述
 
 ### Fixed
+
 - Bug 修复描述
 
 ### Changed
+
 - 变更描述
 ```
 
@@ -90,6 +96,7 @@ dist/
 ### 4. RELEASE.md
 
 完整的发布流程文档，包括：
+
 - 版本号更新
 - 标签创建
 - GitHub Actions 触发
@@ -101,6 +108,7 @@ dist/
 ### 5. README.md
 
 添加了完整的安装部分：
+
 - **Option 1**: 二进制发布（推荐）
 - **Option 2**: npm 包
 - **Option 3**: 从源码构建
@@ -136,7 +144,7 @@ git push origin v0.8.3
 ✅ 构建所有平台二进制文件  
 ✅ 创建 Release  
 ✅ 上传文件  
-✅ 生成校验和  
+✅ 生成校验和
 
 ---
 
@@ -145,6 +153,7 @@ git push origin v0.8.3
 ### 方式 1: 浏览器下载
 
 访问 Releases 页面：
+
 ```
 https://github.com/your-org/chrome-ext-devtools-mcp/releases
 ```
@@ -154,18 +163,21 @@ https://github.com/your-org/chrome-ext-devtools-mcp/releases
 ### 方式 2: 命令行下载
 
 **Linux:**
+
 ```bash
 wget https://github.com/your-org/chrome-ext-devtools-mcp/releases/latest/download/chrome-extension-debug-linux-x64
 chmod +x chrome-extension-debug-linux-x64
 ```
 
 **macOS:**
+
 ```bash
 curl -L -o chrome-extension-debug https://github.com/your-org/chrome-ext-devtools-mcp/releases/latest/download/chrome-extension-debug-macos-arm64
 chmod +x chrome-extension-debug
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 Invoke-WebRequest -Uri "https://github.com/your-org/chrome-ext-devtools-mcp/releases/latest/download/chrome-extension-debug-windows-x64.exe" -OutFile "chrome-extension-debug.exe"
 ```
@@ -191,6 +203,7 @@ Invoke-WebRequest -Uri "https://github.com/your-org/chrome-ext-devtools-mcp/rele
 ```
 
 **问题：**
+
 - 仓库体积巨大
 - clone 速度慢
 - 版本历史混乱
@@ -223,6 +236,7 @@ Invoke-WebRequest -Uri "https://github.com/your-org/chrome-ext-devtools-mcp/rele
 ```
 
 **优势：**
+
 - ✅ 仓库小巧
 - ✅ clone 快速
 - ✅ 版本清晰
@@ -239,7 +253,7 @@ Invoke-WebRequest -Uri "https://github.com/your-org/chrome-ext-devtools-mcp/rele
 on:
   push:
     tags:
-      - 'v*.*.*'  # 自动触发
+      - 'v*.*.*' # 自动触发
 ```
 
 ### 2. 版本化下载链接
@@ -255,6 +269,7 @@ https://github.com/.../releases/download/v0.8.2/file
 ### 3. Release Notes
 
 每个版本自动生成详细说明：
+
 - 新功能
 - Bug 修复
 - 下载链接
@@ -264,6 +279,7 @@ https://github.com/.../releases/download/v0.8.2/file
 ### 4. 下载统计
 
 GitHub 自动统计：
+
 - 每个文件下载次数
 - 版本流行度
 - 用户平台分布
@@ -300,21 +316,26 @@ git tag v0.8.2          # 缺少注释消息
 ## [0.8.2] - 2025-10-13
 
 ### Added
+
 - 具体描述新功能
 
-### Fixed  
+### Fixed
+
 - 具体描述修复的 Bug
 
 ### Changed
+
 - 具体描述的变更
 
 ### Security
+
 - 安全相关更新
 ```
 
 ### 4. Release 说明
 
 提供完整信息：
+
 - ✅ 下载链接
 - ✅ 安装指南
 - ✅ 使用示例
@@ -384,11 +405,13 @@ git tag -v v0.8.2
 ### 问题 1: GitHub Actions 失败
 
 **检查：**
+
 ```
 GitHub → Actions → 查看日志
 ```
 
 **常见原因：**
+
 - TypeScript 编译错误 → 修复代码
 - Bun 版本不兼容 → 更新 Bun
 - 权限问题 → 检查 GITHUB_TOKEN
@@ -396,6 +419,7 @@ GitHub → Actions → 查看日志
 ### 问题 2: 二进制文件无法运行
 
 **Linux:**
+
 ```bash
 # 添加执行权限
 chmod +x chrome-extension-debug-linux-x64
@@ -405,6 +429,7 @@ ldd chrome-extension-debug-linux-x64
 ```
 
 **macOS:**
+
 ```bash
 # 移除隔离属性
 xattr -d com.apple.quarantine chrome-extension-debug-macos-*
@@ -464,6 +489,7 @@ git push origin v0.8.2
 - ✅ **专业规范** - 遵循最佳实践
 
 **下次发布只需三步：**
+
 1. 更新版本号和 CHANGELOG
 2. 推送标签
 3. 等待 GitHub Actions 完成

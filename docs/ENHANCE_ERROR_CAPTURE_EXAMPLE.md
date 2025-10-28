@@ -264,6 +264,7 @@ No additional action needed.
 ### Q1: Service Worker is inactive
 
 **错误信息**：
+
 ```
 ⚠️ Service Worker is inactive
 The Service Worker must be active to inject error listeners.
@@ -271,6 +272,7 @@ The Service Worker must be active to inject error listeners.
 ```
 
 **解决方案**：
+
 ```bash
 activate_extension_service_worker({"extensionId": "xxx"})
 enhance_extension_error_capture({"extensionId": "xxx"})
@@ -281,6 +283,7 @@ enhance_extension_error_capture({"extensionId": "xxx"})
 ### Q2: No Background Context Found
 
 **错误信息**：
+
 ```
 ❌ No Background Context Found
 The extension has no active background context.
@@ -288,11 +291,13 @@ The extension has no active background context.
 ```
 
 **原因**：
+
 - 扩展被禁用
 - Service Worker未启动
 - 扩展崩溃
 
 **解决方案**：
+
 ```bash
 # 1. 检查扩展状态
 list_extensions()
@@ -309,6 +314,7 @@ enhance_extension_error_capture({"extensionId": "xxx"})
 ### Q3: 增强后重载，监听器丢失
 
 **现象**：
+
 ```bash
 enhance_extension_error_capture({"extensionId": "xxx"})
 reload_extension({"extensionId": "xxx"})
@@ -316,6 +322,7 @@ reload_extension({"extensionId": "xxx"})
 ```
 
 **解决方案**：重载后重新增强
+
 ```bash
 reload_extension({"extensionId": "xxx"})
 enhance_extension_error_capture({"extensionId": "xxx"})
@@ -328,17 +335,20 @@ enhance_extension_error_capture({"extensionId": "xxx"})
 ### ✅ 推荐
 
 1. **开发开始时增强一次**
+
    ```bash
    enhance_extension_error_capture({"extensionId": "xxx"})
    ```
 
 2. **每次重载后重新增强**
+
    ```bash
    reload_extension({"extensionId": "xxx"})
    enhance_extension_error_capture({"extensionId": "xxx"})
    ```
 
 3. **定期诊断**
+
    ```bash
    diagnose_extension_errors({"extensionId": "xxx"})
    ```
@@ -354,6 +364,7 @@ enhance_extension_error_capture({"extensionId": "xxx"})
 ### ❌ 避免
 
 1. **不要在生产环境频繁增强**
+
    ```bash
    # ❌ 错误
    setInterval(() => {
@@ -372,13 +383,13 @@ enhance_extension_error_capture({"extensionId": "xxx"})
 
 ## 🔗 相关工具
 
-| 工具 | 用途 | 何时使用 |
-|------|------|----------|
-| `enhance_extension_error_capture` | 注入监听器 | 开发调试、问题排查 |
-| `diagnose_extension_errors` | 分析错误 | 定期检查、深度分析 |
-| `get_extension_logs` | 查看日志 | 查看详细信息 |
-| `reload_extension` | 重载扩展 | 代码修改后 |
-| `activate_extension_service_worker` | 激活SW | 增强之前（MV3） |
+| 工具                                | 用途       | 何时使用           |
+| ----------------------------------- | ---------- | ------------------ |
+| `enhance_extension_error_capture`   | 注入监听器 | 开发调试、问题排查 |
+| `diagnose_extension_errors`         | 分析错误   | 定期检查、深度分析 |
+| `get_extension_logs`                | 查看日志   | 查看详细信息       |
+| `reload_extension`                  | 重载扩展   | 代码修改后         |
+| `activate_extension_service_worker` | 激活SW     | 增强之前（MV3）    |
 
 ---
 

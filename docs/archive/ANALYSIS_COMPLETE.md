@@ -65,18 +65,19 @@ npx chrome-extension-debug-mcp --mode multi-tenant
 
 ## 📊 模式对比表
 
-| 特性 | stdio | SSE 服务器 | Streamable 服务器 | **Multi-tenant** |
-|------|-------|-----------|------------------|------------------|
-| **启动** | `npx chrome-extension-debug-mcp` | `npx ... --transport sse` | `npx ... --transport streamable` | `node build/src/multi-tenant/...js` |
-| **传输** | 标准输入输出 | SSE (HTTP) | Streamable HTTP | **SSE (HTTP)** |
-| **远程** | ❌ | ✅ | ✅ | ✅ |
-| **多用户** | ❌ | ✅ (共享浏览器) | ✅ (共享浏览器) | **✅ (独立浏览器)** |
-| **隔离** | N/A | ❌ | ❌ | **✅** |
-| **注册** | N/A | 不需要 | 不需要 | **需要** |
-| **配置** | CLI 参数 | CLI 参数 | CLI 参数 | **环境变量** |
-| **入口** | `src/index.ts` | `src/server-sse.ts` | `src/server-http.ts` | **`src/multi-tenant/server-multi-tenant.ts`** |
+| 特性       | stdio                            | SSE 服务器                | Streamable 服务器                | **Multi-tenant**                              |
+| ---------- | -------------------------------- | ------------------------- | -------------------------------- | --------------------------------------------- |
+| **启动**   | `npx chrome-extension-debug-mcp` | `npx ... --transport sse` | `npx ... --transport streamable` | `node build/src/multi-tenant/...js`           |
+| **传输**   | 标准输入输出                     | SSE (HTTP)                | Streamable HTTP                  | **SSE (HTTP)**                                |
+| **远程**   | ❌                               | ✅                        | ✅                               | ✅                                            |
+| **多用户** | ❌                               | ✅ (共享浏览器)           | ✅ (共享浏览器)                  | **✅ (独立浏览器)**                           |
+| **隔离**   | N/A                              | ❌                        | ❌                               | **✅**                                        |
+| **注册**   | N/A                              | 不需要                    | 不需要                           | **需要**                                      |
+| **配置**   | CLI 参数                         | CLI 参数                  | CLI 参数                         | **环境变量**                                  |
+| **入口**   | `src/index.ts`                   | `src/server-sse.ts`       | `src/server-http.ts`             | **`src/multi-tenant/server-multi-tenant.ts`** |
 
 **关键区别：**
+
 - stdio/SSE/Streamable：所有用户共享一个浏览器实例
 - **Multi-tenant：每个用户有自己的浏览器实例**
 
@@ -176,6 +177,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **服务器输出：**
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏢 MULTI-TENANT MODE - Enterprise SaaS
@@ -214,7 +216,7 @@ curl -X POST http://server.com:32122/api/register \
   "success": true,
   "userId": "alice",
   "sseEndpoint": "http://server.com:32122/sse?userId=alice",
-  "token": "eyJhbGciOi..." 
+  "token": "eyJhbGciOi..."
 }
 ```
 
@@ -242,37 +244,49 @@ curl -X POST http://server.com:32122/api/register \
 ## 🔍 与其他模式的场景对比
 
 ### 场景 1: 个人本地开发
+
 ```bash
 npx chrome-extension-debug-mcp
 ```
+
 ✅ **使用 stdio 模式**
+
 - 单用户
 - 本地使用
 - IDE 集成
 
 ### 场景 2: 团队共享测试环境
+
 ```bash
 npx chrome-extension-debug-mcp --transport sse --port 3000
 ```
+
 ✅ **使用 SSE 服务器**
+
 - 多用户
 - 共享一个浏览器
 - 适合测试演示
 
 ### 场景 3: 生产 API 服务
+
 ```bash
 npx chrome-extension-debug-mcp --transport streamable --port 3000
 ```
+
 ✅ **使用 Streamable 服务器**
+
 - 多用户
 - 共享一个浏览器
 - 支持负载均衡
 
 ### 场景 4: SaaS 多租户平台
+
 ```bash
 node build/src/multi-tenant/server-multi-tenant.js
 ```
+
 ✅ **使用 Multi-tenant**
+
 - 多用户
 - **每个用户独立浏览器**
 - 用户隔离
@@ -305,24 +319,30 @@ node build/src/multi-tenant/server-multi-tenant.js
 ### 代码验证
 
 **验证 1: 传输协议**
+
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts:21
 import {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
 ```
+
 ✅ 确认使用 SSE
 
 **验证 2: 用户注册**
+
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts:572
 const transport = new SSEServerTransport('/message', res);
 ```
+
 ✅ 每个用户创建独立的传输层
 
 **验证 3: 环境变量配置**
+
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts:77
 this.port = parseInt(process.env.PORT || '32122', 10);
 ```
+
 ✅ 通过环境变量配置，不用 CLI 参数
 
 ---
@@ -330,17 +350,20 @@ this.port = parseInt(process.env.PORT || '32122', 10);
 ## ✅ 验证结果
 
 ### 代码验证
+
 - ✅ 确认使用 SSE 传输（硬编码）
 - ✅ 确认环境变量配置方式
 - ✅ 确认用户隔离机制
 - ✅ 确认独立的入口文件
 
 ### 功能验证
+
 - ✅ 编译成功（npm run build）
 - ✅ 启动信息已优化
 - ✅ README 错误已修正
 
 ### 文档完整性
+
 - ✅ 第一性原理分析
 - ✅ 快速开始指南
 - ✅ 架构详解
@@ -384,12 +407,14 @@ npx chrome-extension-debug-mcp --mode multi-tenant
 ### 使用场景
 
 **使用 Multi-tenant 当你需要：**
+
 - ✅ 支持多个用户同时使用
 - ✅ 每个用户有独立的浏览器环境
 - ✅ 用户之间完全隔离
 - ✅ 构建 SaaS 浏览器自动化平台
 
 **不需要 Multi-tenant 当：**
+
 - ❌ 只有单用户（用 stdio）
 - ❌ 多用户可以共享浏览器（用 SSE/Streamable 服务器）
 - ❌ 本地开发使用（用 stdio）

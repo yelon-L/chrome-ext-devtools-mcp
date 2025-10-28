@@ -40,16 +40,17 @@ When clients connected to the Multi-Tenant MCP server:
 ### The Race Condition
 
 **Problem Flow:**
+
 ```typescript
 // BEFORE (Broken):
 async establishConnection() {
   // 1. Create SSE transport
   const transport = new SSEServerTransport('/message', res);
-  
+
   // 2. Connect MCP server → sends SSE endpoint message
   await mcpServer.connect(transport);
   //    ↓ Client receives: data: /message?sessionId=xxx
-  
+
   // 3. Create session in SessionManager
   const sessionId = transport.sessionId;
   this.sessionManager.createSession(sessionId, ...);
@@ -58,6 +59,7 @@ async establishConnection() {
 ```
 
 **Timeline:**
+
 ```
 T0: SSE connection established
 T1: mcpServer.connect() sends endpoint message
@@ -81,19 +83,20 @@ T3: Client POST /message?sessionId=xxx
 ### The Fix
 
 **Changed Execution Order:**
+
 ```typescript
 // AFTER (Fixed):
 async establishConnection() {
   // 1. Create SSE transport
   const transport = new SSEServerTransport('/message', res);
-  
+
   // 2. Get session ID (transport creates it internally)
   const sessionId = transport.sessionId;
-  
+
   // 3. Create session FIRST
   this.sessionManager.createSession(sessionId, userId, transport, ...);
   //    ↑ Session exists before message is sent
-  
+
   // 4. Connect MCP server → sends SSE endpoint message
   await mcpServer.connect(transport);
   //    ↓ Client receives: data: /message?sessionId=xxx
@@ -102,6 +105,7 @@ async establishConnection() {
 ```
 
 **Correct Timeline:**
+
 ```
 T0: SSE connection established
 T1: sessionManager.createSession() creates session  ← Session exists first
@@ -120,9 +124,9 @@ T3: Client POST /message?sessionId=xxx
 ```diff
 -      // Connect MCP server
 -      await mcpServer.connect(transport);
--      
+-
        const sessionId = transport.sessionId;
-       
+
 +      // 🔴 CRITICAL FIX: Create session BEFORE connecting
 +      // Session must exist before SSE endpoint message is sent
        this.sessionManager.createSession(
@@ -133,13 +137,13 @@ T3: Client POST /message?sessionId=xxx
          context,
          browser
        );
-+      
++
 +      // Register tools
 +      const tools = getAllTools();
 +      for (const tool of tools) {
 +        this.registerTool(mcpServer, tool, context, sessionId);
 +      }
-+      
++
 +      // Connect MCP server (now sends SSE endpoint message)
 +      await mcpServer.connect(transport);
 ```
@@ -189,9 +193,10 @@ Tools Working: 38/38
 ### Health Metrics
 
 **Before:**
+
 ```json
 {
-  "sessions": { "total": 0, "active": 0 },
+  "sessions": {"total": 0, "active": 0},
   "performance": {
     "totalErrors": 4,
     "errorRate": "100.00%"
@@ -200,9 +205,10 @@ Tools Working: 38/38
 ```
 
 **After (Expected):**
+
 ```json
 {
-  "sessions": { "total": 1, "active": 1 },
+  "sessions": {"total": 1, "active": 1},
   "performance": {
     "totalErrors": 0,
     "errorRate": "0.00%"
@@ -254,11 +260,13 @@ Converted all Chinese logs to English for better accessibility:
 ### Manual Testing
 
 1. **Start Remote Server:**
+
    ```bash
    ./chrome-extension-debug-linux-x64 --mode multi-tenant
    ```
 
 2. **Run Test Suite:**
+
    ```bash
    bash simple-comprehensive-test.sh
    node interactive-tools-test.mjs
@@ -278,10 +286,10 @@ describe('Session Management', () => {
   it('should create session before sending session ID', async () => {
     // 1. Connect SSE
     const sse = await connectSSE(userId);
-    
+
     // 2. Receive session ID
     const sessionId = await waitForSessionId(sse);
-    
+
     // 3. Immediately POST (no delay)
     const response = await postMessage(sessionId, {
       jsonrpc: '2.0',
@@ -289,7 +297,7 @@ describe('Session Management', () => {
       method: 'initialize',
       params: { ... }
     });
-    
+
     // 4. Should succeed (no "Session not found")
     expect(response.error).toBeUndefined();
     expect(response.result).toBeDefined();

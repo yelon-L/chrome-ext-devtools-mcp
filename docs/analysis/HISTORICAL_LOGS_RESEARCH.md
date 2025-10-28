@@ -22,11 +22,12 @@
 #### Log.enable 方法
 
 ```
-Enables log domain, sends the entries collected so far to the client 
+Enables log domain, sends the entries collected so far to the client
 by means of the entryAdded notification.
 ```
 
 **关键发现**：
+
 - ✅ Log.enable 会发送"到目前为止收集的条目"
 - ✅ 这意味着 Chrome 确实会收集和缓存日志
 - ⚠️ 但这个"收集"的范围和持久化策略未明确说明
@@ -40,6 +41,7 @@ event Log.entryAdded {
 ```
 
 **LogEntry 类型**包含：
+
 - `source`: xml, javascript, network, storage, appcache, rendering, security, deprecation, worker, violation, intervention, recommendation, other
 - `level`: verbose, info, warning, error
 - `text`: 日志文本
@@ -48,6 +50,7 @@ event Log.entryAdded {
 - `workerId`: Worker 标识符
 
 **关键发现**：
+
 - ✅ 支持 `worker` 作为日志源
 - ✅ 包含 `workerId` 字段用于 Worker 日志
 - ⚠️ 但实际行为取决于 Chrome 的实现
@@ -65,11 +68,13 @@ Issued when console API was called.
 ```
 
 **关键特性**：
+
 - ❌ **纯事件驱动**：只在 console API 调用时触发
 - ❌ **无历史缓冲区**：没有提供获取历史日志的方法
 - ✅ **实时捕获**：可以捕获所有新产生的日志
 
 **事件参数**：
+
 ```typescript
 event Runtime.consoleAPICalled {
   type: string           // log, debug, info, error, warning, etc.
@@ -103,19 +108,21 @@ event Runtime.consoleAPICalled {
 
 3. **调试限制**
    ```
-   Inspecting the service worker keeps it active. To ensure your extension 
-   behaves correctly when your service worker is terminated, remember to 
+   Inspecting the service worker keeps it active. To ensure your extension
+   behaves correctly when your service worker is terminated, remember to
    close DevTools.
    ```
 
 ### 3.2 日志持久化特性
 
 **实际测试结果**：
+
 - ❌ `Log.enable` 对 Service Worker 返回 0 条历史日志
 - ✅ `Runtime.consoleAPICalled` 可以捕获实时日志
 - ⚠️ Service Worker 重启后，之前的日志不可访问
 
 **原因分析**：
+
 1. Service Worker 设计为短暂存在
 2. Chrome 不会为 Service Worker 维护长期的日志缓冲区
 3. 日志缓冲区随 Service Worker 终止而清空
@@ -126,21 +133,21 @@ event Runtime.consoleAPICalled {
 
 ### 4.1 普通网页
 
-| 特性 | 支持情况 | 说明 |
-|------|---------|------|
-| Log.enable 历史日志 | ✅ 支持 | 可以获取页面加载后的历史日志 |
-| Runtime.consoleAPICalled | ✅ 支持 | 实时捕获新日志 |
-| 日志持久化 | ✅ 页面存活期间 | 页面存在时日志保留在内存中 |
-| DevTools Console | ✅ 完整历史 | 可以查看所有历史日志 |
+| 特性                     | 支持情况        | 说明                         |
+| ------------------------ | --------------- | ---------------------------- |
+| Log.enable 历史日志      | ✅ 支持         | 可以获取页面加载后的历史日志 |
+| Runtime.consoleAPICalled | ✅ 支持         | 实时捕获新日志               |
+| 日志持久化               | ✅ 页面存活期间 | 页面存在时日志保留在内存中   |
+| DevTools Console         | ✅ 完整历史     | 可以查看所有历史日志         |
 
 ### 4.2 Service Worker
 
-| 特性 | 支持情况 | 说明 |
-|------|---------|------|
-| Log.enable 历史日志 | ❌ 实测无效 | 返回 0 条历史日志 |
-| Runtime.consoleAPICalled | ✅ 支持 | 实时捕获新日志 |
-| 日志持久化 | ❌ 不持久化 | SW 终止后日志丢失 |
-| DevTools Console | ⚠️ 有限历史 | 只在 DevTools 打开时保留 |
+| 特性                     | 支持情况    | 说明                     |
+| ------------------------ | ----------- | ------------------------ |
+| Log.enable 历史日志      | ❌ 实测无效 | 返回 0 条历史日志        |
+| Runtime.consoleAPICalled | ✅ 支持     | 实时捕获新日志           |
+| 日志持久化               | ❌ 不持久化 | SW 终止后日志丢失        |
+| DevTools Console         | ⚠️ 有限历史 | 只在 DevTools 打开时保留 |
 
 ---
 
@@ -151,17 +158,20 @@ event Runtime.consoleAPICalled {
 这是一个**私有 API**，只能在 `chrome://extensions` 上下文中使用。
 
 **功能**：
+
 ```javascript
-chrome.developerPrivate.getExtensionsInfo()
+chrome.developerPrivate.getExtensionsInfo();
 ```
 
 **返回信息**：
+
 - Extension metadata
 - Runtime errors (通过 `chrome://extensions` 收集的错误)
 - Install warnings
 - Manifest errors
 
 **限制**：
+
 - ❌ 不包含 console.log 日志
 - ✅ 只包含 JavaScript 错误和异常
 - ⚠️ 错误信息有次数统计（occurrence count）
@@ -173,12 +183,14 @@ chrome.developerPrivate.getExtensionsInfo()
 ### 6.1 Video SRT Ext 扩展测试
 
 **测试场景**：
+
 - 点击"字幕"按钮 → 播放视频
 - 同时捕获 Background 和 Offscreen 日志
 
 **测试结果**：
 
 #### Background Service Worker
+
 ```
 Duration: 8 seconds
 Result: 0 logs captured
@@ -186,6 +198,7 @@ Status: ⚠️ 正常（SW 在此场景下无日志输出）
 ```
 
 #### Offscreen Document
+
 ```
 Duration: 8 seconds
 Result: 252 logs captured
@@ -195,6 +208,7 @@ Content: "[Offscreen] 📨 Received message from Background"
 ```
 
 **关键发现**：
+
 1. ✅ **实时捕获完全正常** - Runtime.consoleAPICalled 工作正常
 2. ❌ **历史日志无法获取** - Log.enable 返回 0 条历史日志
 3. ✅ **Offscreen 日志捕获正常** - Offscreen Document 类似页面，有完整日志
@@ -208,35 +222,38 @@ Content: "[Offscreen] 📨 Received message from Background"
 根据搜索结果，现有的 Chrome 扩展通常使用以下方案：
 
 #### 方案 1：自定义日志系统
+
 ```javascript
 // 在 Service Worker 中
 const logs = [];
 const originalConsoleLog = console.log;
-console.log = function(...args) {
+console.log = function (...args) {
   const logEntry = {
     timestamp: Date.now(),
     level: 'log',
-    message: args.join(' ')
+    message: args.join(' '),
   };
   logs.push(logEntry);
-  
+
   // 持久化到 chrome.storage
-  chrome.storage.local.get(['logs'], (result) => {
+  chrome.storage.local.get(['logs'], result => {
     const allLogs = result.logs || [];
     allLogs.push(logEntry);
-    chrome.storage.local.set({ logs: allLogs });
+    chrome.storage.local.set({logs: allLogs});
   });
-  
+
   originalConsoleLog.apply(console, args);
 };
 ```
 
 **优点**：
+
 - ✅ 完全控制日志格式和内容
 - ✅ 可以持久化到 chrome.storage
 - ✅ 跨 SW 重启保留
 
 **缺点**：
+
 - ❌ 需要扩展实现
 - ❌ 需要修改所有 console 调用
 - ❌ 性能开销
@@ -244,6 +261,7 @@ console.log = function(...args) {
 #### 方案 2：第三方日志库
 
 使用 Sentry、LogRocket 等服务：
+
 - ✅ 完整的日志收集和分析
 - ✅ 云端存储
 - ❌ 需要外部服务
@@ -254,6 +272,7 @@ console.log = function(...args) {
 Chrome DevTools 本身如何显示历史日志？
 
 **答案**：
+
 - DevTools 打开时，实时监听 `Runtime.consoleAPICalled`
 - 将日志保存在 DevTools 进程的内存中
 - DevTools 关闭后，日志丢失
@@ -265,12 +284,12 @@ Chrome DevTools 本身如何显示历史日志？
 
 ### 8.1 官方能力总结
 
-| 能力 | 是否支持 | 说明 |
-|------|---------|------|
-| **获取 Service Worker 历史日志** | ❌ **不支持** | CDP 没有提供此能力 |
-| **获取页面历史日志** | ✅ 支持 | Log.enable 可以获取 |
-| **实时捕获新日志** | ✅ 完全支持 | Runtime.consoleAPICalled 工作正常 |
-| **错误历史记录** | ⚠️ 部分支持 | chrome.developerPrivate 只有错误 |
+| 能力                             | 是否支持      | 说明                              |
+| -------------------------------- | ------------- | --------------------------------- |
+| **获取 Service Worker 历史日志** | ❌ **不支持** | CDP 没有提供此能力                |
+| **获取页面历史日志**             | ✅ 支持       | Log.enable 可以获取               |
+| **实时捕获新日志**               | ✅ 完全支持   | Runtime.consoleAPICalled 工作正常 |
+| **错误历史记录**                 | ⚠️ 部分支持   | chrome.developerPrivate 只有错误  |
 
 ### 8.2 核心限制
 
@@ -298,20 +317,24 @@ Chrome DevTools 本身如何显示历史日志？
 #### 方案 A：实时捕获（当前实现）
 
 **实现**：
+
 - 在需要日志时调用工具
 - 使用 Runtime.consoleAPICalled 实时捕获
 - 设置合适的 duration
 
 **优点**：
+
 - ✅ 无需扩展配合
 - ✅ 实现简单
 - ✅ 性能影响小
 
 **缺点**：
+
 - ❌ 无法获取调用前的日志
 - ❌ 需要在扩展活动时捕获
 
 **适用场景**：
+
 - 调试扩展行为
 - 监控运行时日志
 - 性能分析
@@ -319,22 +342,26 @@ Chrome DevTools 本身如何显示历史日志？
 #### 方案 B：扩展自定义日志系统
 
 **实现**：
-- 扩展拦截 console.* 调用
+
+- 扩展拦截 console.\* 调用
 - 保存到 chrome.storage.local
 - MCP 工具读取 storage
 
 **优点**：
+
 - ✅ 完整的历史日志
 - ✅ 跨 SW 重启保留
 - ✅ 可自定义格式
 
 **缺点**：
+
 - ❌ 需要扩展实现
 - ❌ 需要修改扩展代码
 - ❌ 性能开销
 - ❌ 存储空间限制（5MB for local storage）
 
 **适用场景**：
+
 - 生产环境监控
 - 长期日志分析
 - 扩展可修改的情况
@@ -342,6 +369,7 @@ Chrome DevTools 本身如何显示历史日志？
 #### 方案 C：混合方案
 
 **实现**：
+
 ```javascript
 // 在扩展中（可选）
 if (typeof globalThis.__logs !== 'undefined') {
@@ -354,11 +382,13 @@ if (typeof globalThis.__logs !== 'undefined') {
 ```
 
 **优点**：
+
 - ✅ 向后兼容
 - ✅ 灵活性高
 - ✅ 渐进增强
 
 **缺点**：
+
 - ⚠️ 复杂度增加
 - ⚠️ 需要文档说明
 
@@ -369,11 +399,13 @@ if (typeof globalThis.__logs !== 'undefined') {
 ### 10.1 短期方案（已实现）
 
 **保持当前实现**：
+
 - ✅ 实时捕获工作正常
 - ✅ 无需扩展配合
 - ✅ 符合 Chrome 架构设计
 
 **使用指南**：
+
 ```bash
 # 正确的使用方式
 1. 触发扩展活动
@@ -414,12 +446,15 @@ if (typeof globalThis.__logs !== 'undefined') {
 ### 11.2 关键发现引用
 
 **Log.enable 官方描述**：
+
 > "Enables log domain, sends the entries collected so far to the client by means of the entryAdded notification."
 
 **Service Worker 调试说明**：
+
 > "Inspecting the service worker keeps it active. To ensure your extension behaves correctly when your service worker is terminated, remember to close DevTools."
 
 **Storage API 推荐**：
+
 > "Chrome will shut down service workers if they are not needed. We use the chrome.storage API to persist state across service worker sessions."
 
 ---
@@ -431,6 +466,7 @@ if (typeof globalThis.__logs !== 'undefined') {
 ❌ **无法通过 CDP 获取 Service Worker 的全部历史日志**
 
 **原因**：
+
 1. Chrome 不为 Service Worker 维护历史日志缓冲区（架构设计）
 2. CDP Log.enable 对 Service Worker 无效（实测验证）
 3. Runtime.consoleAPICalled 只是实时事件（协议限制）
@@ -440,11 +476,13 @@ if (typeof globalThis.__logs !== 'undefined') {
 ✅ **使用实时捕获** - 当前实现已经是最优方案
 
 **工作流程**：
+
 1. 在扩展活动期间调用工具
 2. 设置合适的捕获时长（5-15 秒）
 3. 捕获所有活动期间产生的日志
 
 **这符合**：
+
 - ✅ Chrome 的架构设计
 - ✅ Service Worker 的生命周期模型
 - ✅ CDP 的能力边界
@@ -453,6 +491,7 @@ if (typeof globalThis.__logs !== 'undefined') {
 ### 12.3 扩展建议
 
 如果确实需要历史日志：
+
 1. 在扩展中实现自定义日志系统
 2. 使用 chrome.storage.local 持久化
 3. MCP 工具支持读取 storage 中的日志

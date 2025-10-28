@@ -1,11 +1,13 @@
 # ✅ 自动日志捕获功能完整实现
 
 ## 实现时间
+
 2025-10-25 14:10
 
 ## 功能概述
 
 为 `evaluate_in_extension` 工具添加了自动日志捕获功能，一次调用可获得：
+
 - ✅ **扩展日志**（Background Service Worker + Offscreen Document）
 - ✅ **页面日志**（当前页面控制台）
 - ✅ **执行结果**（代码返回值）
@@ -23,22 +25,22 @@
 
 ### 2. 自动捕获源
 
-| 来源 | 状态 | 说明 |
-|------|------|------|
-| **Background SW** | ✅ 已实现 | Service Worker 日志 |
-| **Offscreen Document** | ✅ 已实现 | Offscreen 日志 |
-| **Page Console** | ✅ 已实现 | 页面控制台日志 |
-| **Content Scripts** | ⏳ 未来 | 可扩展 |
+| 来源                   | 状态      | 说明                |
+| ---------------------- | --------- | ------------------- |
+| **Background SW**      | ✅ 已实现 | Service Worker 日志 |
+| **Offscreen Document** | ✅ 已实现 | Offscreen 日志      |
+| **Page Console**       | ✅ 已实现 | 页面控制台日志      |
+| **Content Scripts**    | ⏳ 未来   | 可扩展              |
 
 ### 3. 日志类型支持
 
-| 类型 | 图标 | CDP 事件 |
-|------|------|----------|
-| log | 📝 | Runtime.consoleAPICalled (type: log) |
-| info | ℹ️ | Runtime.consoleAPICalled (type: info) |
-| warn | ⚠️ | Runtime.consoleAPICalled (type: warning) |
-| error | ❌ | Runtime.consoleAPICalled (type: error) |
-| debug | 🔍 | Runtime.consoleAPICalled (type: debug) |
+| 类型  | 图标 | CDP 事件                                 |
+| ----- | ---- | ---------------------------------------- |
+| log   | 📝   | Runtime.consoleAPICalled (type: log)     |
+| info  | ℹ️   | Runtime.consoleAPICalled (type: info)    |
+| warn  | ⚠️   | Runtime.consoleAPICalled (type: warning) |
+| error | ❌   | Runtime.consoleAPICalled (type: error)   |
+| debug | 🔍   | Runtime.consoleAPICalled (type: debug)   |
 
 ## 核心实现
 
@@ -47,8 +49,11 @@
 ```typescript
 // 先启动日志监听器
 logCapturePromise = Promise.all([
-  context.getBackgroundLogs(extensionId, { capture: true, duration: logDuration }),
-  context.getOffscreenLogs(extensionId, { capture: true, duration: logDuration }),
+  context.getBackgroundLogs(extensionId, {
+    capture: true,
+    duration: logDuration,
+  }),
+  context.getOffscreenLogs(extensionId, {capture: true, duration: logDuration}),
 ]);
 
 // 等待 200ms 确保监听器就绪
@@ -62,6 +67,7 @@ const logResults = await logCapturePromise;
 ```
 
 **关键点**：
+
 - ⏰ 监听器**先启动**，代码**后执行**
 - ⏳ 200ms 延迟确保 CDP 监听器就绪
 - 🔄 并行捕获，不阻塞代码执行
@@ -70,21 +76,25 @@ const logResults = await logCapturePromise;
 ### 2. 消息提取逻辑
 
 ```typescript
-function formatLogEntries(logs: any[], response: any, maxDisplay: number = 5): void {
+function formatLogEntries(
+  logs: any[],
+  response: any,
+  maxDisplay: number = 5,
+): void {
   for (const log of displayLogs) {
     // 多来源字段支持
     let message = '';
     if (log.text && log.text.trim()) {
-      message = log.text;  // ExtensionHelper 格式
+      message = log.text; // ExtensionHelper 格式
     } else if (log.message && log.message.trim()) {
-      message = log.message;  // 其他来源
+      message = log.message; // 其他来源
     } else if (log.args && Array.isArray(log.args)) {
       // CDP 原始 args
       message = log.args
         .map((arg: any) => arg.value || arg.description || '[Object]')
         .join(' ');
     }
-    
+
     // 截断长消息
     const truncated = truncateMessage(message, 120);
     response.appendResponseLine(`${icon} **[${timestamp}]** ${truncated}`);
@@ -107,19 +117,20 @@ response.setIncludePages(true);
 ```typescript
 // AI 调用
 evaluate_in_extension({
-  extensionId: "obbhgfjghnnodmekfkfffojnkbdbfpbh",
+  extensionId: 'obbhgfjghnnodmekfkfffojnkbdbfpbh',
   code: `
     console.log('Starting test');
     const result = await chrome.storage.local.get(['settings']);
     console.log('Settings:', result);
     return result;
-  `
+  `,
   // captureLogs 默认 true，自动捕获 3 秒
-})
+});
 ```
 
 **输出**：
-```
+
+````
 # Evaluation Result
 
 **Extension ID**: obbhgfjghnnodmekfkfffojnkbdbfpbh
@@ -131,12 +142,13 @@ console.log('Starting test');
 const result = await chrome.storage.local.get(['settings']);
 console.log('Settings:', result);
 return result;
-```
+````
 
 **Result**:
+
 ```json
 {
-  "settings": { "theme": "dark" }
+  "settings": {"theme": "dark"}
 }
 ```
 
@@ -155,9 +167,10 @@ return result;
 
 ### Page Logs
 
-*Page console logs are included below (if any)*
+_Page console logs are included below (if any)_
 
 ## Console messages
+
 <page console logs auto-included>
 ```
 
@@ -165,10 +178,10 @@ return result;
 
 ```typescript
 evaluate_in_extension({
-  extensionId: "xxx",
-  code: "performLongOperation()",
-  logDuration: 10000  // 捕获 10 秒
-})
+  extensionId: 'xxx',
+  code: 'performLongOperation()',
+  logDuration: 10000, // 捕获 10 秒
+});
 ```
 
 ### 示例 3：禁用日志（性能优化）
@@ -177,10 +190,10 @@ evaluate_in_extension({
 // 批量操作，不需要日志
 for (let i = 0; i < 100; i++) {
   evaluate_in_extension({
-    extensionId: "xxx",
+    extensionId: 'xxx',
     code: `processItem(${i})`,
-    captureLogs: false  // 关闭日志提升性能
-  })
+    captureLogs: false, // 关闭日志提升性能
+  });
 }
 ```
 
@@ -189,10 +202,10 @@ for (let i = 0; i < 100; i++) {
 ### 测试用例 1：基本日志
 
 ```javascript
-(function() {
+(function () {
   console.log('[Test] Log message');
   return 'ok';
-})()
+})();
 ```
 
 **结果**：✅ 捕获到 1 条日志
@@ -200,13 +213,13 @@ for (let i = 0; i < 100; i++) {
 ### 测试用例 2：多种日志级别
 
 ```javascript
-(function() {
+(function () {
   console.log('🚀 [Test] Starting');
   console.warn('⚠️ [Test] Warning');
   console.error('❌ [Test] Error');
   console.info('ℹ️ [Test] Info');
-  return { logsGenerated: 4 };
-})()
+  return {logsGenerated: 4};
+})();
 ```
 
 **结果**：✅ 捕获到 4 条日志，图标正确显示
@@ -214,12 +227,12 @@ for (let i = 0; i < 100; i++) {
 ### 测试用例 3：Chrome API 调用
 
 ```javascript
-(async function() {
-  await chrome.storage.local.set({ testKey: 'value' });
+(async function () {
+  await chrome.storage.local.set({testKey: 'value'});
   const result = await chrome.storage.local.get(['testKey']);
   console.log('Storage result:', result);
   return result;
-})()
+})();
 ```
 
 **结果**：✅ 捕获到日志，Storage API 工作正常
@@ -227,10 +240,10 @@ for (let i = 0; i < 100; i++) {
 ### 测试用例 4：禁用日志
 
 ```javascript
-(function() {
+(function () {
   console.log('[Test] Should NOT be captured');
   return 123;
-})()
+})();
 ```
 
 **参数**：`captureLogs: false`  
@@ -240,14 +253,14 @@ for (let i = 0; i < 100; i++) {
 
 ### 时间开销
 
-| 操作 | 时间 | 说明 |
-|------|------|------|
-| 启动监听器 | ~50ms | CDP session creation + enable |
-| 初始化延迟 | 200ms | 确保监听器就绪 |
-| 代码执行 | 变化 | 取决于代码复杂度 |
-| 日志捕获 | 3000ms | 默认 duration |
-| 格式化输出 | ~10ms | 格式化日志条目 |
-| **总计（默认）** | ~3260ms | 可接受 |
+| 操作             | 时间    | 说明                          |
+| ---------------- | ------- | ----------------------------- |
+| 启动监听器       | ~50ms   | CDP session creation + enable |
+| 初始化延迟       | 200ms   | 确保监听器就绪                |
+| 代码执行         | 变化    | 取决于代码复杂度              |
+| 日志捕获         | 3000ms  | 默认 duration                 |
+| 格式化输出       | ~10ms   | 格式化日志条目                |
+| **总计（默认）** | ~3260ms | 可接受                        |
 
 ### 内存占用
 
@@ -338,17 +351,17 @@ description: `Execute JavaScript code in extension's background context with ful
 - Test extension APIs (chrome.runtime, chrome.storage, etc.)
 - Debug extension logic and inspect state
 - Call extension functions
-`
+`;
 ```
 
 ## 与页面工具对比
 
-| 特性 | 页面工具 | 扩展工具（新） | 说明 |
-|------|---------|---------------|------|
-| **日志捕获** | ✅ 自动 | ✅ 自动 | 一致 |
-| **可选控制** | ❌ 无 | ✅ 有参数 | 更灵活 |
-| **多来源** | ❌ 单一（页面） | ✅ 多个（扩展+页面） | 更完整 |
-| **时长控制** | ❌ 无 | ✅ 可配置 | 更可控 |
+| 特性         | 页面工具        | 扩展工具（新）       | 说明   |
+| ------------ | --------------- | -------------------- | ------ |
+| **日志捕获** | ✅ 自动         | ✅ 自动              | 一致   |
+| **可选控制** | ❌ 无           | ✅ 有参数            | 更灵活 |
+| **多来源**   | ❌ 单一（页面） | ✅ 多个（扩展+页面） | 更完整 |
+| **时长控制** | ❌ 无           | ✅ 可配置            | 更可控 |
 
 ## 未来扩展
 
@@ -413,14 +426,14 @@ description: `Execute JavaScript code in extension's background context with ful
 
 ### 实现成果
 
-| 指标 | 结果 |
-|------|------|
-| **功能完整性** | ✅ 100% |
-| **测试通过率** | ✅ 5/5 (100%) |
-| **性能开销** | ✅ 可接受（~3.2秒） |
-| **代码质量** | ✅ 优秀 |
-| **向后兼容** | ✅ 完全兼容 |
-| **AI 友好度** | ✅ 非常友好 |
+| 指标           | 结果                |
+| -------------- | ------------------- |
+| **功能完整性** | ✅ 100%             |
+| **测试通过率** | ✅ 5/5 (100%)       |
+| **性能开销**   | ✅ 可接受（~3.2秒） |
+| **代码质量**   | ✅ 优秀             |
+| **向后兼容**   | ✅ 完全兼容         |
+| **AI 友好度**  | ✅ 非常友好         |
 
 ### 核心价值
 
@@ -444,6 +457,6 @@ description: `Execute JavaScript code in extension's background context with ful
 **实现时间**：2025-10-25  
 **总耗时**：约 2.5 小时  
 **代码行数**：+200 行  
-**测试用例**：5 个全部通过  
+**测试用例**：5 个全部通过
 
 **下一步**：可以开始使用，并根据实际使用反馈进一步优化

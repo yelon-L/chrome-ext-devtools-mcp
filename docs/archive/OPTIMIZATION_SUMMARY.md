@@ -1,6 +1,7 @@
 # Extension Tools Optimization Summary
 
 ## 完成时间
+
 2025-10-13
 
 ---
@@ -16,14 +17,17 @@
 ## 1. Multi-Tenant 错误提示优化
 
 ### 优化目标
+
 提供友好的、可操作的错误提示,帮助用户快速定位和解决问题。
 
 ### 主要改进
 
 #### 1.1 增强错误分类
+
 扩展了 `classifyError()` 方法,新增以下错误类型:
 
 **浏览器连接错误** (BROWSER_CONNECTION_FAILED):
+
 ```typescript
 {
   statusCode: 400,
@@ -39,23 +43,28 @@
 ```
 
 **配置错误** (INVALID_CONFIGURATION):
+
 - 用户注册信息错误
 - 浏览器 URL 格式错误
 - 提供具体的修复建议
 
 **超时错误** (CONNECTION_TIMEOUT):
+
 - 详细说明超时原因
 - 提供网络诊断步骤
 
 **认证错误** (AUTHENTICATION_FAILED):
+
 - Token 过期或无效
 - 提供重新申请 Token 的方法
 
 **浏览器会话关闭** (BROWSER_SESSION_CLOSED):
+
 - 浏览器意外关闭
 - 提供重连建议
 
 #### 1.2 错误响应格式
+
 ```json
 {
   "error": "BROWSER_CONNECTION_FAILED",
@@ -72,6 +81,7 @@
 ### 优化效果
 
 **优化前**:
+
 ```json
 {
   "error": "INTERNAL_ERROR",
@@ -80,6 +90,7 @@
 ```
 
 **优化后**:
+
 ```json
 {
   "error": "BROWSER_CONNECTION_FAILED",
@@ -100,6 +111,7 @@
 ### 优化的工具列表
 
 #### 基础工具 (6个)
+
 1. ✅ **list_extensions** - 扩展列表
 2. ✅ **get_extension_details** - 扩展详情
 3. ✅ **list_extension_contexts** - 上下文列表
@@ -108,6 +120,7 @@
 6. ✅ **activate_extension_service_worker** - SW 激活
 
 #### Phase 1 新增工具 (4个)
+
 7. ✅ **diagnose_extension_errors** - 错误诊断
 8. ✅ **inspect_extension_manifest** - Manifest 检查
 9. ✅ **check_content_script_injection** - Content Script 检查
@@ -121,11 +134,13 @@
 **Purpose**: [工具的核心目的]
 
 **What it does/shows/provides**: [具体功能列表]
+
 - 功能点 1
 - 功能点 2
 - ...
 
 **When to use**: [使用场景]
+
 - 场景 1
 - 场景 2
 - ...
@@ -140,6 +155,7 @@
 #### list_extensions
 
 **优化前**:
+
 ```
 List all installed Chrome extensions with their metadata.
 
@@ -147,6 +163,7 @@ This tool discovers extensions by scanning Chrome targets...
 ```
 
 **优化后**:
+
 ```
 **Purpose**: Discover and enumerate all extensions in the current Chrome instance.
 
@@ -165,7 +182,7 @@ This tool discovers extensions by scanning Chrome targets...
 - Verify extension is enabled and Service Worker is active (MV3)
 - Quick overview of extension permissions
 
-**Example**: list_extensions returns "MyExtension" with ID "abcd..." and shows 
+**Example**: list_extensions returns "MyExtension" with ID "abcd..." and shows
 Service Worker is 🔴 Inactive, indicating you need to activate it first.
 ```
 
@@ -183,26 +200,28 @@ Service Worker is 🔴 Inactive, indicating you need to activate it first.
 ## 3. 测试脚本日志输出优化
 
 ### 问题
+
 原测试脚本在等待响应时没有输出,看起来像"卡住了",实际上是在等待服务器响应。
 
 ### 优化方案
 
 #### 3.1 请求/响应日志
+
 ```javascript
 async function sendRequest(method, params = {}) {
   const id = messageId++;
   console.log(`📤 Sending request #${id}: ${method}`);
-  
+
   // ... 发送请求 ...
-  
-  return new Promise((resolve) => {
-    const wrappedResolve = (value) => {
+
+  return new Promise(resolve => {
+    const wrappedResolve = value => {
       console.log(`📥 Received response #${id}`);
       resolve(value);
     };
-    
+
     pending.set(id, wrappedResolve);
-    
+
     // 超时提示
     setTimeout(() => {
       console.log(`⏰ Request #${id} timed out after 30s`);
@@ -213,6 +232,7 @@ async function sendRequest(method, params = {}) {
 ```
 
 #### 3.2 测试进度日志
+
 ```javascript
 // 1. 初始化
 console.log('\n步骤 1: 初始化 MCP...');
@@ -227,6 +247,7 @@ console.log('✅ diagnose_extension_errors 成功');
 ```
 
 #### 3.3 测试总结
+
 ```javascript
 console.log('\n' + '─'.repeat(70));
 console.log(`📊 新工具测试结果: ${successCount}/${totalTests} 成功`);
@@ -236,12 +257,14 @@ console.log('─'.repeat(70));
 ### 优化效果
 
 **优化前**:
+
 ```
 步骤 3: 测试 SSE 连接...
 [长时间无输出,看起来卡住了]
 ```
 
 **优化后**:
+
 ```
 步骤 3: 测试 SSE 连接...
 ✅ SSE 连接成功!
@@ -356,6 +379,7 @@ console.log('─'.repeat(70));
 ## 5. 优化效果总结
 
 ### 5.1 错误提示改进
+
 - ✅ 从模糊的"内部错误"到具体的错误类型
 - ✅ 提供可操作的解决建议
 - ✅ 使用英文,符合开发规范
@@ -363,6 +387,7 @@ console.log('─'.repeat(70));
 - ✅ 包含详细的故障排查步骤
 
 ### 5.2 工具描述改进
+
 - ✅ 所有 10 个 extension 工具描述统一优化
 - ✅ 结构化格式,AI 易于理解
 - ✅ 明确的使用场景和示例
@@ -370,6 +395,7 @@ console.log('─'.repeat(70));
 - ✅ MV3 Service Worker 依赖关系明确标注
 
 ### 5.3 测试体验改进
+
 - ✅ 实时显示测试进度
 - ✅ 清晰的请求/响应日志
 - ✅ 测试参数可见
@@ -381,6 +407,7 @@ console.log('─'.repeat(70));
 ## 6. AI 友好性对比
 
 ### 优化前
+
 ```
 description: `Get console logs from a Chrome extension.
 
@@ -388,12 +415,14 @@ Captures console output from different extension contexts...`
 ```
 
 **AI 理解难点**:
+
 - 不清楚具体能获取什么信息
 - 不知道何时使用
 - 没有示例参考
 - MV3 限制不明确
 
 ### 优化后
+
 ```
 description: `Get console logs from a Chrome extension.
 
@@ -426,11 +455,12 @@ description: `Get console logs from a Chrome extension.
 - Use activate_extension_service_worker to wake SW
 - Content script logs available regardless of SW status
 
-**Example**: get_extension_logs with level=["error", "warn"] returns 5 errors 
+**Example**: get_extension_logs with level=["error", "warn"] returns 5 errors
 from Service Worker and 2 warnings from content scripts.`
 ```
 
 **AI 理解优势**:
+
 - ✅ 清晰的目的说明
 - ✅ 详细的功能列表
 - ✅ 明确的使用场景
@@ -442,6 +472,7 @@ from Service Worker and 2 warnings from content scripts.`
 ## 7. 最佳实践总结
 
 ### 7.1 错误提示设计
+
 1. **分类明确**: 区分客户端错误和服务端错误
 2. **信息完整**: 错误码 + 友好消息 + 解决建议
 3. **可操作性**: 提供具体的修复步骤
@@ -449,6 +480,7 @@ from Service Worker and 2 warnings from content scripts.`
 5. **国际化**: 使用英文,符合开发规范
 
 ### 7.2 工具描述设计
+
 1. **结构化**: 统一的章节格式
 2. **示例驱动**: 每个工具都有实际示例
 3. **场景导向**: 明确何时使用
@@ -456,6 +488,7 @@ from Service Worker and 2 warnings from content scripts.`
 5. **视觉增强**: 使用 emoji 提高可读性
 
 ### 7.3 测试脚本设计
+
 1. **进度可见**: 实时显示执行状态
 2. **信息完整**: 显示请求参数和响应
 3. **错误友好**: 清晰的错误提示

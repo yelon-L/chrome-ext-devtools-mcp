@@ -1,6 +1,7 @@
 # interact_with_popup 工具优化
 
 ## 优化时间
+
 **日期**：2025-10-24 21:35  
 **目标**：优化工具描述和错误提示，明确推荐使用页面方式
 
@@ -11,16 +12,18 @@
 ### 1. 工具描述优化
 
 **之前**：
+
 ```typescript
 description: `Interact with popup window.
 
 **Supported Actions**:
 - get_dom, click, fill, evaluate
 
-**Note**: Popup may auto-close in remote debugging.`
+**Note**: Popup may auto-close in remote debugging.`;
 ```
 
 **优化后**：
+
 ```typescript
 description: `Interact with extension popup (supports both page mode and real popup).
 
@@ -48,6 +51,7 @@ description: `Interact with extension popup (supports both page mode and real po
 ### 2. 错误提示优化
 
 **之前**：
+
 ```
 # Popup Not Open
 
@@ -55,7 +59,8 @@ description: `Interact with extension popup (supports both page mode and real po
 ```
 
 **优化后**：
-```
+
+````
 # Popup Not Open or Accessible
 
 The popup is not currently accessible for interaction.
@@ -63,17 +68,21 @@ The popup is not currently accessible for interaction.
 **🎯 Recommended Solution** (Stable):
 ```bash
 navigate_page('chrome-extension://ID/popup.html')
-```
+````
+
 This opens popup as a page - same functionality, won't auto-close.
 
 **Alternative** (May auto-close):
+
 ```bash
 open_extension_popup(extensionId)
 # Then immediately:
 interact_with_popup(extensionId, action, ...)
 ```
+
 ⚠️ Note: Real popup may close before interaction in remote debugging.
-```
+
+````
 
 ### 3. 代码逻辑优化
 
@@ -93,7 +102,7 @@ if (!popupContext && !popupPage) {
 
 // 执行时优先使用页面方式
 let targetPopupPage = popupPage || (popupContext ? findByContext() : null);
-```
+````
 
 ---
 
@@ -102,11 +111,13 @@ let targetPopupPage = popupPage || (popupContext ? findByContext() : null);
 ### 核心问题
 
 **真正Popup的限制**：
+
 1. Chrome规范：popup失去焦点时必须关闭
 2. 远程调试：CDP连接触发焦点变化
 3. 结果：popup在操作前就关闭了
 
 **实际测试证明**：
+
 ```bash
 open_extension_popup(extensionId)
 # ✅ 成功打开
@@ -119,18 +130,21 @@ interact_with_popup(extensionId, 'get_dom')
 ### 页面方式的优势
 
 **功能完全相同**：
+
 - ✅ DOM结构完全一致
 - ✅ JavaScript逻辑完全一致
 - ✅ 事件处理完全一致
 - ✅ 所有功能都能正常工作
 
 **稳定性更好**：
+
 - ✅ 不会自动关闭
 - ✅ 可以长时间操作
 - ✅ 适合自动化测试
 - ✅ 适合远程调试
 
 **唯一区别**：
+
 - 窗口尺寸（全屏 vs 小窗口）
 - 生命周期（持久 vs 临时）
 - 对功能测试无影响
@@ -157,7 +171,7 @@ interact_with_popup(extensionId, 'fill', 'input[name="username"]', 'AI测试')
 interact_with_popup(extensionId, 'fill', 'input[name="email"]', 'ai@test.com')
 
 # Step 5: 执行自定义代码
-interact_with_popup(extensionId, 'evaluate', null, null, 
+interact_with_popup(extensionId, 'evaluate', null, null,
   'document.querySelector("select[name=role]").value = "管理员"')
 
 # Step 6: 截图验证
@@ -183,6 +197,7 @@ interact_with_popup(extensionId, 'get_dom')  # 可能失败
 ### 测试场景
 
 **页面方式测试**（✅ 成功）：
+
 ```bash
 navigate_page(popup.html)
 → interact_with_popup('get_dom')  # ✅ 找到23个元素
@@ -192,6 +207,7 @@ navigate_page(popup.html)
 ```
 
 **真正popup测试**（❌ 失败）：
+
 ```bash
 open_extension_popup(extensionId)
 → interact_with_popup('get_dom')  # ❌ Popup page not accessible
@@ -201,6 +217,7 @@ open_extension_popup(extensionId)
 ### 控制台日志
 
 所有操作都在控制台输出：
+
 ```
 [MCP] 🔍 Getting DOM structure...
 [MCP] ✅ Found 23 interactive elements
@@ -217,11 +234,13 @@ open_extension_popup(extensionId)
 ### AI体验改善
 
 **之前**：
+
 - ❓ 不清楚应该用哪种方式
 - ❌ 尝试真正popup → 失败
 - 😕 需要反复尝试才能找到正确方法
 
 **优化后**：
+
 - ✅ 工具描述明确推荐页面方式
 - ✅ 错误提示给出具体解决方案
 - ✅ 一次就能成功操作
@@ -229,12 +248,12 @@ open_extension_popup(extensionId)
 
 ### 成功率提升
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| **首次成功率** | ~30% | ~95% |
-| **AI理解度** | 模糊 | 清晰 |
-| **错误恢复** | 需要多次尝试 | 一次成功 |
-| **用户满意度** | 低 | 高 |
+| 指标           | 优化前       | 优化后   |
+| -------------- | ------------ | -------- |
+| **首次成功率** | ~30%         | ~95%     |
+| **AI理解度**   | 模糊         | 清晰     |
+| **错误恢复**   | 需要多次尝试 | 一次成功 |
+| **用户满意度** | 低           | 高       |
 
 ---
 
@@ -244,8 +263,8 @@ open_extension_popup(extensionId)
 
 ```typescript
 // 优先使用页面方式
-const popupPage = pages.find(p => 
-  p.url().includes(`chrome-extension://${extensionId}/popup.html`)
+const popupPage = pages.find(p =>
+  p.url().includes(`chrome-extension://${extensionId}/popup.html`),
 );
 
 // 如果没有页面方式，再尝试popup上下文
@@ -253,7 +272,7 @@ let targetPopupPage = popupPage;
 
 if (!targetPopupPage && popupContext) {
   targetPopupPage = pages.find(p => p.url() === popupContext.url);
-  
+
   // 最后尝试遍历targets
   if (!targetPopupPage) {
     const targets = await browser.targets();
@@ -270,17 +289,19 @@ if (!targetPopupPage && popupContext) {
 
 ### 错误处理优化
 
-```typescript
+````typescript
 // 提供详细的解决方案
 if (!popupContext && !popupPage) {
   response.appendResponseLine('# Popup Not Open or Accessible\n');
   response.appendResponseLine('**🎯 Recommended Solution** (Stable):');
   response.appendResponseLine('```bash');
-  response.appendResponseLine(`navigate_page('chrome-extension://${extensionId}/popup.html')`);
+  response.appendResponseLine(
+    `navigate_page('chrome-extension://${extensionId}/popup.html')`,
+  );
   response.appendResponseLine('```');
   // ... 更多说明
 }
-```
+````
 
 ---
 
@@ -303,6 +324,7 @@ if (!popupContext && !popupPage) {
 ### 设计原则
 
 遵循了以下原则：
+
 1. ✅ **第一性原理**：理解popup的本质限制
 2. ✅ **实用主义**：推荐真正有效的方案
 3. ✅ **用户友好**：清晰的指导和提示

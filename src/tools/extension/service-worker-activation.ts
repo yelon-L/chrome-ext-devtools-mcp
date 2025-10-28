@@ -14,6 +14,7 @@ import z from 'zod';
 import {ExtensionHelper} from '../../extension/ExtensionHelper.js';
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+
 import {captureExtensionLogs, formatCapturedLogs} from './execution.js';
 
 export const activateExtensionServiceWorker = defineTool({

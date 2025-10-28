@@ -4,11 +4,11 @@
 
 ## 优化概览
 
-| 优先级 | 问题 | 修复状态 | 影响 |
-|--------|------|----------|------|
+| 优先级      | 问题                  | 修复状态  | 影响                   |
+| ----------- | --------------------- | --------- | ---------------------- |
 | 🔴 Critical | **全局Mutex性能瓶颈** | ✅ 已修复 | **吞吐量提升10-100倍** |
-| 🔴 Critical | **请求体无大小限制** | ✅ 已修复 | 防止DoS攻击 |
-| 🟡 Major | **JSON解析错误处理** | ✅ 已改进 | 更友好的错误提示 |
+| 🔴 Critical | **请求体无大小限制**  | ✅ 已修复 | 防止DoS攻击            |
+| 🟡 Major    | **JSON解析错误处理**  | ✅ 已改进 | 更友好的错误提示       |
 
 **测试结果**: 57/57 单元测试通过 ✅
 
@@ -23,6 +23,7 @@
 **位置**: `server-multi-tenant.ts:50, 726`
 
 **原始实现**:
+
 ```typescript
 // 🔴 单一全局锁
 private toolMutex = new Mutex();
@@ -43,20 +44,20 @@ async (params): Promise<CallToolResult> => {
 
 **性能影响**:
 
-| 场景 | 预期行为 | 实际行为（全局锁） | 问题 |
-|------|----------|-------------------|------|
-| 用户A执行 `navigate` (3秒) | 并发执行 | 执行3秒 | ✅ 正常 |
-| 用户B执行 `click` (不同浏览器) | 并发执行 | **等待3秒** | ❌ 不合理 |
-| 用户C执行 `screenshot` | 并发执行 | **等待6秒** | ❌ 不合理 |
+| 场景                           | 预期行为 | 实际行为（全局锁） | 问题      |
+| ------------------------------ | -------- | ------------------ | --------- |
+| 用户A执行 `navigate` (3秒)     | 并发执行 | 执行3秒            | ✅ 正常   |
+| 用户B执行 `click` (不同浏览器) | 并发执行 | **等待3秒**        | ❌ 不合理 |
+| 用户C执行 `screenshot`         | 并发执行 | **等待6秒**        | ❌ 不合理 |
 
 **性能指标对比**:
 
-| 指标 | 单用户 | 10用户（理想） | 10用户（全局锁） | 性能损失 |
-|------|--------|---------------|-----------------|---------|
-| 吞吐量 | 10 req/s | 100 req/s | 10 req/s | **-90%** |
-| P50延迟 | 100ms | 100ms | 500ms | **+400%** |
-| P99延迟 | 200ms | 200ms | 5s | **+2400%** |
-| CPU使用 | 10% | 100% | 10% | **-90%** |
+| 指标    | 单用户   | 10用户（理想） | 10用户（全局锁） | 性能损失   |
+| ------- | -------- | -------------- | ---------------- | ---------- |
+| 吞吐量  | 10 req/s | 100 req/s      | 10 req/s         | **-90%**   |
+| P50延迟 | 100ms    | 100ms          | 500ms            | **+400%**  |
+| P99延迟 | 200ms    | 200ms          | 5s               | **+2400%** |
+| CPU使用 | 10%      | 100%           | 10%              | **-90%**   |
 
 ### 修复方案
 
@@ -131,10 +132,10 @@ transport.onclose = async () => {
 
 **预期改进**:
 
-| 并发用户数 | 吞吐量提升 | P99延迟改善 | CPU利用率提升 |
-|-----------|-----------|------------|--------------|
-| 10 用户 | **10x** | -90% (5s → 500ms) | **10x** (10% → 100%) |
-| 100 用户 | **100x** | -99% (50s → 500ms) | **10x** |
+| 并发用户数 | 吞吐量提升 | P99延迟改善        | CPU利用率提升        |
+| ---------- | ---------- | ------------------ | -------------------- |
+| 10 用户    | **10x**    | -90% (5s → 500ms)  | **10x** (10% → 100%) |
+| 100 用户   | **100x**   | -99% (50s → 500ms) | **10x**              |
 
 **实际场景对比**:
 
@@ -169,11 +170,12 @@ transport.onclose = async () => {
 **位置**: `server-multi-tenant.ts:802-808`
 
 **原始实现**:
+
 ```typescript
 private async readRequestBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => { 
+    req.on('data', chunk => {
       body += chunk.toString(); // 🔴 无限累积
     });
     req.on('end', () => resolve(body));
@@ -183,6 +185,7 @@ private async readRequestBody(req: http.IncomingMessage): Promise<string> {
 ```
 
 **攻击场景**:
+
 ```bash
 # 攻击者发送1GB请求体
 curl -X POST http://server:32122/message \
@@ -204,20 +207,20 @@ private async readRequestBody(
   return new Promise((resolve, reject) => {
     let body = '';
     let size = 0;
-    
+
     req.on('data', chunk => {
       size += chunk.length;
-      
+
       // 检查大小限制，防止DoS攻击
       if (size > maxSize) {
         req.destroy();
         reject(new Error(`Request body too large: ${size} > ${maxSize} bytes`));
         return;
       }
-      
+
       body += chunk.toString();
     });
-    
+
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
@@ -226,11 +229,11 @@ private async readRequestBody(
 
 **防护效果**:
 
-| 攻击方式 | 修复前 | 修复后 |
-|---------|--------|--------|
-| 1GB恶意请求 | ❌ 服务器崩溃 | ✅ 拒绝，返回错误 |
-| 100MB正常请求 | ⚠️ 可能OOM | ✅ 拒绝，返回错误 |
-| 9MB正常请求 | ✅ 接受 | ✅ 接受 |
+| 攻击方式      | 修复前        | 修复后            |
+| ------------- | ------------- | ----------------- |
+| 1GB恶意请求   | ❌ 服务器崩溃 | ✅ 拒绝，返回错误 |
+| 100MB正常请求 | ⚠️ 可能OOM    | ✅ 拒绝，返回错误 |
+| 9MB正常请求   | ✅ 接受       | ✅ 接受           |
 
 **默认限制**: 10MB（可配置）
 
@@ -243,6 +246,7 @@ private async readRequestBody(
 **用户体验差**: 所有错误统一返回500，无法区分客户端错误。
 
 **原始实现**:
+
 ```typescript
 try {
   const body = await this.readRequestBody(req);
@@ -250,14 +254,17 @@ try {
   await session.transport.handlePostMessage(req, res, message);
 } catch (error) {
   // 所有错误统一返回500
-  res.writeHead(500, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({
-    error: error instanceof Error ? error.message : String(error),
-  }));
+  res.writeHead(500, {'Content-Type': 'application/json'});
+  res.end(
+    JSON.stringify({
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
 }
 ```
 
 **问题**:
+
 - JSON格式错误（客户端问题）返回500（服务端错误）
 - 错误信息不友好
 
@@ -268,37 +275,41 @@ try {
 ```typescript
 try {
   const body = await this.readRequestBody(req);
-  
+
   // 单独处理JSON解析错误
   let message;
   try {
     message = JSON.parse(body);
   } catch (parseError) {
     // 客户端错误，返回400
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: 'INVALID_JSON',
-      message: 'Request body must be valid JSON',
-    }));
+    res.writeHead(400, {'Content-Type': 'application/json'});
+    res.end(
+      JSON.stringify({
+        error: 'INVALID_JSON',
+        message: 'Request body must be valid JSON',
+      }),
+    );
     return;
   }
-  
+
   await session.transport.handlePostMessage(req, res, message);
 } catch (error) {
   // 服务端错误，返回500
-  res.writeHead(500, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({
-    error: 'INTERNAL_ERROR',
-    message: 'Failed to process message',
-  }));
+  res.writeHead(500, {'Content-Type': 'application/json'});
+  res.end(
+    JSON.stringify({
+      error: 'INTERNAL_ERROR',
+      message: 'Failed to process message',
+    }),
+  );
 }
 ```
 
 **改进效果**:
 
-| 场景 | 修复前 | 修复后 |
-|------|--------|--------|
-| 无效JSON | 500 + 原始错误 | 400 + 友好提示 |
+| 场景       | 修复前         | 修复后         |
+| ---------- | -------------- | -------------- |
+| 无效JSON   | 500 + 原始错误 | 400 + 友好提示 |
 | 服务端错误 | 500 + 泄露细节 | 500 + 安全消息 |
 
 ---
@@ -333,15 +344,17 @@ try {
 ```javascript
 // 验证会话级Mutex的并发性能
 async function concurrencyTest() {
-  const users = Array.from({ length: 10 }, (_, i) => `user-${i}`);
-  
+  const users = Array.from({length: 10}, (_, i) => `user-${i}`);
+
   const start = Date.now();
-  await Promise.all(users.map(async userId => {
-    // 每个用户执行3秒的操作
-    await callTool(userId, 'navigate', { url: 'https://example.com' });
-  }));
+  await Promise.all(
+    users.map(async userId => {
+      // 每个用户执行3秒的操作
+      await callTool(userId, 'navigate', {url: 'https://example.com'});
+    }),
+  );
   const elapsed = Date.now() - start;
-  
+
   console.log(`10个并发用户总耗时: ${elapsed}ms`);
   // 预期: ~3秒（并发）
   // 修复前: ~30秒（串行）
@@ -352,10 +365,10 @@ async function concurrencyTest() {
 
 ## 代码变更统计
 
-| 文件 | 新增行 | 修改行 | 删除行 | 说明 |
-|------|--------|--------|--------|------|
-| `server-multi-tenant.ts` | 45 | 35 | 15 | Mutex + 请求体限制 + JSON处理 |
-| **总计** | **45** | **35** | **15** | **净增加 65行** |
+| 文件                     | 新增行 | 修改行 | 删除行 | 说明                          |
+| ------------------------ | ------ | ------ | ------ | ----------------------------- |
+| `server-multi-tenant.ts` | 45     | 35     | 15     | Mutex + 请求体限制 + JSON处理 |
+| **总计**                 | **45** | **35** | **15** | **净增加 65行**               |
 
 ---
 
@@ -405,11 +418,13 @@ async function concurrencyTest() {
 ### 🟡 中等优先级
 
 **Session与Browser生命周期不匹配**
+
 - 影响：可能导致资源不一致
 - 建议：引入ResourceCoordinator统一管理
 - 复杂度：需要重构生命周期管理
 
 **统计缓冲区魔法数字**
+
 - 影响：代码可读性
 - 建议：提取为常量
 - 复杂度：低
@@ -417,11 +432,13 @@ async function concurrencyTest() {
 ### 🟢 低优先级
 
 **速率限制**
+
 - 影响：可能被滥用
 - 建议：添加per-user限流
 - 复杂度：中等
 
 **CORS策略**
+
 - 影响：安全性
 - 建议：使用白名单
 - 复杂度：低
@@ -432,21 +449,21 @@ async function concurrencyTest() {
 
 ### 修复前
 
-| 指标 | 单用户 | 10并发用户 |
-|-----|--------|-----------|
-| 吞吐量 | 10 req/s | 10 req/s ❌ |
-| P99延迟 | 200ms | 5s ❌ |
-| CPU使用 | 10% | 10% ❌ |
+| 指标    | 单用户   | 10并发用户  |
+| ------- | -------- | ----------- |
+| 吞吐量  | 10 req/s | 10 req/s ❌ |
+| P99延迟 | 200ms    | 5s ❌       |
+| CPU使用 | 10%      | 10% ❌      |
 
 **瓶颈**: 全局锁导致完全串行
 
 ### 修复后
 
-| 指标 | 单用户 | 10并发用户 |
-|-----|--------|-----------|
-| 吞吐量 | 10 req/s | 100 req/s ✅ |
-| P99延迟 | 200ms | 500ms ✅ |
-| CPU使用 | 10% | 100% ✅ |
+| 指标    | 单用户   | 10并发用户   |
+| ------- | -------- | ------------ |
+| 吞吐量  | 10 req/s | 100 req/s ✅ |
+| P99延迟 | 200ms    | 500ms ✅     |
+| CPU使用 | 10%      | 100% ✅      |
 
 **提升**: 吞吐量 **10倍**，延迟降低 **90%**
 
@@ -461,10 +478,10 @@ async function concurrencyTest() {
 class PerformanceMonitor {
   // 并发工具调用数
   private activeCalls = 0;
-  
+
   // 会话级锁数量
   private sessionMutexCount = () => this.sessionMutexes.size;
-  
+
   // 平均工具执行时间
   private toolExecutionTimes = new Map<string, number[]>();
 }
@@ -503,7 +520,7 @@ ab -n 1000 -c 10 \
 ✅ **吞吐量提升**: 10-100倍（取决于并发用户数）  
 ✅ **延迟降低**: P99延迟降低90%  
 ✅ **CPU利用率**: 从10%提升到100%  
-✅ **安全性增强**: 防止DoS攻击，改进错误处理  
+✅ **安全性增强**: 防止DoS攻击，改进错误处理
 
 **关键改进**:
 
@@ -513,16 +530,16 @@ ab -n 1000 -c 10 \
 
 **测试覆盖**: 57/57 单元测试通过  
 **代码质量**: 遵循原工程规范，最小化改动  
-**生产就绪**: 可直接部署，无破坏性变更  
+**生产就绪**: 可直接部署，无破坏性变更
 
 ### 架构评分变化
 
-| 维度 | 修复前 | 修复后 | 改善 |
-|-----|--------|--------|------|
-| 架构设计 | ⭐⭐⭐⭐☆ 4/5 | ⭐⭐⭐⭐⭐ 5/5 | +25% |
-| 性能 | ⭐⭐☆☆☆ 2/5 | ⭐⭐⭐⭐⭐ 5/5 | **+150%** |
-| 安全性 | ⭐⭐⭐☆☆ 3/5 | ⭐⭐⭐⭐☆ 4/5 | +33% |
-| 可扩展性 | ⭐⭐⭐☆☆ 3/5 | ⭐⭐⭐⭐⭐ 5/5 | +67% |
+| 维度     | 修复前        | 修复后         | 改善      |
+| -------- | ------------- | -------------- | --------- |
+| 架构设计 | ⭐⭐⭐⭐☆ 4/5 | ⭐⭐⭐⭐⭐ 5/5 | +25%      |
+| 性能     | ⭐⭐☆☆☆ 2/5   | ⭐⭐⭐⭐⭐ 5/5 | **+150%** |
+| 安全性   | ⭐⭐⭐☆☆ 3/5  | ⭐⭐⭐⭐☆ 4/5  | +33%      |
+| 可扩展性 | ⭐⭐⭐☆☆ 3/5  | ⭐⭐⭐⭐⭐ 5/5 | +67%      |
 
 **综合评分**: 3.7/5 → **4.7/5** (+27%)
 

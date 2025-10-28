@@ -16,6 +16,7 @@ AUTH_ENABLED=false ./dist/chrome-extension-debug-linux-x64 --mode multi-tenant
 ```
 
 **输出：**
+
 ```
 [MCP] Chrome Extension Debug MCP v0.8.2
 [MCP] Mode: multi-tenant (SSE transport)
@@ -35,6 +36,7 @@ AUTH_ENABLED=false ./dist/chrome-extension-debug-linux-x64 --mode multi-tenant
 ```
 
 **验证服务器健康：**
+
 ```bash
 curl -s http://localhost:32122/health | jq '.status'
 # 输出: "ok"
@@ -56,6 +58,7 @@ google-chrome \
 ```
 
 **验证 Chrome 已启动：**
+
 ```bash
 curl -s http://localhost:9225/json/version | jq -r '.Browser'
 # 输出: Chrome/141.0.7390.54
@@ -75,6 +78,7 @@ curl -X POST http://localhost:32122/api/register \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -91,11 +95,13 @@ curl -X POST http://localhost:32122/api/register \
 ### 步骤 4: 获取并验证配置
 
 **查看服务器状态：**
+
 ```bash
 curl -s http://localhost:32122/health | jq '{users, browsers}'
 ```
 
 **响应：**
+
 ```json
 {
   "users": {
@@ -116,6 +122,7 @@ curl -s http://localhost:32122/health | jq '{users, browsers}'
 **说明：** 用户已注册，但浏览器尚未连接（需要等待 SSE 连接建立）
 
 **生成 MCP 客户端配置：**
+
 ```json
 {
   "mcpServers": {
@@ -130,6 +137,7 @@ curl -s http://localhost:32122/health | jq '{users, browsers}'
 ```
 
 **配置路径（Claude Desktop）：**
+
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Linux: `~/.config/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -141,23 +149,27 @@ curl -s http://localhost:32122/health | jq '{users, browsers}'
 ### 步骤 5: 测试服务连接和功能
 
 **模拟 MCP 客户端连接到 SSE 端点：**
+
 ```bash
 curl -N -H "Accept: text/event-stream" \
   "http://localhost:32122/sse?userId=testuser"
 ```
 
 **SSE 响应：**
+
 ```
 event: endpoint
 data: /message?sessionId=59c3e798-cc51-4b9a-9989-0ed88e94b373
 ```
 
 **验证浏览器连接：**
+
 ```bash
 curl -s http://localhost:32122/health | jq '{browsers}'
 ```
 
 **响应：**
+
 ```json
 {
   "browsers": {
@@ -250,6 +262,7 @@ Multi-tenant Server
 ### 1. 传输协议
 
 Multi-tenant 模式**硬编码使用 SSE 传输**，这在启动信息中已明确说明：
+
 ```
 [MCP] Mode: multi-tenant (SSE transport)
 ```
@@ -266,6 +279,7 @@ SSE 连接后: browsers.connected = 1
 ### 3. 用户隔离
 
 每个用户有：
+
 - 独立的 SSE 端点: `/sse?userId=testuser`
 - 独立的浏览器连接: `http://localhost:9225`
 - 独立的 MCP Server 实例
@@ -274,6 +288,7 @@ SSE 连接后: browsers.connected = 1
 ### 4. 认证控制
 
 通过环境变量控制：
+
 ```bash
 AUTH_ENABLED=false  # 禁用认证（测试环境）
 AUTH_ENABLED=true   # 启用认证（生产环境）
@@ -335,6 +350,7 @@ curl -N -H "Accept: text/event-stream" \
 ### 局域网部署
 
 1. **服务器启动：**
+
 ```bash
 PORT=32122 \
 AUTH_ENABLED=true \

@@ -173,6 +173,7 @@
 ### 1. 工具定义方式
 
 #### chrome-ext-devtools-mcp (简洁清晰)
+
 ```typescript
 // src/tools/ToolDefinition.ts
 export interface ToolDefinition<Schema extends z.ZodRawShape = z.ZodRawShape> {
@@ -210,6 +211,7 @@ registerTool(listPages);
 ```
 
 #### chrome-extension-debug-mcp (灵活但复杂)
+
 ```typescript
 // src/tools/tool-definition.ts
 export interface ToolDefinition {
@@ -253,6 +255,7 @@ tools.forEach(tool => mcpServer.registerTool(tool.name, ...));
 ```
 
 **对比：**
+
 - chrome-ext-devtools-mcp 使用 Zod schema，类型安全 ✅
 - chrome-extension-debug-mcp 使用 JSON Schema，灵活但类型不安全 ⚠️
 
@@ -261,6 +264,7 @@ tools.forEach(tool => mcpServer.registerTool(tool.name, ...));
 ### 2. 响应处理方式
 
 #### chrome-ext-devtools-mcp (统一响应构建器)
+
 ```typescript
 // src/McpResponse.ts
 export class McpResponse {
@@ -269,18 +273,18 @@ export class McpResponse {
   private includeNetworkRequests = false;
   private includeConsoleData = false;
   private includeSnapshot = false;
-  
+
   appendResponseLine(value: string): void {
     this.lines.push(value);
   }
-  
+
   setIncludePages(value: boolean): void {
     this.includePages = value;
   }
-  
+
   async handle(toolName: string, context: Context): Promise<Content[]> {
     const content: Content[] = [];
-    
+
     // 主要内容
     if (this.lines.length > 0) {
       content.push({
@@ -288,51 +292,53 @@ export class McpResponse {
         text: this.lines.join('\n'),
       });
     }
-    
+
     // 自动附加上下文
     if (this.includePages) {
       const pages = await context.getAllPages();
       content.push(...formatPages(pages));
     }
-    
+
     return content;
   }
 }
 ```
 
 #### chrome-extension-debug-mcp (配置驱动响应)
+
 ```typescript
 // src/utils/ExtensionResponse.ts
 export class ExtensionResponse {
   private config: ToolResponseConfig;
   private data: Map<string, any> = new Map();
-  
+
   async build(): Promise<ToolResult> {
     const sections: string[] = [];
-    
+
     // 根据配置自动收集上下文
     if (this.config.autoContext.includes('snapshot')) {
       const snapshot = await this.collectSnapshot();
       sections.push(formatSnapshot(snapshot));
     }
-    
+
     if (this.config.autoContext.includes('tabs')) {
       const tabs = await this.collectTabs();
       sections.push(formatTabs(tabs));
     }
-    
+
     // 生成建议
     const suggestions = this.suggestionEngine.generate(this.toolName);
     sections.push(formatSuggestions(suggestions));
-    
+
     return {
-      content: [{ type: 'text', text: sections.join('\n\n') }]
+      content: [{type: 'text', text: sections.join('\n\n')}],
     };
   }
 }
 ```
 
 **对比：**
+
 - chrome-ext-devtools-mcp：简洁，手动控制 ✅
 - chrome-extension-debug-mcp：自动化，但配置复杂 ⚠️
 
@@ -341,6 +347,7 @@ export class ExtensionResponse {
 ### 3. 扩展调试能力
 
 #### chrome-ext-devtools-mcp
+
 ```
 ❌ 无扩展发现
 ❌ 无上下文管理
@@ -350,6 +357,7 @@ export class ExtensionResponse {
 ```
 
 #### chrome-extension-debug-mcp
+
 ```typescript
 // ExtensionDetector - 扩展发现
 async detectExtensions(): Promise<ExtensionInfo[]> {
@@ -394,6 +402,7 @@ async trackMessages(extensionId: string): Promise<Message[]> {
 ```
 
 **对比：**
+
 - chrome-ext-devtools-mcp：通用浏览器自动化 ✅
 - chrome-extension-debug-mcp：扩展调试专业化 ✅⭐
 
@@ -402,21 +411,26 @@ async trackMessages(extensionId: string): Promise<Message[]> {
 ## 🎯 增强策略选择
 
 ### 方案 A: 完全重写（❌ 不推荐）
+
 **优点：** 完全控制
 **缺点：** 工作量大，风险高，丢失现有架构优势
 
 ### 方案 B: 双项目维护（❌ 不推荐）
+
 **优点：** 各自独立
 **缺点：** 重复工作，维护成本高
 
 ### 方案 C: 精简移植（✅ 推荐）
-**优点：** 
+
+**优点：**
+
 - 保留 chrome-ext-devtools-mcp 的清晰架构
 - 引入 chrome-extension-debug-mcp 的扩展能力
 - 避免复杂性
 - 保持代码质量
 
 **实施方案：**
+
 ```
 1. 提取核心扩展模块（4 个）
    ✅ ExtensionDetector（简化版）
@@ -446,22 +460,22 @@ async trackMessages(extensionId: string): Promise<Message[]> {
 
 ### 依赖管理
 
-| 项目 | Chrome 控制 | 传输协议 | 类型系统 | 构建工具 |
-|------|-------------|----------|----------|----------|
-| chrome-ext-devtools-mcp | puppeteer-core | stdio | Zod | TypeScript 5.9 |
+| 项目                       | Chrome 控制                         | 传输协议     | 类型系统    | 构建工具       |
+| -------------------------- | ----------------------------------- | ------------ | ----------- | -------------- |
+| chrome-ext-devtools-mcp    | puppeteer-core                      | stdio        | Zod         | TypeScript 5.9 |
 | chrome-extension-debug-mcp | puppeteer + chrome-remote-interface | stdio + HTTP | JSON Schema | TypeScript 5.0 |
-| **增强后 (推荐)** | puppeteer-core | stdio | Zod | TypeScript 5.9 |
+| **增强后 (推荐)**          | puppeteer-core                      | stdio        | Zod         | TypeScript 5.9 |
 
 ### 代码质量对比
 
-| 指标 | chrome-ext-devtools-mcp | chrome-extension-debug-mcp | 增强后 (目标) |
-|------|------------------------|---------------------------|---------------|
-| TypeScript 错误 | 0 | 未知 (@ts-nocheck) | 0 |
-| ESLint 警告 | 0 | 未知 | 0 |
-| 测试覆盖率 | 高 | 中 | 高 |
-| 文档完整性 | 完整 | 部分 | 完整 |
-| 架构清晰度 | 优秀 | 中等 | 优秀 |
-| 工具数量 | 30 | 51 | 43 |
+| 指标            | chrome-ext-devtools-mcp | chrome-extension-debug-mcp | 增强后 (目标) |
+| --------------- | ----------------------- | -------------------------- | ------------- |
+| TypeScript 错误 | 0                       | 未知 (@ts-nocheck)         | 0             |
+| ESLint 警告     | 0                       | 未知                       | 0             |
+| 测试覆盖率      | 高                      | 中                         | 高            |
+| 文档完整性      | 完整                    | 部分                       | 完整          |
+| 架构清晰度      | 优秀                    | 中等                       | 优秀          |
+| 工具数量        | 30                      | 51                         | 43            |
 
 ---
 
@@ -470,39 +484,43 @@ async trackMessages(extensionId: string): Promise<Message[]> {
 ### 扩展发现工具实现对比
 
 #### chrome-extension-debug-mcp 原始实现（复杂）
+
 ```typescript
 // 使用 chrome-remote-interface + puppeteer
 export class ExtensionDetector {
   constructor(
     private cdp: any,
-    private browser: Browser
+    private browser: Browser,
   ) {}
-  
+
   async detectExtensions(): Promise<ExtensionInfo[]> {
     // 1. 使用 CDP 获取 targets
     const targets = await this.cdp.Target.getTargets();
-    
+
     // 2. 过滤扩展 targets
     const extensionTargets = targets.targetInfos.filter(
-      t => t.type === 'service_worker' || 
-           t.url.startsWith('chrome-extension://')
+      t =>
+        t.type === 'service_worker' || t.url.startsWith('chrome-extension://'),
     );
-    
+
     // 3. 获取 manifest
     const extensions = await Promise.all(
       extensionTargets.map(async t => {
         const page = await this.getExtensionPage(t.targetId);
-        const manifest = await page.evaluate(() => chrome.runtime.getManifest());
-        return { ...manifest, targetId: t.targetId };
-      })
+        const manifest = await page.evaluate(() =>
+          chrome.runtime.getManifest(),
+        );
+        return {...manifest, targetId: t.targetId};
+      }),
     );
-    
+
     return extensions;
   }
 }
 ```
 
 #### 增强后实现（简洁）
+
 ```typescript
 // 仅使用 puppeteer-core
 export const listExtensions = defineTool({
@@ -513,50 +531,52 @@ export const listExtensions = defineTool({
     readOnlyHint: true,
   },
   schema: {
-    includeDisabled: z.boolean().optional()
+    includeDisabled: z
+      .boolean()
+      .optional()
       .describe('Include disabled extensions'),
   },
   handler: async (request, response, context) => {
     const browser = context.getBrowser();
     const targets = await browser.targets();
-    
+
     // 过滤扩展 targets
     const extensionTargets = targets.filter(
-      t => t.type() === 'service_worker' ||
-           t.url().startsWith('chrome-extension://')
+      t =>
+        t.type() === 'service_worker' ||
+        t.url().startsWith('chrome-extension://'),
     );
-    
+
     // 获取扩展信息
     const extensions = await Promise.all(
       extensionTargets.map(async t => {
         const page = await t.page();
         if (!page) return null;
-        
-        const manifest = await page.evaluate(
-          () => chrome.runtime.getManifest()
+
+        const manifest = await page.evaluate(() =>
+          chrome.runtime.getManifest(),
         );
-        
+
         return {
           id: new URL(t.url()).hostname,
           name: manifest.name,
           version: manifest.version,
           enabled: true,
         };
-      })
+      }),
     );
-    
+
     // 格式化输出
     response.appendResponseLine('# Installed Extensions\n');
     extensions.filter(Boolean).forEach(ext => {
-      response.appendResponseLine(
-        `- ${ext.name} (${ext.version}) [${ext.id}]`
-      );
+      response.appendResponseLine(`- ${ext.name} (${ext.version}) [${ext.id}]`);
     });
   },
 });
 ```
 
 **对比：**
+
 - ✅ 更简洁（无需单独的 class）
 - ✅ 单一依赖（仅 puppeteer-core）
 - ✅ 类型安全（Zod schema）
@@ -567,46 +587,51 @@ export const listExtensions = defineTool({
 ## 💡 最佳实践
 
 ### 1. 保持简洁
+
 ```typescript
 // ✅ 好：直接在 handler 中实现
 export const myTool = defineTool({
   handler: async (request, response, context) => {
     const result = await context.doSomething();
     response.appendResponseLine(result);
-  }
+  },
 });
 
 // ❌ 避免：过度抽象
 class MyToolHandler {
-  async handle() { /* ... */ }
+  async handle() {
+    /* ... */
+  }
 }
 const handler = new MyToolHandler();
 export const myTool = defineTool({
-  handler: (req, res, ctx) => handler.handle(req, res, ctx)
+  handler: (req, res, ctx) => handler.handle(req, res, ctx),
 });
 ```
 
 ### 2. 复用现有基础设施
+
 ```typescript
 // ✅ 好：使用现有 McpResponse
 export const myTool = defineTool({
   handler: async (request, response, context) => {
     response.appendResponseLine('Result');
-    response.setIncludePages(true);  // 自动附加页面列表
-  }
+    response.setIncludePages(true); // 自动附加页面列表
+  },
 });
 
 // ❌ 避免：重新发明轮子
 export const myTool = defineTool({
   handler: async (request, response, context) => {
     const pages = await context.getAllPages();
-    const formatted = formatPages(pages);  // 重复实现
+    const formatted = formatPages(pages); // 重复实现
     response.appendResponseLine(formatted);
-  }
+  },
 });
 ```
 
 ### 3. 保持类型安全
+
 ```typescript
 // ✅ 好：使用 Zod schema
 schema: {
@@ -625,14 +650,14 @@ schema: {
 
 ## 📈 预期改进
 
-| 维度 | 当前状态 | 增强后 | 改进幅度 |
-|------|----------|--------|----------|
-| 扩展调试能力 | 0% | 100% | +100% |
-| 工具总数 | 30 | 43 | +43% |
-| 代码复杂度 | 低 | 低-中 | 轻微增加 |
-| 类型安全 | 100% | 100% | 保持 |
-| 维护成本 | 低 | 低-中 | 轻微增加 |
-| 市场竞争力 | 中 | 高 | 显著提升 |
+| 维度         | 当前状态 | 增强后 | 改进幅度 |
+| ------------ | -------- | ------ | -------- |
+| 扩展调试能力 | 0%       | 100%   | +100%    |
+| 工具总数     | 30       | 43     | +43%     |
+| 代码复杂度   | 低       | 低-中  | 轻微增加 |
+| 类型安全     | 100%     | 100%   | 保持     |
+| 维护成本     | 低       | 低-中  | 轻微增加 |
+| 市场竞争力   | 中       | 高     | 显著提升 |
 
 ---
 
@@ -641,6 +666,7 @@ schema: {
 **选定方案：** 方案 C - 精简移植
 
 **核心原则：**
+
 1. 保持 chrome-ext-devtools-mcp 的架构优势
 2. 引入 chrome-extension-debug-mcp 的扩展能力
 3. 避免过度复杂化
@@ -648,6 +674,7 @@ schema: {
 5. 增量实施，可测试，可回滚
 
 **预期成果：**
+
 - ✅ 成为市场上最强大的扩展调试 MCP 服务器
 - ✅ 保持 Google 级别的代码质量
 - ✅ 13 个新工具，扩展调试能力完整覆盖

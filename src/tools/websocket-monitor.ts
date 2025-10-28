@@ -8,8 +8,8 @@
  * WebSocket traffic monitoring tool
  */
 
-import z from 'zod';
 import type {CDPSession} from 'puppeteer-core';
+import z from 'zod';
 
 import {ToolCategories} from './categories.js';
 import {defineTool} from './ToolDefinition.js';

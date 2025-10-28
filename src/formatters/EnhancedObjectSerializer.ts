@@ -19,8 +19,8 @@ export class EnhancedObjectSerializer {
   async serialize(
     obj: Protocol.Runtime.RemoteObject,
     session: CDPSession,
-    depth: number = 0,
-    maxDepth: number = 3,
+    depth = 0,
+    maxDepth = 3,
   ): Promise<any> {
     // 深度限制（防止无限递归）
     if (depth > maxDepth) {

@@ -25,7 +25,7 @@ export class AppError extends Error {
   constructor(
     code: string,
     message: string,
-    statusCode: number = 500,
+    statusCode = 500,
     details?: any
   ) {
     super(message);
@@ -371,7 +371,7 @@ export class IPNotAllowedError extends AppError {
  * 未授权错误
  */
 export class UnauthorizedError extends AppError {
-  constructor(message: string = 'Unauthorized', details?: any) {
+  constructor(message = 'Unauthorized', details?: any) {
     super(
       'UNAUTHORIZED',
       message,
@@ -385,7 +385,7 @@ export class UnauthorizedError extends AppError {
  * 禁止访问错误
  */
 export class ForbiddenError extends AppError {
-  constructor(message: string = 'Forbidden', details?: any) {
+  constructor(message = 'Forbidden', details?: any) {
     super(
       'FORBIDDEN',
       message,

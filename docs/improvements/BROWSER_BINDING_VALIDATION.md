@@ -9,11 +9,13 @@
 ### 1. 多租户模式：严格的浏览器验证
 
 **问题**：
+
 - 之前注册用户时，即使浏览器不可访问，仍然会返回 `success: true`
 - 更新浏览器 URL 时，检测失败也会返回成功
 - 这导致用户配置了无效的浏览器，在实际使用时才会报错
 
 **改进**：
+
 - ✅ 注册时强制验证浏览器可访问性
 - ✅ 浏览器检测失败时返回 `400` 错误，拒绝注册
 - ✅ 提供详细的错误信息和友好的解决建议
@@ -32,6 +34,7 @@ POST /api/register
 ```
 
 **旧行为**（错误）：
+
 ```json
 {
   "success": true,
@@ -46,6 +49,7 @@ POST /api/register
 ```
 
 **新行为**（正确）：
+
 ```json
 {
   "error": "BROWSER_NOT_ACCESSIBLE",
@@ -72,6 +76,7 @@ POST /api/register
 ```
 
 **响应**（简化）：
+
 ```json
 {
   "success": true,
@@ -99,6 +104,7 @@ POST /api/register
 ### 2. 新工具：获取浏览器信息
 
 **问题**：
+
 - 非多租户模式（stdio/SSE）下，IDE 不知道连接的是哪个浏览器
 - 用户可能有多个 Chrome 实例（不同端口），无法区分
 - 调试时需要确认当前操作的是哪个浏览器
@@ -113,6 +119,7 @@ POST /api/register
 **输入**：无参数
 
 **输出示例**：
+
 ```
 # Connected Browser Information
 
@@ -127,6 +134,7 @@ You are currently debugging Chrome at **http://localhost:9222**.
 ```
 
 **使用场景**：
+
 ```
 User: 我现在连接的是哪个浏览器？
 AI: 使用 get_connected_browser 工具查询
@@ -142,6 +150,7 @@ AI: 你当前连接的是 http://localhost:9222 的 Chrome（版本 131.0），
 **输入**：无参数
 
 **输出示例**：
+
 ```
 # Browser Capabilities
 
@@ -160,11 +169,12 @@ AI: 你当前连接的是 http://localhost:9222 的 Chrome（版本 131.0），
 - DOMStorage
 ...
 
-These domains represent the Chrome DevTools Protocol features 
+These domains represent the Chrome DevTools Protocol features
 available for automation and debugging.
 ```
 
 **使用场景**：
+
 - 检查浏览器是否支持特定的 CDP 功能
 - 调试 CDP 相关问题
 - 了解可用的自动化能力
@@ -201,11 +211,12 @@ curl -X POST http://localhost:32136/api/register \
 ### 使用新工具
 
 **在 MCP 客户端中**：
+
 ```
 User: 告诉我当前连接的浏览器信息
 
 AI: [调用 get_connected_browser 工具]
-    
+
     你当前连接的是 http://localhost:9222 的 Chrome (版本 131.0)。
     这个浏览器有 3 个打开的页面。
 ```
@@ -218,10 +229,11 @@ AI: [调用 get_connected_browser 工具]
    - 保持不变，返回连接状态和浏览器信息
 
 2. **注册处理**（`handleRegister` 方法）
+
    ```typescript
    // 检测浏览器连接
    const browserDetection = await this.detectBrowser(browserURL);
-   
+
    // 如果浏览器检测失败，拒绝注册
    if (!browserDetection.connected) {
      res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -273,6 +285,7 @@ AI: [调用 get_connected_browser 工具]
 如果你编写了自动化脚本调用注册 API：
 
 **旧代码**：
+
 ```bash
 # 总是检查 success 字段
 response=$(curl ... /api/register)
@@ -282,6 +295,7 @@ fi
 ```
 
 **新代码**：
+
 ```bash
 # 检查 HTTP 状态码
 response=$(curl -w "%{http_code}" ... /api/register)
@@ -345,11 +359,13 @@ AI: [调用 get_connected_browser]
 ## 未来改进
 
 ### 短期计划
+
 - [ ] 提供 DELETE /api/users/{userId} 删除用户
 - [ ] 注册时提供 `skipBrowserCheck` 选项（用于特殊场景）
 - [ ] 浏览器健康检查定时任务
 
 ### 长期计划
+
 - [ ] 支持浏览器自动重连
 - [ ] 浏览器连接池管理
 - [ ] 多浏览器负载均衡
@@ -363,5 +379,6 @@ AI: [调用 get_connected_browser]
 ## 反馈
 
 如有问题或建议，请：
+
 - 提交 Issue: https://github.com/ChromeDevTools/chrome-devtools-mcp/issues
 - 讨论: https://github.com/ChromeDevTools/chrome-devtools-mcp/discussions

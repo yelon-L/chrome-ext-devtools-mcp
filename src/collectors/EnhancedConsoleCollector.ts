@@ -5,6 +5,7 @@
  */
 
 import type {CDPSession, Page, Protocol, ConsoleMessage, JSHandle} from 'puppeteer-core';
+
 import {EnhancedObjectSerializer} from '../formatters/EnhancedObjectSerializer.js';
 
 /**
@@ -123,7 +124,7 @@ export class EnhancedConsoleCollector {
               
               // Puppeteer 的 CDP 实现：params.session 可能不存在
               // 需要通过 sessionId 手动创建 session
-              let workerSession = params.session;
+              const workerSession = params.session;
               
               if (!workerSession && params.sessionId) {
                 // 尝试通过 sessionId 获取 session
@@ -441,7 +442,7 @@ export class EnhancedConsoleCollector {
    */
   getFilteredLogs(options: {
     types?: string[];
-    sources?: ('page' | 'worker' | 'service-worker' | 'iframe')[];
+    sources?: Array<'page' | 'worker' | 'service-worker' | 'iframe'>;
     since?: number;
     limit?: number;
   }): ConsoleLog[] {

@@ -20,48 +20,54 @@
 ### 1. Chinese Text Removal ✅
 
 #### Server Logs (37 fixes)
+
 **Files Modified**:
+
 - `src/browser.ts` (1 fix)
 - `src/server-sse.ts` (13 fixes)
 - `src/server-http.ts` (13 fixes)
 - `src/utils/paramValidator.ts` (10 fixes)
 
 **Examples**:
+
 ```typescript
 // Before
-console.log('[Browser] 📡 连接到已有浏览器: ...')
-console.error('❌ 端口 3456 已被占用')
+console.log('[Browser] 📡 连接到已有浏览器: ...');
+console.error('❌ 端口 3456 已被占用');
 
 // After
-console.log('[Browser] 📡 Connecting to existing browser: ...')
-console.error('❌ Port 3456 is already in use')
+console.log('[Browser] 📡 Connecting to existing browser: ...');
+console.error('❌ Port 3456 is already in use');
 ```
 
 #### list_extensions Tool Responses (60+ fixes)
+
 **File**: `src/tools/extension/discovery.ts`
 
 **No Extensions Detected**:
+
 ```typescript
 // Before
-'# 未检测到扩展\n'
-'当前 Chrome 会话中没有检测到已启用的扩展。\n'
-'## 💡 可能原因\n'
+'# 未检测到扩展\n';
+'当前 Chrome 会话中没有检测到已启用的扩展。\n';
+'## 💡 可能原因\n';
 
 // After
-'# No Extensions Detected\n'
-'No enabled extensions detected in the current Chrome session.\n'
-'## 💡 Possible Reasons\n'
+'# No Extensions Detected\n';
+'No enabled extensions detected in the current Chrome session.\n';
+'## 💡 Possible Reasons\n';
 ```
 
 **Extension Details**:
+
 ```typescript
 // Before
-'⚠️  **扩展已禁用**: 所有调试工具无法使用'
-'**Service Worker 未激活**: 影响工具调用'
+'⚠️  **扩展已禁用**: 所有调试工具无法使用';
+'**Service Worker 未激活**: 影响工具调用';
 
 // After
-'⚠️  **Extension Disabled**: All debugging tools unavailable'
-'**Service Worker Not Activated**: Affects tool calls'
+'⚠️  **Extension Disabled**: All debugging tools unavailable';
+'**Service Worker Not Activated**: Affects tool calls';
 ```
 
 ---
@@ -69,11 +75,13 @@ console.error('❌ Port 3456 is already in use')
 ### 2. Process Hang Bug Fix ✅
 
 #### reload_extension setInterval Cleanup
+
 **File**: `src/tools/extension/execution.ts`
 
 **Problem**: setInterval not cleared in all code paths, preventing process exit
 
 **Fix**: Use finally block to ensure cleanup
+
 ```typescript
 try {
   timeoutCheckInterval = setInterval(checkTimeout, 1000);
@@ -101,6 +109,7 @@ try {
 Added comprehensive cleanup system:
 
 **1. Signal Handlers**:
+
 ```typescript
 process.on('SIGTERM', () => {
   console.log('\n[stdio] Received SIGTERM');
@@ -114,6 +123,7 @@ process.on('SIGINT', () => {
 ```
 
 **2. stdin Cleanup**:
+
 ```typescript
 process.stdin.on('end', () => {
   console.log('[stdio] stdin closed');
@@ -125,7 +135,7 @@ async function cleanup(reason: string) {
   process.stdin.pause();
   process.stdin.removeAllListeners();
   process.stdin.unref();
-  
+
   // Close browser if managed
   if (context?.browser && !args.browserUrl) {
     await context.browser.close();
@@ -134,6 +144,7 @@ async function cleanup(reason: string) {
 ```
 
 **3. Idle Timeout (5 minutes)**:
+
 ```typescript
 const IDLE_TIMEOUT = 300000; // 5 minutes
 let lastRequestTime = Date.now();
@@ -141,7 +152,9 @@ let lastRequestTime = Date.now();
 const idleCheckInterval = setInterval(() => {
   const idle = Date.now() - lastRequestTime;
   if (idle > IDLE_TIMEOUT) {
-    console.log(`[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`);
+    console.log(
+      `[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`,
+    );
     cleanup('idle timeout').then(() => process.exit(0));
   }
 }, 30000);
@@ -151,6 +164,7 @@ idleCheckInterval.unref();
 ```
 
 **4. Force Exit Protection**:
+
 ```typescript
 function forceExit(timeout = 10000) {
   setTimeout(() => {
@@ -160,7 +174,7 @@ function forceExit(timeout = 10000) {
 }
 
 // Used on unhandled errors
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('[stdio] Uncaught exception:', error);
   forceExit(5000);
   cleanup('uncaught exception').then(() => process.exit(1));
@@ -174,16 +188,19 @@ process.on('uncaughtException', (error) => {
 ### Other Tools Inspection ✅
 
 **Checked for setInterval/setTimeout usage**:
+
 ```bash
 grep -r "setInterval" src/tools/
 ```
 
 **Results**:
+
 - ✅ Only `reload_extension` uses setInterval (now fixed)
 - ✅ Other tools use setTimeout (doesn't block process exit)
 - ✅ No other cleanup issues found
 
 **Tools Checked**:
+
 - `input.ts` - Uses setTimeout (safe)
 - `snapshot.ts` - Uses locator.setTimeout (safe)
 - `performance.ts` - Uses setTimeout (safe)
@@ -196,6 +213,7 @@ grep -r "setInterval" src/tools/
 ### Before Fixes
 
 #### Problem 1: Process Hangs
+
 ```bash
 $ echo '{"jsonrpc":...}' | ./mcp-server &
 # Response returned after 10s ✅
@@ -204,6 +222,7 @@ $ echo '{"jsonrpc":...}' | ./mcp-server &
 ```
 
 #### Problem 2: Chinese in Logs
+
 ```
 [Browser] 📡 连接到已有浏览器: http://...
 [SSE] ✅ 会话建立: abc123
@@ -211,6 +230,7 @@ $ echo '{"jsonrpc":...}' | ./mcp-server &
 ```
 
 #### Problem 3: No Cleanup
+
 - stdin listeners not removed
 - Browser not closed
 - Signals not handled
@@ -221,6 +241,7 @@ $ echo '{"jsonrpc":...}' | ./mcp-server &
 ### After Fixes
 
 #### Process Behavior
+
 ```bash
 $ echo '{"jsonrpc":...}' | ./mcp-server
 # Response returned after 10s ✅
@@ -229,6 +250,7 @@ $ echo '{"jsonrpc":...}' | ./mcp-server
 ```
 
 #### English Logs
+
 ```
 [Browser] 📡 Connecting to existing browser: http://...
 [SSE] ✅ Session established: abc123
@@ -236,6 +258,7 @@ $ echo '{"jsonrpc":...}' | ./mcp-server
 ```
 
 #### Proper Cleanup
+
 ```
 [stdio] Received SIGTERM
 [stdio] Cleanup initiated: SIGTERM
@@ -248,6 +271,7 @@ $ echo '{"jsonrpc":...}' | ./mcp-server
 ## 🧪 Testing
 
 ### Test 1: Process Exit
+
 ```bash
 # Before: Hangs forever
 # After: Exits cleanly
@@ -258,6 +282,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_exten
 ```
 
 ### Test 2: Signal Handling
+
 ```bash
 ./dist/chrome-extension-debug-linux-x64 &
 PID=$!
@@ -271,6 +296,7 @@ kill -TERM $PID
 ```
 
 ### Test 3: Idle Timeout
+
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | \
   ./dist/chrome-extension-debug-linux-x64 &
@@ -283,12 +309,13 @@ sleep 360
 ```
 
 ### Test 4: reload_extension
+
 ```bash
 # SW inactive scenario
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reload_extension","arguments":{"extensionId":"..."}}}' | \
   ./dist/chrome-extension-debug-linux-x64 --browserUrl http://192.168.0.201:9242
 
-# Expected: 
+# Expected:
 # 1. Reload completes ✅
 # 2. Process exits cleanly ✅
 # 3. No manual kill needed ✅
@@ -328,17 +355,20 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reload_ext
 ## 🎯 Summary
 
 ### Critical Fixes (P0)
+
 1. ✅ **reload_extension hang** - Fixed with finally block
 2. ✅ **stdin cleanup** - Implemented
 3. ✅ **Signal handling** - SIGTERM, SIGINT handled
 4. ✅ **Chinese removal** - All logs now English
 
 ### Enhancements (P1)
+
 5. ✅ **Idle timeout** - Auto-exit after 5 minutes
 6. ✅ **Force exit** - Protection against cleanup hangs
 7. ✅ **Error handling** - Uncaught exceptions handled
 
 ### Quality (P2)
+
 8. ✅ **Documentation** - 8 detailed documents created
 9. ✅ **Code review** - All tools checked for issues
 
@@ -349,18 +379,22 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reload_ext
 **Status**: ✅ **All fixes deployed and tested**
 
 ### What Changed
+
 - 4 source files modified
 - 97 lines of Chinese translated to English
 - 97 lines of new resource management code
 - 8 documentation files created
 
 ### Breaking Changes
+
 - None - All changes are backward compatible
 
 ### Migration Required
+
 - None - Existing code continues to work
 
 ### Performance Impact
+
 - Minimal - Added idle check every 30s (unref'd)
 - Cleanup is async and doesn't block
 

@@ -10,8 +10,10 @@ import http from 'node:http';
 import fs from 'node:fs';
 
 // Load credentials
-const creds = JSON.parse(fs.readFileSync('/tmp/mcp-test-credentials.json', 'utf-8'));
-const { server: SERVER_URL, userId: USER_ID, token: TOKEN } = creds;
+const creds = JSON.parse(
+  fs.readFileSync('/tmp/mcp-test-credentials.json', 'utf-8'),
+);
+const {server: SERVER_URL, userId: USER_ID, token: TOKEN} = creds;
 
 console.log(`📡 Connecting to: ${SERVER_URL}`);
 console.log(`👤 User: ${USER_ID}`);
@@ -22,8 +24,8 @@ let sessionId = null;
 let messageId = 1;
 const pending = new Map();
 const results = {
-  extension: { passed: 0, failed: 0, tests: [] },
-  browser: { passed: 0, failed: 0, tests: [] },
+  extension: {passed: 0, failed: 0, tests: []},
+  browser: {passed: 0, failed: 0, tests: []},
 };
 
 // HTTP helper
@@ -35,7 +37,7 @@ function httpRequest(method, url, data = null) {
       port: urlObj.port,
       path: urlObj.pathname + urlObj.search,
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
     };
 
     if (data) {
@@ -43,9 +45,9 @@ function httpRequest(method, url, data = null) {
       options.headers['Content-Length'] = Buffer.byteLength(jsonData);
     }
 
-    const req = http.request(options, (res) => {
+    const req = http.request(options, res => {
       let body = '';
-      res.on('data', (chunk) => (body += chunk));
+      res.on('data', chunk => (body += chunk));
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try {
@@ -68,19 +70,23 @@ function httpRequest(method, url, data = null) {
 // Send MCP request
 async function sendRequest(method, params = {}) {
   const id = messageId++;
-  const message = { jsonrpc: '2.0', id, method, params };
+  const message = {jsonrpc: '2.0', id, method, params};
 
-  await httpRequest('POST', `${SERVER_URL}/message?sessionId=${sessionId}`, message);
+  await httpRequest(
+    'POST',
+    `${SERVER_URL}/message?sessionId=${sessionId}`,
+    message,
+  );
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const timeout = setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
-        resolve({ error: { message: 'Timeout (30s)' } });
+        resolve({error: {message: 'Timeout (30s)'}});
       }
     }, 30000);
 
-    pending.set(id, (data) => {
+    pending.set(id, data => {
       clearTimeout(timeout);
       resolve(data);
     });
@@ -99,76 +105,78 @@ async function runTests() {
     sseUrl.searchParams.set('userId', USER_ID);
 
     await new Promise((resolveConnection, rejectConnection) => {
-      const req = http.request({
-        hostname: sseUrl.hostname,
-        port: sseUrl.port,
-        path: sseUrl.pathname + sseUrl.search,
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${TOKEN}`,
-          'Accept': 'text/event-stream',
+      const req = http.request(
+        {
+          hostname: sseUrl.hostname,
+          port: sseUrl.port,
+          path: sseUrl.pathname + sseUrl.search,
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${TOKEN}`,
+            Accept: 'text/event-stream',
+          },
         },
-      }, async (res) => {
-        if (res.statusCode !== 200) {
-          console.error(`❌ SSE connection failed: ${res.statusCode}`);
-          process.exit(1);
-        }
+        async res => {
+          if (res.statusCode !== 200) {
+            console.error(`❌ SSE connection failed: ${res.statusCode}`);
+            process.exit(1);
+          }
 
-        console.log('✅ SSE connected\n');
+          console.log('✅ SSE connected\n');
 
-        let buffer = '';
-        res.on('data', (chunk) => {
-          buffer += chunk.toString();
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop() || '';
+          let buffer = '';
+          res.on('data', chunk => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || '';
 
-          for (const message of lines) {
-            const dataMatch = message.match(/data: (.+)/);
-            if (dataMatch) {
-              const dataStr = dataMatch[1].trim();
-              
-              // Check if it's the endpoint message with sessionId
-              if (!sessionId && dataStr.includes('/message?sessionId=')) {
-                const sidMatch = dataStr.match(/sessionId=([a-f0-9-]+)/);
-                if (sidMatch) {
-                  sessionId = sidMatch[1];
-                  console.log(`✅ Session ID: ${sessionId}\n`);
-                  console.log('⏳ Starting tests immediately...\n');
-                  // Start immediately to prevent session timeout
-                  setImmediate(() => testAllTools(req, resolveConnection));
+            for (const message of lines) {
+              const dataMatch = message.match(/data: (.+)/);
+              if (dataMatch) {
+                const dataStr = dataMatch[1].trim();
+
+                // Check if it's the endpoint message with sessionId
+                if (!sessionId && dataStr.includes('/message?sessionId=')) {
+                  const sidMatch = dataStr.match(/sessionId=([a-f0-9-]+)/);
+                  if (sidMatch) {
+                    sessionId = sidMatch[1];
+                    console.log(`✅ Session ID: ${sessionId}\n`);
+                    console.log('⏳ Starting tests immediately...\n');
+                    // Start immediately to prevent session timeout
+                    setImmediate(() => testAllTools(req, resolveConnection));
+                  }
+                  continue;
                 }
-                continue;
-              }
-              
-              // Try to parse as JSON (for tool responses)
-              try {
-                const data = JSON.parse(dataStr);
-                if (data.id && pending.has(data.id)) {
-                  const callback = pending.get(data.id);
-                  pending.delete(data.id);
-                  callback(data);
+
+                // Try to parse as JSON (for tool responses)
+                try {
+                  const data = JSON.parse(dataStr);
+                  if (data.id && pending.has(data.id)) {
+                    const callback = pending.get(data.id);
+                    pending.delete(data.id);
+                    callback(data);
+                  }
+                } catch (e) {
+                  // Ignore parse errors for non-JSON messages
                 }
-              } catch (e) {
-                // Ignore parse errors for non-JSON messages
               }
             }
-          }
-        });
+          });
 
-        res.on('end', () => {
-          console.log('\n❌ SSE disconnected');
-          process.exit(0);
-        });
-      });
+          res.on('end', () => {
+            console.log('\n❌ SSE disconnected');
+            process.exit(0);
+          });
+        },
+      );
 
-      req.on('error', (err) => {
+      req.on('error', err => {
         console.error('❌ SSE error:', err.message);
         process.exit(1);
       });
 
       req.end();
     });
-
   } catch (error) {
     console.error('❌ Error:', error.message);
     process.exit(1);
@@ -186,7 +194,7 @@ async function testAllTools(sseReq, done) {
     const initResult = await sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'test-suite', version: '1.0.0' },
+      clientInfo: {name: 'test-suite', version: '1.0.0'},
     });
 
     if (initResult.error) {
@@ -224,7 +232,6 @@ async function testAllTools(sseReq, done) {
       done();
       process.exit(0);
     }, 1000);
-
   } catch (error) {
     console.error('\n❌ Test error:', error);
     process.exit(1);
@@ -240,36 +247,47 @@ async function testExtensionTools(tools) {
   let extensionId = null;
 
   // Test list_extensions first
-  await testTool('extension', 'list_extensions', {}, async (result) => {
+  await testTool('extension', 'list_extensions', {}, async result => {
     const text = result.result?.content?.[0]?.text || '';
     const match = text.match(/([a-z]{32})/);
     if (match) {
       extensionId = match[1];
-      return { success: true, note: `Found: ${extensionId.substring(0, 16)}...` };
+      return {success: true, note: `Found: ${extensionId.substring(0, 16)}...`};
     }
-    if (text.includes('No extensions found') || text.includes('No Extensions Found')) {
-      return { success: true, note: 'No extensions (expected if none installed)' };
+    if (
+      text.includes('No extensions found') ||
+      text.includes('No Extensions Found')
+    ) {
+      return {
+        success: true,
+        note: 'No extensions (expected if none installed)',
+      };
     }
-    return { success: true, note: 'Listed extensions' };
+    return {success: true, note: 'Listed extensions'};
   });
 
   if (!extensionId) {
-    console.log('\n⚠️  No extensions found - skipping extension-specific tests\n');
+    console.log(
+      '\n⚠️  No extensions found - skipping extension-specific tests\n',
+    );
     return;
   }
 
   // Test tools that need extensionId
   const testsWithId = [
-    ['get_extension_details', { extensionId }],
-    ['list_extension_contexts', { extensionId }],
-    ['activate_extension_service_worker', { extensionId, mode: 'single' }],
-    ['inspect_extension_storage', { extensionId, storageType: 'local' }],
-    ['get_extension_logs', { extensionId }],
-    ['diagnose_extension_errors', { extensionId, timeRange: 10 }],
-    ['inspect_extension_manifest', { extensionId, checkMV3Compatibility: true }],
-    ['check_content_script_injection', { extensionId, testUrl: 'https://github.com' }],
-    ['evaluate_in_extension', { extensionId, code: 'chrome.runtime.id' }],
-    ['reload_extension', { extensionId, preserveStorage: true }],
+    ['get_extension_details', {extensionId}],
+    ['list_extension_contexts', {extensionId}],
+    ['activate_extension_service_worker', {extensionId, mode: 'single'}],
+    ['inspect_extension_storage', {extensionId, storageType: 'local'}],
+    ['get_extension_logs', {extensionId}],
+    ['diagnose_extension_errors', {extensionId, timeRange: 10}],
+    ['inspect_extension_manifest', {extensionId, checkMV3Compatibility: true}],
+    [
+      'check_content_script_injection',
+      {extensionId, testUrl: 'https://github.com'},
+    ],
+    ['evaluate_in_extension', {extensionId, code: 'chrome.runtime.id'}],
+    ['reload_extension', {extensionId, preserveStorage: true}],
   ];
 
   for (const [name, args] of testsWithId) {
@@ -284,21 +302,21 @@ async function testBrowserTools(tools) {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   await testTool('browser', 'list_pages', {});
-  await testTool('browser', 'new_page', { url: 'https://example.com' });
-  await testTool('browser', 'take_screenshot', { name: 'test' });
+  await testTool('browser', 'new_page', {url: 'https://example.com'});
+  await testTool('browser', 'take_screenshot', {name: 'test'});
 }
 
 // Test individual tool
 async function testTool(category, name, args, validator) {
   console.log(`Testing: ${name}`);
-  
+
   const result = await sendRequest('tools/call', {
     name,
     arguments: args,
   });
 
   let status, note;
-  
+
   if (result.error) {
     status = 'failed';
     note = result.error.message;
@@ -312,7 +330,7 @@ async function testTool(category, name, args, validator) {
   }
 
   results[category][status]++;
-  results[category].tests.push({ name, status, note });
+  results[category].tests.push({name, status, note});
 
   const emoji = status === 'passed' ? '✅' : '❌';
   console.log(`  ${emoji} ${name}: ${note}\n`);
@@ -320,17 +338,34 @@ async function testTool(category, name, args, validator) {
 
 // Print summary
 function printSummary() {
-  console.log('\n╔════════════════════════════════════════════════════════════════╗');
-  console.log('║                      TEST SUMMARY                              ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  console.log(
+    '\n╔════════════════════════════════════════════════════════════════╗',
+  );
+  console.log(
+    '║                      TEST SUMMARY                              ║',
+  );
+  console.log(
+    '╚════════════════════════════════════════════════════════════════╝\n',
+  );
 
-  const total = Object.values(results).reduce((sum, cat) => sum + cat.passed + cat.failed, 0);
-  const passed = Object.values(results).reduce((sum, cat) => sum + cat.passed, 0);
-  const failed = Object.values(results).reduce((sum, cat) => sum + cat.failed, 0);
+  const total = Object.values(results).reduce(
+    (sum, cat) => sum + cat.passed + cat.failed,
+    0,
+  );
+  const passed = Object.values(results).reduce(
+    (sum, cat) => sum + cat.passed,
+    0,
+  );
+  const failed = Object.values(results).reduce(
+    (sum, cat) => sum + cat.failed,
+    0,
+  );
 
   console.log(`📊 Total: ${total} tests`);
-  console.log(`✅ Passed: ${passed} (${((passed/total)*100).toFixed(1)}%)`);
-  console.log(`❌ Failed: ${failed} (${((failed/total)*100).toFixed(1)}%)\n`);
+  console.log(`✅ Passed: ${passed} (${((passed / total) * 100).toFixed(1)}%)`);
+  console.log(
+    `❌ Failed: ${failed} (${((failed / total) * 100).toFixed(1)}%)\n`,
+  );
 
   console.log('By Category:\n');
   for (const [cat, data] of Object.entries(results)) {
@@ -339,9 +374,11 @@ function printSummary() {
     console.log(`    ✅ ${data.passed}/${catTotal} passed`);
     if (data.failed > 0) {
       console.log(`    ❌ ${data.failed}/${catTotal} failed`);
-      data.tests.filter(t => t.status === 'failed').forEach(t => {
-        console.log(`       - ${t.name}: ${t.note}`);
-      });
+      data.tests
+        .filter(t => t.status === 'failed')
+        .forEach(t => {
+          console.log(`       - ${t.name}: ${t.note}`);
+        });
     }
   }
 }

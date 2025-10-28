@@ -13,15 +13,16 @@ import z from 'zod';
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
 import {
-  EXTENSION_NOT_FOUND,
-  NO_BACKGROUND_CONTEXT,
-  RELOAD_TIMEOUT,
-} from './errors.js';
-import {
   reportExtensionNotFound,
   reportNoBackgroundContext,
   reportTimeout,
 } from '../utils/ErrorReporting.js';
+
+import {
+  EXTENSION_NOT_FOUND,
+  NO_BACKGROUND_CONTEXT,
+  RELOAD_TIMEOUT,
+} from './errors.js';
 
 /**
  * Cache management helper functions for smart extension reload
@@ -165,7 +166,7 @@ async function captureAllLogs(
 /**
  * Format log entries for display
  */
-function formatLogEntries(logs: any[], response: any, maxDisplay: number = 5): void {
+function formatLogEntries(logs: any[], response: any, maxDisplay = 5): void {
   const displayLogs = logs.slice(-maxDisplay); // Show most recent
   
   for (const log of displayLogs) {

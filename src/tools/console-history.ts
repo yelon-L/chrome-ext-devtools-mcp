@@ -98,7 +98,7 @@ get_page_console_logs({ limit: 10 })  → Last 10 logs
       const { types, sources, since, limit } = request.params;
       
       // 应用过滤
-      let logs = types || sources || since || limit
+      const logs = types || sources || since || limit
         ? collector.getFilteredLogs({ types, sources, since, limit })
         : collector.getLogs();
       

@@ -165,7 +165,7 @@ displayStdioModeInfo();
 // Resource Cleanup and Signal Handling for stdio mode
 // ============================================================================
 
-let lastRequestTime = Date.now();
+const lastRequestTime = Date.now();
 // 空闲超时配置（毫秒）
 // 0 = 永不超时，适合开发环境
 // 默认 30 分钟，给用户足够思考时间
@@ -233,7 +233,7 @@ if (IDLE_TIMEOUT > 0) {
     
     if (idle > IDLE_TIMEOUT) {
       console.log(`[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`);
-      cleanup('idle timeout').then(() => process.exit(0));
+      void cleanup('idle timeout').then(() => process.exit(0));
     }
   }, 30000);
 
@@ -244,18 +244,18 @@ if (IDLE_TIMEOUT > 0) {
 // Signal handlers
 process.on('SIGTERM', () => {
   console.log('\n[stdio] Received SIGTERM');
-  cleanup('SIGTERM').then(() => process.exit(0));
+  void cleanup('SIGTERM').then(() => process.exit(0));
 });
 
 process.on('SIGINT', () => {
   console.log('\n[stdio] Received SIGINT');
-  cleanup('SIGINT').then(() => process.exit(0));
+  void cleanup('SIGINT').then(() => process.exit(0));
 });
 
 // stdin end event
 process.stdin.on('end', () => {
   console.log('[stdio] stdin closed');
-  cleanup('stdin end').then(() => process.exit(0));
+  void cleanup('stdin end').then(() => process.exit(0));
 });
 
 // Force exit after 10 seconds if cleanup hangs
@@ -270,11 +270,11 @@ function forceExit(timeout = 10000): void {
 process.on('uncaughtException', (error) => {
   console.error('[stdio] Uncaught exception:', error);
   forceExit(5000);
-  cleanup('uncaught exception').then(() => process.exit(1));
+  void cleanup('uncaught exception').then(() => process.exit(1));
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[stdio] Unhandled rejection:', reason);
   forceExit(5000);
-  cleanup('unhandled rejection').then(() => process.exit(1));
+  void cleanup('unhandled rejection').then(() => process.exit(1));
 });

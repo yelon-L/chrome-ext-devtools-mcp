@@ -16,8 +16,8 @@
  * - 生产环境：仅显示用户友好消息
  */
 
-import type {Response} from '../ToolDefinition.js';
 import {errorVerbosityConfig, formatErrorForUser} from '../../config/ErrorVerbosity.js';
+import type {Response} from '../ToolDefinition.js';
 
 /**
  * 错误类型

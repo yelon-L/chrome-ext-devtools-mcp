@@ -7,6 +7,7 @@
 Created `src/utils/modeMessages.ts` with tailored messages for each mode:
 
 #### stdio Mode (Default)
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔒 SECURITY NOTICE
@@ -42,12 +43,14 @@ This ensures chrome.* APIs are available.
 ```
 
 **Key Points:**
+
 - ✓ Clearly states "Local Only"
 - ✓ Explains NOT accessible remotely
 - ✓ NOT suitable for multi-user
 - ✓ Provides alternatives for different use cases
 
 #### SSE Mode
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🌐 SSE MODE - HTTP Server
@@ -68,11 +71,13 @@ This ensures chrome.* APIs are available.
 ```
 
 **Key Points:**
+
 - ✓ States it's accessible remotely
 - ✓ Warns that all clients share ONE browser
 - ✓ Suggests multi-tenant for isolation
 
 #### Streamable HTTP Mode
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🚀 STREAMABLE HTTP MODE - Production Ready
@@ -93,6 +98,7 @@ This ensures chrome.* APIs are available.
 ```
 
 #### Multi-tenant Mode
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏢 MULTI-TENANT MODE - Enterprise SaaS
@@ -127,6 +133,7 @@ This ensures chrome.* APIs are available.
 ```
 
 **Key Points:**
+
 - ✓ Explains each user has their OWN browser
 - ✓ Shows configuration via environment variables
 - ✓ Provides registration example
@@ -139,6 +146,7 @@ This ensures chrome.* APIs are available.
 ### Issue 1: `--mode multi-tenant` Parameter Doesn't Exist
 
 **Problem:** User tried to run:
+
 ```bash
 ./chrome-devtools-mcp-linux-x64 --mode multi-tenant
 ```
@@ -146,6 +154,7 @@ This ensures chrome.* APIs are available.
 This parameter doesn't exist. It defaulted to stdio mode.
 
 **Solution:** Updated README.md to show correct command:
+
 ```bash
 # Correct way to start multi-tenant
 node build/src/multi-tenant/server-multi-tenant.js
@@ -157,18 +166,21 @@ PORT=3000 AUTH_ENABLED=true node build/src/multi-tenant/server-multi-tenant.js
 ### Issue 2: Confusing stdio Mode Messages
 
 **Before:**
+
 ```
 chrome-devtools-mcp exposes content of the browser instance to the MCP clients...
 📌 Important: Service Worker Manual Activation
 ```
 
 **Problems:**
+
 - Generic message about "chrome-devtools-mcp" (original project name)
 - Doesn't explain stdio limitations
 - No guidance on when to use other modes
 - Can user configure their own browser? Not clear
 
 **After:**
+
 ```
 📋 STDIO MODE - Single User, Local Only
 ✓ For local development and IDE integration
@@ -182,6 +194,7 @@ chrome-devtools-mcp exposes content of the browser instance to the MCP clients..
 ```
 
 **Improvements:**
+
 - ✓ Clear mode identification
 - ✓ States limitations explicitly
 - ✓ Provides alternatives
@@ -194,6 +207,7 @@ chrome-devtools-mcp exposes content of the browser instance to the MCP clients..
 
 **Answer in stdio Mode:**
 YES! Users can connect to their own browser:
+
 ```bash
 # Connect to your already-running Chrome
 chrome-extension-debug-mcp --browserUrl http://localhost:9222
@@ -201,6 +215,7 @@ chrome-extension-debug-mcp --browserUrl http://localhost:9222
 
 **Answer in Multi-tenant Mode:**
 YES! Each user registers their own browser via API:
+
 ```bash
 curl -X POST http://localhost:32122/api/register \
   -d '{"userId":"alice","browserURL":"http://localhost:9222"}'
@@ -211,6 +226,7 @@ curl -X POST http://localhost:32122/api/register \
 ## 📋 Updated Files
 
 ### New Files
+
 1. **`src/utils/modeMessages.ts`** - Centralized mode-specific messages
    - `displayStdioModeInfo()`
    - `displaySSEModeInfo(port)`
@@ -218,6 +234,7 @@ curl -X POST http://localhost:32122/api/register \
    - `displayMultiTenantModeInfo(port)`
 
 ### Modified Files
+
 1. **`src/main.ts`** - stdio mode messages
 2. **`src/server-sse.ts`** - SSE mode messages
 3. **`src/server-http.ts`** - Streamable HTTP mode messages
@@ -229,27 +246,34 @@ curl -X POST http://localhost:32122/api/register \
 ## 🎯 Key Improvements
 
 ### 1. Clear Mode Identification
+
 Each mode now clearly states:
+
 - What it is (stdio/SSE/Streamable/Multi-tenant)
 - Who it's for (local dev/remote/production/SaaS)
 - Key characteristics
 
 ### 2. Explicit Limitations
+
 - stdio: NOT accessible remotely
 - SSE/Streamable: Shared browser instance
 - Multi-tenant: Users need own Chrome
 
 ### 3. Guidance for Alternatives
+
 Every mode suggests when to use other modes
 
 ### 4. Security Notices
+
 All modes include appropriate security warnings
 
 ### 5. Browser Configuration Clarity
+
 - stdio: Use --browserUrl to connect to your Chrome
 - Multi-tenant: Register via API with browserURL
 
 ### 6. English Messages
+
 All production messages now in English (as requested)
 
 ---
@@ -257,6 +281,7 @@ All production messages now in English (as requested)
 ## 🧪 Testing
 
 ### Test stdio Mode
+
 ```bash
 node build/src/index.js
 # Should display: "STDIO MODE - Single User, Local Only"
@@ -264,6 +289,7 @@ node build/src/index.js
 ```
 
 ### Test SSE Mode
+
 ```bash
 node build/src/index.js --transport sse --port 32122
 # Should display: "SSE MODE - HTTP Server"
@@ -271,6 +297,7 @@ node build/src/index.js --transport sse --port 32122
 ```
 
 ### Test Multi-tenant Mode
+
 ```bash
 node build/src/multi-tenant/server-multi-tenant.js
 # Should display: "MULTI-TENANT MODE - Enterprise SaaS"
@@ -284,6 +311,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **Question:** 运行 stdio 模式意味着什么？
 
 **Answer:**
+
 - ✓ Single user, local only
 - ✓ For IDE integration (Claude Desktop, Cline, etc.)
 - ✗ NOT accessible remotely
@@ -293,6 +321,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **Question:** 可以远程连接吗？
 
 **Answer:**
+
 - stdio: NO → Use --transport sse or --transport streamable
 - SSE/Streamable: YES → But shared browser
 - Multi-tenant: YES → Each user has own browser
@@ -300,6 +329,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **Question:** 可以配置用户自己环境的浏览器吗？
 
 **Answer:**
+
 - stdio: YES → --browserUrl http://localhost:9222
 - Multi-tenant: YES → Register via API with browserURL
 - All modes: User can connect to their own Chrome instance

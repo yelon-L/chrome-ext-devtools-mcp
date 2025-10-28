@@ -10,13 +10,13 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 
 ### 数据源隔离
 
-| 数据源 | Chrome管理页面Errors | MCP工具（CDP） |
-|--------|---------------------|---------------|
-| **API** | `chrome.developerPrivate` | CDP Protocol |
-| **存储** | Chrome内部SQLite数据库 | 运行时内存 |
-| **持久性** | 跨会话保留 | 仅当前会话 |
-| **错误类型** | Manifest/权限/运行时/CSP | Console日志/运行时 |
-| **访问权限** | 需要特殊扩展权限 | 任何CDP客户端 |
+| 数据源       | Chrome管理页面Errors      | MCP工具（CDP）     |
+| ------------ | ------------------------- | ------------------ |
+| **API**      | `chrome.developerPrivate` | CDP Protocol       |
+| **存储**     | Chrome内部SQLite数据库    | 运行时内存         |
+| **持久性**   | 跨会话保留                | 仅当前会话         |
+| **错误类型** | Manifest/权限/运行时/CSP  | Console日志/运行时 |
+| **访问权限** | 需要特殊扩展权限          | 任何CDP客户端      |
 
 **关键点**：`chrome.developerPrivate` 是Chrome的私有API，仅供内部使用，第三方工具无法访问。
 
@@ -27,46 +27,56 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 ### ✅ 可以获取（通过MCP工具）
 
 1. **Console错误**
+
    ```javascript
-   console.error("Something went wrong");
+   console.error('Something went wrong');
    ```
+
    工具：`get_extension_logs`、`diagnose_extension_errors`
 
 2. **未捕获的JavaScript错误**（需增强）
+
    ```javascript
-   throw new Error("Uncaught error");
+   throw new Error('Uncaught error');
    ```
+
    工具：`enhance_extension_error_capture` + `diagnose_extension_errors`
 
 3. **未处理的Promise拒绝**（需增强）
    ```javascript
-   Promise.reject("Unhandled rejection");
+   Promise.reject('Unhandled rejection');
    ```
    工具：`enhance_extension_error_capture` + `diagnose_extension_errors`
 
 ### ❌ 无法获取（Chrome管理页面独有）
 
 1. **Manifest解析错误**
+
    ```json
    {
      "name": "Test",
-     "version": "invalid"  // 格式错误
+     "version": "invalid" // 格式错误
    }
    ```
+
    显示位置：仅Chrome管理页面
 
 2. **权限声明错误**
+
    ```json
    {
      "permissions": ["invalidPermission"]
    }
    ```
+
    显示位置：仅Chrome管理页面
 
 3. **内容安全策略(CSP)错误**
+
    ```
    Refused to execute inline script because it violates CSP
    ```
+
    显示位置：Chrome管理页面 + 可能在console
 
 4. **历史错误**
@@ -102,6 +112,7 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 即使无法获取历史错误，可以重现并捕获：
 
 #### 步骤1：增强错误捕获
+
 ```json
 {
   "name": "enhance_extension_error_capture",
@@ -113,6 +124,7 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 ```
 
 #### 步骤2：重载扩展
+
 ```json
 {
   "name": "reload_extension",
@@ -124,6 +136,7 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 ```
 
 #### 步骤3：立即诊断
+
 ```json
 {
   "name": "diagnose_extension_errors",
@@ -135,6 +148,7 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 ```
 
 **原理**：
+
 - 重载扩展会重新触发启动错误
 - 增强的监听器会捕获这些错误
 - 诊断工具能看到刚才捕获的错误
@@ -155,6 +169,7 @@ Chrome扩展管理页面（chrome://extensions）中的"Errors"按钮显示的�
 ```
 
 **能检测**：
+
 - Manifest结构问题
 - 权限配置问题
 - MV2/MV3兼容性
@@ -200,18 +215,21 @@ get_extension_logs({"extensionId":"xxx","level":["error","warn"]})
 ### 案例1：Manifest错误不可见
 
 **Chrome管理页面显示**：
+
 ```
 Manifest version 2 is deprecated, and support will be removed in 2023.
 See https://developer.chrome.com/blog/mv2-transition/ for more details.
 ```
 
 **MCP工具**：
+
 - ❌ `diagnose_extension_errors` 看不到
 - ❌ `get_extension_logs` 看不到
 
 **原因**：这是manifest警告，不会输出到console
 
 **解决**：
+
 - 手动查看Chrome管理页面
 - 或使用 `inspect_extension_manifest` 检查MV版本
 
@@ -220,12 +238,14 @@ See https://developer.chrome.com/blog/mv2-transition/ for more details.
 ### 案例2：CSP错误部分可见
 
 **Chrome管理页面显示**：
+
 ```
-Refused to execute inline script because it violates the following 
+Refused to execute inline script because it violates the following
 Content Security Policy directive: "script-src 'self'"
 ```
 
 **MCP工具**：
+
 - ⚠️ `diagnose_extension_errors` 可能看到（如果有console输出）
 - ⚠️ `get_extension_logs` 可能看到
 
@@ -236,6 +256,7 @@ Content Security Policy directive: "script-src 'self'"
 ### 案例3：历史运行时错误
 
 **Chrome管理页面显示**：
+
 ```
 Uncaught TypeError: Cannot read property 'value' of null
   at background.js:42:15
@@ -243,10 +264,12 @@ Uncaught TypeError: Cannot read property 'value' of null
 ```
 
 **MCP工具**：
+
 - ❌ `diagnose_extension_errors` 看不到（2小时前的错误）
 - ❌ `get_extension_logs` 看不到（已清除）
 
 **解决**：
+
 - 重现错误（重载扩展或触发操作）
 - 使用 `enhance_extension_error_capture` 捕获
 
@@ -257,6 +280,7 @@ Uncaught TypeError: Cannot read property 'value' of null
 ### 为什么无法通过CDP访问？
 
 1. **chrome.developerPrivate是私有API**
+
    ```javascript
    // 这个API不对外开放
    chrome.developerPrivate.getExtensionErrors(extensionId, callback);
@@ -274,11 +298,13 @@ Uncaught TypeError: Cannot read property 'value' of null
 ### 可能的未来改进
 
 1. **CDP扩展支持**（需Chrome团队实现）
+
    ```
    CDP.Extensions.getErrors(extensionId)
    ```
 
 2. **通过扩展访问**（需要专门的调试扩展）
+
    ```javascript
    // 创建一个具有developerPrivate权限的扩展
    chrome.developerPrivate.getExtensionErrors(...)
@@ -326,17 +352,18 @@ Uncaught TypeError: Cannot read property 'value' of null
 
 ## 总结
 
-| 错误类型 | Chrome管理页面 | MCP工具 | 推荐方案 |
-|---------|---------------|---------|---------|
-| **Manifest错误** | ✅ | ❌ | 手动查看 |
-| **权限错误** | ✅ | ⚠️ | 手动查看 + inspect_manifest |
-| **CSP错误** | ✅ | ⚠️ | 两者结合 |
-| **历史运行时错误** | ✅ | ❌ | 手动查看 |
-| **实时运行时错误** | ✅ | ✅ | MCP工具 |
-| **未捕获错误** | ✅ | ✅ (需enhance) | MCP工具 |
-| **Promise拒绝** | ✅ | ✅ (需enhance) | MCP工具 |
+| 错误类型           | Chrome管理页面 | MCP工具        | 推荐方案                    |
+| ------------------ | -------------- | -------------- | --------------------------- |
+| **Manifest错误**   | ✅             | ❌             | 手动查看                    |
+| **权限错误**       | ✅             | ⚠️             | 手动查看 + inspect_manifest |
+| **CSP错误**        | ✅             | ⚠️             | 两者结合                    |
+| **历史运行时错误** | ✅             | ❌             | 手动查看                    |
+| **实时运行时错误** | ✅             | ✅             | MCP工具                     |
+| **未捕获错误**     | ✅             | ✅ (需enhance) | MCP工具                     |
+| **Promise拒绝**    | ✅             | ✅ (需enhance) | MCP工具                     |
 
 **核心建议**：
+
 - 开发时保持Chrome管理页面打开
 - 使用MCP工具实时监控和分析
 - 重载扩展以重现历史错误

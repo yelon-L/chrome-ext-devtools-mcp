@@ -3,6 +3,7 @@
 ## 问题分析
 
 ### 原始错误信息
+
 ```
 error: Failed to start server. Is port 32123 in use?
       at emitError (node:events:51:13)
@@ -11,6 +12,7 @@ error: Failed to start server. Is port 32123 in use?
 ### 问题诊断
 
 **根本原因**：`httpServer.listen()` 缺少错误事件监听器，导致：
+
 1. ❌ 错误信息不明确 - 只显示通用的端口占用提示
 2. ❌ 无法区分具体错误类型（端口占用、权限不足、地址不可用等）
 3. ❌ 缺少解决方案指导
@@ -23,6 +25,7 @@ error: Failed to start server. Is port 32123 in use?
 为 HTTP 服务器添加 `error` 事件监听器，处理以下错误类型：
 
 #### **EADDRINUSE - 端口已被占用**
+
 ```
 ❌ 端口 32123 已被占用
 
@@ -35,6 +38,7 @@ error: Failed to start server. Is port 32123 in use?
 ```
 
 #### **EACCES - 权限不足**
+
 ```
 ❌ 权限不足，无法绑定端口 32123
 
@@ -45,6 +49,7 @@ error: Failed to start server. Is port 32123 in use?
 ```
 
 #### **EADDRNOTAVAIL - 地址不可用**
+
 ```
 ❌ 地址不可用
 
@@ -54,6 +59,7 @@ error: Failed to start server. Is port 32123 in use?
 ```
 
 #### **其他错误**
+
 ```
 ❌ 错误: [具体错误信息]
    错误码: [错误码]
@@ -65,12 +71,13 @@ error: Failed to start server. Is port 32123 in use?
 ### 2. 代码实现
 
 #### server-http.ts
+
 ```typescript
 // 错误处理
 httpServer.on('error', (error: NodeJS.ErrnoException) => {
   console.error('\n[HTTP] ❌ 服务器启动失败');
   console.error('');
-  
+
   if (error.code === 'EADDRINUSE') {
     // 端口占用处理
   } else if (error.code === 'EACCES') {
@@ -80,7 +87,7 @@ httpServer.on('error', (error: NodeJS.ErrnoException) => {
   } else {
     // 通用错误处理
   }
-  
+
   process.exit(1);
 });
 
@@ -90,16 +97,19 @@ httpServer.listen(port, () => {
 ```
 
 #### server-sse.ts
+
 同样的错误处理逻辑。
 
 ### 3. 用户体验改进
 
 **之前**：
+
 ```
 error: Failed to start server. Is port 32123 in use?
 ```
 
 **现在**：
+
 ```
 [HTTP] ❌ 服务器启动失败
 
@@ -133,6 +143,7 @@ error: Failed to start server. Is port 32123 in use?
 ## 测试验证
 
 ### 测试端口占用错误
+
 ```bash
 # 终端 1: 启动第一个实例
 ./chrome-extension-debug-mcp --transport streamable --port 8080
@@ -142,6 +153,7 @@ error: Failed to start server. Is port 32123 in use?
 ```
 
 ### 测试权限错误（Linux/Mac）
+
 ```bash
 # 尝试绑定特权端口
 ./chrome-extension-debug-mcp --transport streamable --port 80
@@ -156,16 +168,18 @@ error: Failed to start server. Is port 32123 in use?
    - Streamable: 32123
 
 2. **生产环境**：使用自定义端口
+
    ```bash
    --port 8080  # 常用非特权端口
    --port 3000  # Node.js 常用端口
    ```
 
 3. **多实例部署**：使用不同端口
+
    ```bash
    # 实例 1
    --transport streamable --port 3000
-   
+
    # 实例 2
    --transport streamable --port 3001
    ```
@@ -173,6 +187,7 @@ error: Failed to start server. Is port 32123 in use?
 ### 排查端口占用
 
 #### Windows
+
 ```bash
 # 查找占用端口的进程
 netstat -ano | findstr 32123
@@ -185,6 +200,7 @@ taskkill /PID <PID> /F
 ```
 
 #### Linux/Mac
+
 ```bash
 # 查找占用端口的进程
 lsof -i :32123
@@ -198,10 +214,12 @@ kill -9 <PID>  # 强制结束
 ## 影响范围
 
 ### 改进的文件
+
 - ✅ `src/server-http.ts` - Streamable HTTP 服务器
 - ✅ `src/server-sse.ts` - SSE 服务器
 
 ### 不受影响
+
 - ✅ `src/main.ts` - stdio 模式（不涉及端口监听）
 - ✅ 所有工具函数和业务逻辑
 

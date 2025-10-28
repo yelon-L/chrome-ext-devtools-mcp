@@ -14,8 +14,9 @@ import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
-import {EXTENSION_NOT_FOUND, MANIFEST_NOT_AVAILABLE} from './errors.js';
 import {reportExtensionNotFound, reportResourceUnavailable} from '../utils/ErrorReporting.js';
+
+import {EXTENSION_NOT_FOUND, MANIFEST_NOT_AVAILABLE} from './errors.js';
 
 export const inspectExtensionManifest = defineTool({
   name: 'inspect_extension_manifest',

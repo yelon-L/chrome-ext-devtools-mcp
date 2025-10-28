@@ -18,7 +18,7 @@ async function startHTTPServer() {
   if (args.browserUrl) {
     await validateBrowserURL(args.browserUrl);  // ✅ 验证成功
   }
-  
+
   // 2. 连接浏览器（一次性）
   const browser = args.browserUrl
     ? await ensureBrowserConnected({
@@ -26,7 +26,7 @@ async function startHTTPServer() {
         devtools,
       })
     : await ensureBrowserLaunched({...});
-  
+
   // 3. browser 对象保存到闭包中
   // ⚠️ 关键：整个服务生命周期使用同一个 browser 对象
 }
@@ -40,17 +40,19 @@ async function startHTTPServer() {
 // 第 214-236 行
 if (!session) {
   // 创建新会话
-  
+
   // 验证浏览器连接（如果配置了 browserURL）
   if (SERVER_CONFIG.browserURL) {
     const isConnected = await verifyBrowserConnection(SERVER_CONFIG.browserURL);
     if (!isConnected) {
       console.warn('[HTTP] ⚠️  Browser connection verification failed');
-      console.warn('[HTTP] 💡 Tip: Browser may have been restarted or connection lost');
+      console.warn(
+        '[HTTP] 💡 Tip: Browser may have been restarted or connection lost',
+      );
       // ⚠️ 只是警告，不会重连！
     }
   }
-  
+
   // 创建 Context（使用旧的 browser 对象）
   const context = await McpContext.from(browser, logger);
   // ⚠️ 如果 browser 已断开，McpContext 会失败
@@ -73,24 +75,25 @@ export async function ensureBrowserConnected(options: {
     if (initialBrowserURL && initialBrowserURL !== options.browserURL) {
       console.warn('[Browser] ⚠️  Already connected to:', initialBrowserURL);
     }
-    return browser;  // 直接返回，不重连
+    return browser; // 直接返回，不重连
   }
-  
+
   // 只有第一次会执行连接
   browser = await puppeteer.connect({
     targetFilter: makeTargetFilter(options.devtools),
     browserURL: options.browserURL,
     defaultViewport: null,
   });
-  
+
   isExternalBrowser = true;
   initialBrowserURL = options.browserURL;
-  
+
   return browser;
 }
 ```
 
 **问题**：
+
 1. `browser?.connected` 检查不够准确
 2. 浏览器重启后，browser 对象存在但已失效
 3. 不会尝试重连
@@ -105,15 +108,15 @@ export async function ensureBrowserConnected(options: {
 1. 启动 MCP 服务
    ↓
    browser = await puppeteer.connect(...)  ✅ 连接成功
-   
+
 2. Chrome 浏览器关闭
    ↓
    browser.connected = false  ⚠️ 连接断开
-   
+
 3. Chrome 浏览器重启（端口 9222）
    ↓
    浏览器已就绪，等待连接
-   
+
 4. 用户调用工具（新会话）
    ↓
    verifyBrowserConnection() → false  ⚠️ 检测到失败
@@ -122,27 +125,30 @@ export async function ensureBrowserConnected(options: {
    const context = await McpContext.from(browser, logger)
    ↓
    ❌ 失败！browser 已断开，无法创建 Context
-   
+
 结果：用户无法使用，必须重启服务
 ```
 
 ### 实际失败点
 
 1. **verifyBrowserConnection 失败**
+
    ```typescript
    // browser.ts:236-266
-   export async function verifyBrowserConnection(expectedURL?: string): Promise<boolean> {
+   export async function verifyBrowserConnection(
+     expectedURL?: string,
+   ): Promise<boolean> {
      if (!browser?.connected) {
        console.log('[Browser] ✗ Not connected');
-       return false;  // ⚠️ 返回 false，但没有重连
+       return false; // ⚠️ 返回 false，但没有重连
      }
-     
+
      try {
-       const version = await browser.version();  // ⚠️ 可能抛异常
+       const version = await browser.version(); // ⚠️ 可能抛异常
        // ...
      } catch (error) {
        console.error('[Browser] ✗ Connection lost:', error);
-       return false;  // ⚠️ 返回 false，但没有重连
+       return false; // ⚠️ 返回 false，但没有重连
      }
    }
    ```
@@ -167,15 +173,15 @@ export async function ensureBrowserConnected(options: {
 1. 启动 MCP 服务
    ↓
    browser = await puppeteer.connect(...)  ✅ 连接成功
-   
+
 2. Chrome 浏览器关闭
    ↓
    browser.connected = false
-   
+
 3. Chrome 浏览器重启（端口 9222）
    ↓
    浏览器已就绪
-   
+
 4. 用户调用工具（新会话）
    ↓
    verifyBrowserConnection() → false  ⚠️ 检测到失败
@@ -188,7 +194,7 @@ export async function ensureBrowserConnected(options: {
    const context = await McpContext.from(browser, logger)
    ↓
    ✅ 成功！用户可以继续使用
-   
+
 结果：无需重启服务，自动恢复
 ```
 
@@ -199,6 +205,7 @@ export async function ensureBrowserConnected(options: {
 ### 方案 1: 在新会话创建时重连（推荐）
 
 **优点**:
+
 - 最小改动
 - 只在需要时重连
 - 不影响已有会话
@@ -211,32 +218,36 @@ if (!session) {
   // 验证浏览器连接
   if (SERVER_CONFIG.browserURL) {
     const isConnected = await verifyBrowserConnection(SERVER_CONFIG.browserURL);
-    
+
     if (!isConnected) {
-      console.warn('[HTTP] ⚠️  Browser connection lost, attempting to reconnect...');
-      
+      console.warn(
+        '[HTTP] ⚠️  Browser connection lost, attempting to reconnect...',
+      );
+
       try {
         // ✅ 尝试重连
         browser = await ensureBrowserConnected({
           browserURL: SERVER_CONFIG.browserURL,
           devtools,
         });
-        
+
         console.log('[HTTP] ✅ Browser reconnected successfully');
       } catch (error) {
         console.error('[HTTP] ❌ Failed to reconnect to browser:', error);
-        
+
         // 返回错误响应给客户端
         res.writeHead(503, {'Content-Type': 'application/json'});
-        res.end(JSON.stringify({
-          error: 'Browser connection lost and reconnection failed',
-          details: error instanceof Error ? error.message : String(error),
-        }));
+        res.end(
+          JSON.stringify({
+            error: 'Browser connection lost and reconnection failed',
+            details: error instanceof Error ? error.message : String(error),
+          }),
+        );
         return;
       }
     }
   }
-  
+
   // 创建 Context（使用重连后的 browser）
   const context = await McpContext.from(browser, logger);
   // ...
@@ -246,6 +257,7 @@ if (!session) {
 ### 方案 2: 修改 ensureBrowserConnected 支持强制重连
 
 **优点**:
+
 - 更彻底
 - 统一处理重连逻辑
 
@@ -255,7 +267,7 @@ if (!session) {
 export async function ensureBrowserConnected(options: {
   browserURL: string;
   devtools: boolean;
-  forceReconnect?: boolean;  // ✅ 新增参数
+  forceReconnect?: boolean; // ✅ 新增参数
 }) {
   // 如果强制重连，先断开旧连接
   if (options.forceReconnect && browser) {
@@ -267,39 +279,39 @@ export async function ensureBrowserConnected(options: {
       // 忽略断开错误
     }
   }
-  
+
   // 验证现有连接是否有效
   if (browser?.connected) {
     try {
-      await browser.version();  // ✅ 测试连接是否真的有效
-      
+      await browser.version(); // ✅ 测试连接是否真的有效
+
       if (initialBrowserURL && initialBrowserURL !== options.browserURL) {
         console.warn('[Browser] ⚠️  Already connected to:', initialBrowserURL);
       }
-      
-      return browser;  // 连接有效，直接返回
+
+      return browser; // 连接有效，直接返回
     } catch (error) {
       // ✅ 连接已失效，需要重连
       console.warn('[Browser] ⚠️  Connection lost, reconnecting...');
       browser = undefined;
     }
   }
-  
+
   // 执行连接（首次或重连）
   console.log('[Browser] 📡 Connecting to browser:', options.browserURL);
-  
+
   browser = await puppeteer.connect({
     targetFilter: makeTargetFilter(options.devtools),
     browserURL: options.browserURL,
     defaultViewport: null,
     handleDevToolsAsPage: options.devtools,
   });
-  
+
   isExternalBrowser = true;
   initialBrowserURL = options.browserURL;
-  
+
   console.log('[Browser] ✅ Connected successfully');
-  
+
   return browser;
 }
 ```
@@ -307,6 +319,7 @@ export async function ensureBrowserConnected(options: {
 ### 方案 3: 添加定期健康检查（可选）
 
 **优点**:
+
 - 主动检测
 - 更快发现问题
 
@@ -319,14 +332,18 @@ let browserHealthCheckInterval: NodeJS.Timeout | null = null;
 async function startBrowserHealthCheck() {
   browserHealthCheckInterval = setInterval(async () => {
     if (SERVER_CONFIG.browserURL) {
-      const isConnected = await verifyBrowserConnection(SERVER_CONFIG.browserURL);
-      
+      const isConnected = await verifyBrowserConnection(
+        SERVER_CONFIG.browserURL,
+      );
+
       if (!isConnected) {
-        console.warn('[Health] Browser connection lost, will reconnect on next request');
+        console.warn(
+          '[Health] Browser connection lost, will reconnect on next request',
+        );
         // 可选：立即尝试重连
       }
     }
-  }, 30000);  // 每 30 秒检查一次
+  }, 30000); // 每 30 秒检查一次
 }
 
 // 清理
@@ -342,11 +359,11 @@ process.on('SIGINT', async () => {
 
 ## 📊 方案对比
 
-| 方案 | 复杂度 | 恢复速度 | 可靠性 | 推荐 |
-|------|--------|----------|--------|------|
-| 方案1: 会话创建时重连 | ⭐ 低 | ⭐⭐ 快（即时） | ⭐⭐⭐ 高 | ✅ 推荐 |
-| 方案2: ensureBrowserConnected 增强 | ⭐⭐ 中 | ⭐⭐⭐ 很快 | ⭐⭐⭐ 高 | ✅ 推荐 |
-| 方案3: 定期健康检查 | ⭐⭐⭐ 高 | ⭐⭐⭐ 主动 | ⭐⭐ 中 | ⚠️ 可选 |
+| 方案                               | 复杂度    | 恢复速度        | 可靠性    | 推荐    |
+| ---------------------------------- | --------- | --------------- | --------- | ------- |
+| 方案1: 会话创建时重连              | ⭐ 低     | ⭐⭐ 快（即时） | ⭐⭐⭐ 高 | ✅ 推荐 |
+| 方案2: ensureBrowserConnected 增强 | ⭐⭐ 中   | ⭐⭐⭐ 很快     | ⭐⭐⭐ 高 | ✅ 推荐 |
+| 方案3: 定期健康检查                | ⭐⭐⭐ 高 | ⭐⭐⭐ 主动     | ⭐⭐ 中   | ⚠️ 可选 |
 
 **最佳实践**: 结合方案1 + 方案2
 
@@ -359,6 +376,7 @@ process.on('SIGINT', async () => {
 已创建：`test-browser-reconnect.sh`
 
 **测试步骤**:
+
 1. 启动 Chrome（端口 9222）
 2. 启动 MCP 服务
 3. 测试工具调用 → 应该成功
@@ -370,6 +388,7 @@ process.on('SIGINT', async () => {
 ### 预期结果
 
 **修复前**:
+
 ```
 步骤 7: ❌ 失败
 原因: 服务使用旧的 browser 对象，无法创建 Context
@@ -377,6 +396,7 @@ process.on('SIGINT', async () => {
 ```
 
 **修复后**:
+
 ```
 步骤 7: ✅ 成功
 原因: 检测到连接失败，自动重连
@@ -408,6 +428,7 @@ process.on('SIGINT', async () => {
 ### P0: 必须实现（方案1 或 方案2）
 
 **原因**:
+
 - 当前完全无法恢复，必须重启服务
 - 影响 Streamable 模式的可用性
 - 用户体验差
@@ -417,6 +438,7 @@ process.on('SIGINT', async () => {
 ### P1: 建议实现（方案1 + 方案2）
 
 **原因**:
+
 - 更彻底的解决方案
 - 统一处理重连逻辑
 
@@ -425,6 +447,7 @@ process.on('SIGINT', async () => {
 ### P2: 可选实现（方案3）
 
 **原因**:
+
 - 主动检测更健壮
 - 但增加复杂度
 
@@ -454,10 +477,10 @@ if (!isConnected) {
 // 让 ensureBrowserConnected 自动检测并重连
 if (browser?.connected) {
   try {
-    await browser.version();  // 测试连接
+    await browser.version(); // 测试连接
     return browser;
   } catch {
-    browser = undefined;  // 触发重连
+    browser = undefined; // 触发重连
   }
 }
 ```
@@ -480,7 +503,8 @@ if (browser?.connected) {
 
 **当前状态**: ❌ **没有**自动恢复能力
 
-**影响**: 
+**影响**:
+
 - 浏览器重启后，服务不可用
 - 必须手动重启 MCP 服务
 - 用户体验差
@@ -490,6 +514,7 @@ if (browser?.connected) {
 **推荐方案**: 方案1（快速）+ 方案2（完善）
 
 **预期收益**:
+
 - ✅ 浏览器重启后自动恢复
 - ✅ 用户无感知
 - ✅ 服务可用性提升
@@ -500,4 +525,3 @@ if (browser?.connected) {
 **分析完成**: 2025-10-16 20:52  
 **状态**: ❌ 需要修复  
 **优先级**: 🔴 P0 - 高
-

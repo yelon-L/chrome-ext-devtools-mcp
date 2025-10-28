@@ -18,6 +18,7 @@
 **主文档:** [`docs/MULTI_TENANT_COMPLETE.md`](MULTI_TENANT_COMPLETE.md) ⭐
 
 这是**唯一需要维护**的多租户主文档，包含：
+
 - ✅ 基础概念
 - ✅ 快速开始
 - ✅ 参数配置（所有CLI和环境变量）
@@ -32,25 +33,25 @@
 
 以下文档已合并到新文档，**不再单独维护**：
 
-| 旧文档 | 状态 | 对应章节 |
-|--------|------|----------|
-| `docs/guides/MULTI_TENANT_README.md` | ⚠️ 废弃 | 概述 + 架构设计 |
-| `docs/guides/MULTI_TENANT_QUICK_START.md` | ⚠️ 废弃 | 快速开始 |
-| `docs/guides/MULTI_TENANT_USAGE.md` | ⚠️ 废弃 | 使用场景 + API接口 |
-| `docs/guides/MULTI_TENANT_ARCHITECTURE.md` | ⚠️ 废弃 | 架构设计 |
+| 旧文档                                           | 状态    | 对应章节            |
+| ------------------------------------------------ | ------- | ------------------- |
+| `docs/guides/MULTI_TENANT_README.md`             | ⚠️ 废弃 | 概述 + 架构设计     |
+| `docs/guides/MULTI_TENANT_QUICK_START.md`        | ⚠️ 废弃 | 快速开始            |
+| `docs/guides/MULTI_TENANT_USAGE.md`              | ⚠️ 废弃 | 使用场景 + API接口  |
+| `docs/guides/MULTI_TENANT_ARCHITECTURE.md`       | ⚠️ 废弃 | 架构设计            |
 | `docs/guides/MULTI_TENANT_LAN_BEST_PRACTICES.md` | ⚠️ 废弃 | 部署指南 + 最佳实践 |
-| `docs/guides/MULTI_TENANT_DEV_STANDARDS.md` | ⚠️ 废弃 | 最佳实践 |
+| `docs/guides/MULTI_TENANT_DEV_STANDARDS.md`      | ⚠️ 废弃 | 最佳实践            |
 
 ### 保留的专题文档
 
 以下文档因为内容较深入或特定用途，**继续独立维护**：
 
-| 文档 | 用途 | 说明 |
-|------|------|------|
+| 文档                                                | 用途     | 说明                         |
+| --------------------------------------------------- | -------- | ---------------------------- |
 | `docs/guides/MULTI_TENANT_ARCHITECTURE_ANALYSIS.md` | 深度分析 | 架构演进、设计决策、性能分析 |
-| `docs/guides/MULTI_TENANT_TEST_PLAN.md` | 测试计划 | 详细的测试用例和验收标准 |
-| `docs/guides/MULTI_TENANT_COMPLETE_TEST.md` | 完整测试 | 端到端测试流程和脚本 |
-| `docs/guides/MULTI_TENANT_USER_FLOW_COMPARISON.md` | 流程对比 | 单租户 vs 多租户用户流程对比 |
+| `docs/guides/MULTI_TENANT_TEST_PLAN.md`             | 测试计划 | 详细的测试用例和验收标准     |
+| `docs/guides/MULTI_TENANT_COMPLETE_TEST.md`         | 完整测试 | 端到端测试流程和脚本         |
+| `docs/guides/MULTI_TENANT_USER_FLOW_COMPARISON.md`  | 流程对比 | 单租户 vs 多租户用户流程对比 |
 
 ---
 
@@ -86,6 +87,7 @@
    在 "故障排查" 章节添加新的问题和解决方案
 
 **不需要：**
+
 - ❌ 在多个文档中同步更新
 - ❌ 维护多个版本的相同内容
 - ❌ 检查文档之间的一致性
@@ -108,6 +110,7 @@ docs/guides/
 ```
 
 **维护成本:**
+
 - 6个文档需要同步更新
 - 内容重复
 - 容易遗漏更新
@@ -135,6 +138,7 @@ docs/guides/ (保留4个专题文档)
 ```
 
 **维护成本:**
+
 - 1个主文档 + 4个专题文档
 - 无重复内容
 - 集中维护

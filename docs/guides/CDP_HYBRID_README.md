@@ -44,12 +44,14 @@ node test-hybrid-context.mjs
 ```
 
 **测试内容**：
+
 - ✅ CDP Target 管理功能
 - ✅ CDP 高频操作（navigate, evaluate）
 - ✅ 与 Puppeteer 基线对比
 - ✅ 性能提升百分比
 
 **示例输出**：
+
 ```
 ╔════════════════════════════════════════════════════════╗
 ║    McpContext CDP 混合架构功能测试                      ║
@@ -121,12 +123,14 @@ node test-cdp-hybrid.mjs
 ```
 
 **改进**：
+
 - ✅ 使用 CDP 创建页面（绕过 `browser.newPage()` 瓶颈）
 - ✅ 页面创建速度提升 30-40%
 - ✅ 减少并发创建时的阻塞
 - 📝 其他操作仍使用 Puppeteer
 
 **适用场景**：
+
 - 多用户并发连接
 - 需要频繁创建新页面
 - 生产环境首选
@@ -138,12 +142,14 @@ node test-cdp-hybrid.mjs
 ```
 
 **改进**：
+
 - ✅ CDP Target 管理（同模式 2）
 - ✅ CDP 导航（`Page.navigate`）- 提升 20-30%
 - ✅ CDP 脚本执行（`Runtime.evaluate`）- 提升 10-20%
 - 📝 自动回退机制
 
 **适用场景**：
+
 - 开发/测试环境
 - 性能要求极高的场景
 - 需要最新功能
@@ -152,12 +158,12 @@ node test-cdp-hybrid.mjs
 
 ### 环境变量
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `USE_CDP_HYBRID` | `false` | 启用 CDP Target 管理 |
-| `USE_CDP_OPERATIONS` | `false` | 启用 CDP 高频操作 |
-| `PORT` | `32122` | 服务器端口 |
-| `AUTH_ENABLED` | `true` | 是否启用认证 |
+| 变量                 | 默认值  | 说明                 |
+| -------------------- | ------- | -------------------- |
+| `USE_CDP_HYBRID`     | `false` | 启用 CDP Target 管理 |
+| `USE_CDP_OPERATIONS` | `false` | 启用 CDP 高频操作    |
+| `PORT`               | `32122` | 服务器端口           |
+| `AUTH_ENABLED`       | `true`  | 是否启用认证         |
 
 ### 编程式配置
 
@@ -166,8 +172,8 @@ import {McpContext} from './McpContext.js';
 
 // 创建混合模式上下文
 const context = await McpContext.fromMinimal(browser, logger, {
-  useCdpForTargets: true,      // CDP Target 管理
-  useCdpForOperations: true,   // CDP 高频操作
+  useCdpForTargets: true, // CDP Target 管理
+  useCdpForOperations: true, // CDP 高频操作
 });
 
 // 检查状态
@@ -179,7 +185,7 @@ const cdpOps = context.getCdpOperations();
 if (cdpOps) {
   // 使用 CDP 导航
   const result = await cdpOps.navigate('https://example.com');
-  
+
   // 使用 CDP 执行脚本
   const evalResult = await cdpOps.evaluate('document.title');
 }
@@ -205,6 +211,7 @@ await context.dispose();
 ```
 
 **日志示例**：
+
 ```
 [Hybrid] Using CDP to create target
 [Hybrid] Target created via CDP successfully
@@ -237,6 +244,7 @@ export DEBUG=mcp:*
 观察以下日志模式：
 
 **成功模式**：
+
 ```
 ✓ MCP上下文已创建（CDP-Target+CDP-Ops）: user123
 [Hybrid] Using CDP to create target
@@ -244,6 +252,7 @@ export DEBUG=mcp:*
 ```
 
 **回退模式**：
+
 ```
 Warning: CDP Target Manager init failed, fallback to Puppeteer
 [Hybrid] CDP target creation failed
@@ -255,16 +264,19 @@ Warning: CDP Target Manager init failed, fallback to Puppeteer
 ### Q: CDP Session 初始化失败
 
 **症状**：
+
 ```
 Warning: CDP Target Manager init failed, fallback to Puppeteer
 ```
 
 **可能原因**：
+
 - Chrome 版本过旧
 - 浏览器连接不稳定
 - 权限问题
 
 **解决方案**：
+
 1. 更新 Chrome 到最新版本
 2. 检查浏览器连接状态
 3. 回退到 baseline 模式
@@ -272,16 +284,19 @@ Warning: CDP Target Manager init failed, fallback to Puppeteer
 ### Q: CDP 操作间歇性失败
 
 **症状**：
+
 ```
 [Hybrid] CDP target creation failed: timeout
 ```
 
 **可能原因**：
+
 - 浏览器负载过高
 - 网络延迟
 - 并发请求过多
 
 **解决方案**：
+
 1. 增加超时时间（代码层面）
 2. 限制并发连接数
 3. 使用 target 模式而非 full 模式
@@ -289,6 +304,7 @@ Warning: CDP Target Manager init failed, fallback to Puppeteer
 ### Q: 性能提升不明显
 
 **检查项**：
+
 1. 确认 CDP 功能已启用（查看启动日志）
 2. 确认没有频繁回退（查看 fallback 日志）
 3. 运行性能测试获取准确数据
@@ -316,6 +332,7 @@ npm run start:multi-tenant
 ### 生产环境
 
 **阶段 1（1-2周）**：
+
 ```bash
 # 只启用 CDP Target 管理
 export USE_CDP_HYBRID=true
@@ -323,12 +340,14 @@ npm run start:multi-tenant
 ```
 
 监控指标：
+
 - 连接成功率
 - CDP 回退率
 - 性能提升
 
 **阶段 2（2-4周）**：
 如果阶段 1 稳定（成功率 > 95%），可以启用完整模式：
+
 ```bash
 export USE_CDP_HYBRID=true
 export USE_CDP_OPERATIONS=true

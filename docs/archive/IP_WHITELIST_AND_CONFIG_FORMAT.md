@@ -94,6 +94,7 @@ AUTH_ENABLED=false node build/src/index.js --mode multi-tenant
 ```
 
 **输出：**
+
 ```
 🌍 未设置 IP 白名单，允许所有 IP 访问
 ```
@@ -110,6 +111,7 @@ node build/src/index.js --mode multi-tenant
 ```
 
 **输出：**
+
 ```
 🔒 IP 白名单已启用: 192.168.1.100, 192.168.1.101, 192.168.1.102
 ```
@@ -119,11 +121,12 @@ node build/src/index.js --mode multi-tenant
 ### 场景 3: 公网 + Nginx 反向代理
 
 **Nginx 配置：**
+
 ```nginx
 server {
     listen 80;
     server_name mcp.example.com;
-    
+
     location / {
         proxy_pass http://localhost:32122;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -134,6 +137,7 @@ server {
 ```
 
 **启动服务：**
+
 ```bash
 # 只允许特定公网 IP
 ALLOWED_IPS="203.0.113.1,198.51.100.1" \
@@ -192,14 +196,14 @@ curl -s http://localhost:32122/health
 
 ## 环境变量完整列表
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `ALLOWED_IPS` | 无 | IP 白名单（逗号分隔） |
-| `AUTH_ENABLED` | `true` | 是否启用认证 |
-| `PORT` | `32122` | 服务器端口 |
-| `ALLOWED_ORIGINS` | `*` | CORS 允许的源 |
-| `TOKEN_EXPIRATION` | `86400` | Token 有效期（秒） |
-| `MAX_SESSIONS` | `100` | 最大会话数 |
+| 变量               | 默认值  | 说明                  |
+| ------------------ | ------- | --------------------- |
+| `ALLOWED_IPS`      | 无      | IP 白名单（逗号分隔） |
+| `AUTH_ENABLED`     | `true`  | 是否启用认证          |
+| `PORT`             | `32122` | 服务器端口            |
+| `ALLOWED_ORIGINS`  | `*`     | CORS 允许的源         |
+| `TOKEN_EXPIRATION` | `86400` | Token 有效期（秒）    |
+| `MAX_SESSIONS`     | `100`   | 最大会话数            |
 
 ---
 
@@ -249,7 +253,8 @@ node build/src/index.js --mode multi-tenant
 }
 ```
 
-**问题：** 
+**问题：**
+
 - ❌ 不必要的 `transport` 嵌套
 - ❌ 不需要显式指定 `type: "sse"`
 - ❌ 不符合 MCP 规范
@@ -341,6 +346,7 @@ node build/src/index.js --mode multi-tenant
 ### Cline (VS Code)
 
 通过 VS Code 设置：
+
 1. 打开命令面板 (Cmd/Ctrl+Shift+P)
 2. 搜索 "Cline: Edit MCP Settings"
 3. 添加配置
@@ -396,6 +402,7 @@ npx @modelcontextprotocol/inspector@latest
 输入 URL：`http://localhost:32122/sse?userId=alice`
 
 如果配置正确：
+
 - ✅ 连接成功
 - ✅ 显示可用工具列表
 
@@ -421,6 +428,7 @@ npx @modelcontextprotocol/inspector@latest
 **原因：** IP 被白名单拒绝
 
 **解决：**
+
 1. 检查客户端 IP
 2. 添加到 `ALLOWED_IPS`
 3. 或临时移除 IP 限制
@@ -430,6 +438,7 @@ npx @modelcontextprotocol/inspector@latest
 **原因：** 服务器启用认证但配置中未提供 token
 
 **解决：** 添加 `headers` 配置：
+
 ```json
 "headers": {
   "Authorization": "Bearer <your-token>"
@@ -443,6 +452,7 @@ npx @modelcontextprotocol/inspector@latest
 ### IP 白名单功能
 
 ✅ **已实现**
+
 - 环境变量配置：`ALLOWED_IPS`
 - 支持多个 IP（逗号分隔）
 - 支持代理场景（X-Forwarded-For, X-Real-IP）
@@ -451,6 +461,7 @@ npx @modelcontextprotocol/inspector@latest
 ### MCP 配置格式
 
 ✅ **已修正**
+
 - README 更新为正确的扁平格式
 - 符合 MCP 规范和 IDE 实现
 - 区分认证和非认证场景

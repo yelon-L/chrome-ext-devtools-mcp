@@ -13,6 +13,7 @@
 ### 1. 需求分析
 
 **需求：**
+
 - 支持多个用户同时使用
 - 每个用户有独立的浏览器实例
 - 用户之间相互隔离
@@ -25,6 +26,7 @@
 ### 2. 传输方式选择
 
 **可选传输方式：**
+
 1. **stdio** - 标准输入输出
    - ❌ 只支持单个进程
    - ❌ 不能远程访问
@@ -154,6 +156,7 @@ google-chrome --remote-debugging-port=9222 \
 ```
 
 **关键点：**
+
 - 每个用户启动自己的 Chrome
 - Chrome 必须开启 remote debugging
 - 每个用户的端口可以相同（因为在不同机器上）
@@ -186,6 +189,7 @@ curl -X POST http://server.com:32122/api/register \
 ```
 
 **关键点：**
+
 - browserURL 指向用户自己的 Chrome
 - 服务器返回专属的 SSE 端点
 
@@ -211,6 +215,7 @@ curl -X POST http://server.com:32122/api/register \
 ### 5. 支持的服务端点
 
 #### 5.1 健康检查
+
 ```http
 GET /health
 
@@ -224,6 +229,7 @@ Response:
 ```
 
 #### 5.2 用户注册
+
 ```http
 POST /api/register
 Content-Type: application/json
@@ -247,6 +253,7 @@ Response:
 ```
 
 #### 5.3 用户列表
+
 ```http
 GET /api/users
 
@@ -270,6 +277,7 @@ Response:
 ```
 
 #### 5.4 SSE 连接（MCP 协议）
+
 ```http
 GET /sse?userId=alice
 
@@ -282,6 +290,7 @@ data: {"jsonrpc":"2.0","method":"tools/list",...}
 ```
 
 #### 5.5 发送消息
+
 ```http
 POST /message?sessionId=xxx
 Content-Type: application/json
@@ -295,6 +304,7 @@ Content-Type: application/json
 ```
 
 #### 5.6 测试页面
+
 ```http
 GET /test
 
@@ -305,14 +315,14 @@ Response: HTML 测试页面，可以在浏览器中测试 SSE 连接
 
 ### 6. 传输模式对比
 
-| 特性 | stdio | SSE | Streamable | Multi-tenant |
-|------|-------|-----|------------|--------------|
-| **传输方式** | 标准输入输出 | HTTP SSE | HTTP Stream | HTTP SSE |
-| **远程访问** | ❌ | ✅ | ✅ | ✅ |
-| **多用户** | ❌ | ❌ (共享浏览器) | ❌ (共享浏览器) | ✅ (独立浏览器) |
-| **用户隔离** | N/A | ❌ | ❌ | ✅ |
-| **部署方式** | 本地 | 服务器 | 服务器 | 服务器 |
-| **适用场景** | IDE 本地开发 | 团队共享访问 | 生产 API | SaaS 多租户 |
+| 特性         | stdio                            | SSE                       | Streamable                       | Multi-tenant                                         |
+| ------------ | -------------------------------- | ------------------------- | -------------------------------- | ---------------------------------------------------- |
+| **传输方式** | 标准输入输出                     | HTTP SSE                  | HTTP Stream                      | HTTP SSE                                             |
+| **远程访问** | ❌                               | ✅                        | ✅                               | ✅                                                   |
+| **多用户**   | ❌                               | ❌ (共享浏览器)           | ❌ (共享浏览器)                  | ✅ (独立浏览器)                                      |
+| **用户隔离** | N/A                              | ❌                        | ❌                               | ✅                                                   |
+| **部署方式** | 本地                             | 服务器                    | 服务器                           | 服务器                                               |
+| **适用场景** | IDE 本地开发                     | 团队共享访问              | 生产 API                         | SaaS 多租户                                          |
 | **启动命令** | `npx chrome-extension-debug-mcp` | `npx ... --transport sse` | `npx ... --transport streamable` | `node build/src/multi-tenant/server-multi-tenant.js` |
 
 ---
@@ -371,6 +381,7 @@ WantedBy=multi-user.target
 ```
 
 启动服务：
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable chrome-ext-mcp-multi-tenant
@@ -402,6 +413,7 @@ CMD ["node", "build/src/multi-tenant/server-multi-tenant.js"]
 ```
 
 运行：
+
 ```bash
 docker build -t chrome-ext-mcp-multi-tenant .
 docker run -d -p 32122:32122 \
@@ -429,7 +441,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        
+
         # SSE 需要禁用缓冲
         proxy_buffering off;
         proxy_cache off;
@@ -442,11 +454,13 @@ server {
 ### 9. 安全建议
 
 1. **启用认证**
+
    ```bash
    AUTH_ENABLED=true node build/src/multi-tenant/server-multi-tenant.js
    ```
 
 2. **限制 CORS**
+
    ```bash
    ALLOWED_ORIGINS=https://app.example.com node build/src/multi-tenant/server-multi-tenant.js
    ```
@@ -456,6 +470,7 @@ server {
    - 或使用 Cloudflare
 
 4. **限制并发用户**
+
    ```bash
    MAX_SESSIONS=100 node build/src/multi-tenant/server-multi-tenant.js
    ```

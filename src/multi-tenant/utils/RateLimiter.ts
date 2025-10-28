@@ -60,7 +60,7 @@ export class RateLimiter {
    * @param tokens 需要的令牌数（默认：1）
    * @returns 是否成功获取
    */
-  tryAcquire(tokens: number = 1): boolean {
+  tryAcquire(tokens = 1): boolean {
     this.refill();
 
     if (this.tokens >= tokens) {
@@ -76,7 +76,7 @@ export class RateLimiter {
    * 
    * @param tokens 需要的令牌数（默认：1）
    */
-  async acquire(tokens: number = 1): Promise<void> {
+  async acquire(tokens = 1): Promise<void> {
     this.refill();
 
     if (this.tokens >= tokens) {
@@ -218,7 +218,7 @@ export class PerUserRateLimiter {
 
   constructor(
     limiterFactory: () => RateLimiter | SlidingWindowRateLimiter,
-    cleanupIntervalMs: number = 60000 // 1分钟
+    cleanupIntervalMs = 60000 // 1分钟
   ) {
     this.createLimiter = limiterFactory;
 

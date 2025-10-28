@@ -13,6 +13,7 @@ const context = await McpContext.fromMinimal(browser, logger);
 ```
 
 **特点**：
+
 - 连接时不创建页面
 - 首次使用时才创建页面
 - 改动最小，风险最低
@@ -30,11 +31,13 @@ const context = await McpContext.fromMinimal(browser, logger, {
 ```
 
 **功能**：
+
 - 使用 CDP `Target.createTarget` 创建页面
 - 绕过 Puppeteer 的 `browser.newPage()` 瓶颈
 - 仍使用 Puppeteer Page API 进行操作
 
 **优势**：
+
 - 页面创建速度提升 30-50%
 - 减少并发创建页面时的阻塞
 - 降低初始化失败率
@@ -49,11 +52,13 @@ const context = await McpContext.fromMinimal(browser, logger, {
 ```
 
 **功能**：
+
 - 使用 CDP `Page.navigate` 实现导航
 - 使用 CDP `Runtime.evaluate` 执行脚本
 - 绕过 Puppeteer 中间层
 
 **优势**：
+
 - 导航速度提升 20-40%
 - 脚本执行速度提升 10-30%
 - 更精确的控制和错误处理
@@ -111,7 +116,7 @@ if (cdpOps) {
     waitUntil: 'load', // 'load' | 'domcontentloaded' | 'networkidle'
     timeout: 30000,
   });
-  
+
   if (result.success) {
     console.log('导航成功:', result.loaderId);
   } else {
@@ -162,6 +167,7 @@ node test-cdp-hybrid.mjs
 创建最小化初始化的上下文。
 
 **参数**：
+
 - `browser`: Puppeteer Browser 实例
 - `logger`: Debugger 日志记录器
 - `options`: 可选配置
@@ -205,6 +211,7 @@ node test-cdp-hybrid.mjs
 使用 CDP 导航到指定 URL。
 
 **参数**：
+
 - `url`: 目标 URL
 - `options`:
   - `waitUntil`: 等待条件（默认 `'load'`）
@@ -217,6 +224,7 @@ node test-cdp-hybrid.mjs
 使用 CDP 执行 JavaScript。
 
 **参数**：
+
 - `expression`: JavaScript 表达式
 - `options`:
   - `awaitPromise`: 是否等待 Promise（默认 `true`）
@@ -228,11 +236,11 @@ node test-cdp-hybrid.mjs
 
 基于测试数据（可能因环境而异）：
 
-| 操作 | Puppeteer 基线 | CDP Target | CDP Operations | 改善 |
-|------|---------------|-----------|---------------|------|
-| 页面创建 | 450ms | 280ms | 280ms | +38% |
-| 页面导航 | 850ms | 850ms | 620ms | +27% |
-| 脚本执行 | 45ms | 45ms | 32ms | +29% |
+| 操作     | Puppeteer 基线 | CDP Target | CDP Operations | 改善 |
+| -------- | -------------- | ---------- | -------------- | ---- |
+| 页面创建 | 450ms          | 280ms      | 280ms          | +38% |
+| 页面导航 | 850ms          | 850ms      | 620ms          | +27% |
+| 脚本执行 | 45ms           | 45ms       | 32ms           | +29% |
 
 ## 故障排除
 
@@ -245,6 +253,7 @@ Warning: CDP Target Manager init failed, fallback to Puppeteer
 ```
 
 **常见原因**：
+
 - Chrome 版本不支持相关 CDP 命令
 - 浏览器已断开连接
 - 权限问题

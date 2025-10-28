@@ -3,13 +3,16 @@
 ## 📋 调研背景
 
 ### 当前痛点
+
 随着业务增长，数据库表结构变化频繁，存在以下问题：
+
 1. **手动同步负担重**：Schema 变更后需手动更新 TypeScript 类型定义
 2. **序列化/反序列化重复劳动**：每次表结构变化都需手动编写映射代码
 3. **类型安全风险**：手动维护容易导致数据库与代码类型不一致
 4. **业务开发效率低**：过多精力花在基础设施维护上
 
 ### 当前技术栈
+
 - **数据库**: PostgreSQL
 - **查询构建器**: Kysely（类型安全 SQL builder）
 - **迁移工具**: node-pg-migrate
@@ -22,6 +25,7 @@
 ### 方案 1: Schema-First + 代码生成（推荐）
 
 #### 核心理念
+
 以数据库 Schema 为唯一真实来源（Single Source of Truth），自动生成 TypeScript 类型和序列化代码。
 
 #### 实现方案
@@ -31,6 +35,7 @@
 **技术栈**: `kysely-codegen`
 
 **工作流程**:
+
 ```bash
 # 1. 编写迁移文件
 migrations/002-add-products.sql
@@ -43,6 +48,7 @@ npx kysely-codegen --out-file src/multi-tenant/storage/schema.ts
 ```
 
 **优势**:
+
 - ✅ 与当前 Kysely 技术栈完美集成，零学习成本
 - ✅ 直接从数据库反射生成类型，100% 准确
 - ✅ 支持 JSONB、枚举、复合类型等 PostgreSQL 特性
@@ -50,10 +56,12 @@ npx kysely-codegen --out-file src/multi-tenant/storage/schema.ts
 - ✅ 可集成到 CI/CD 自动化流程
 
 **局限性**:
+
 - ⚠️ 仅生成类型，序列化逻辑仍需手写（但可用工具辅助）
 - ⚠️ 需数据库连接生成
 
 **示例配置** (`package.json`):
+
 ```json
 {
   "scripts": {
@@ -68,6 +76,7 @@ npx kysely-codegen --out-file src/multi-tenant/storage/schema.ts
 ```
 
 **生成的类型示例**:
+
 ```typescript
 // 自动生成 src/multi-tenant/storage/schema.ts
 export interface Database {
@@ -92,6 +101,7 @@ export interface ProductsTable {
 **技术栈**: Prisma ORM + Prisma Migrate
 
 **工作流程**:
+
 ```prisma
 // schema.prisma (唯一Schema定义)
 model User {
@@ -101,7 +111,7 @@ model User {
   registeredAt BigInt    @map("registered_at")
   metadata     Json?
   browsers     Browser[]
-  
+
   @@map("mcp_users")
 }
 
@@ -111,12 +121,13 @@ model Browser {
   browserUrl      String   @map("browser_url")
   toolCallCount   Int      @default(0) @map("tool_call_count")
   user            User     @relation(fields: [userId], references: [userId])
-  
+
   @@map("mcp_browsers")
 }
 ```
 
 **优势**:
+
 - ✅ 自动生成迁移 + TypeScript 类型 + 查询客户端
 - ✅ 强大的关系管理和查询 API
 - ✅ 内置序列化/反序列化，完全自动化
@@ -124,6 +135,7 @@ model Browser {
 - ✅ 自动处理数据库连接池、事务管理
 
 **局限性**:
+
 - ⚠️ **架构变更大**：需替换 Kysely 和 node-pg-migrate
 - ⚠️ 查询 API 与 SQL 差异较大，学习成本高
 - ⚠️ 复杂 SQL（窗口函数、CTE）需用 `$queryRaw`
@@ -137,20 +149,22 @@ model Browser {
 **技术栈**: Drizzle ORM + Drizzle Kit
 
 **Schema 定义**:
+
 ```typescript
 // schema.ts
-import { pgTable, varchar, bigint, jsonb } from 'drizzle-orm/pg-core';
+import {pgTable, varchar, bigint, jsonb} from 'drizzle-orm/pg-core';
 
 export const mcpUsers = pgTable('mcp_users', {
-  userId: varchar('user_id', { length: 255 }).primaryKey(),
-  email: varchar('email', { length: 255 }).unique().notNull(),
-  username: varchar('username', { length: 255 }).notNull(),
-  registeredAt: bigint('registered_at', { mode: 'number' }).notNull(),
+  userId: varchar('user_id', {length: 255}).primaryKey(),
+  email: varchar('email', {length: 255}).unique().notNull(),
+  username: varchar('username', {length: 255}).notNull(),
+  registeredAt: bigint('registered_at', {mode: 'number'}).notNull(),
   metadata: jsonb('metadata'),
 });
 ```
 
 **优势**:
+
 - ✅ TypeScript-first，类型推断极强
 - ✅ SQL-like API，接近原生 SQL
 - ✅ 自动生成迁移
@@ -158,6 +172,7 @@ export const mcpUsers = pgTable('mcp_users', {
 - ✅ 支持边缘运行时（Cloudflare Workers）
 
 **局限性**:
+
 - ⚠️ 生态较新，社区和工具链不如 Prisma 成熟
 - ⚠️ 仍需替换现有 Kysely 代码
 
@@ -166,40 +181,44 @@ export const mcpUsers = pgTable('mcp_users', {
 ### 方案 2: Code-First + Schema 生成
 
 #### 核心理念
+
 在代码中定义 Schema，自动生成迁移文件和数据库表。
 
 ##### 2.1 TypeORM
 
 **Schema 定义**:
+
 ```typescript
 @Entity('mcp_users')
 export class User {
-  @PrimaryColumn({ name: 'user_id' })
+  @PrimaryColumn({name: 'user_id'})
   userId: string;
-  
-  @Column({ unique: true })
+
+  @Column({unique: true})
   email: string;
-  
+
   @Column()
   username: string;
-  
-  @Column({ type: 'bigint', name: 'registered_at' })
+
+  @Column({type: 'bigint', name: 'registered_at'})
   registeredAt: number;
-  
-  @Column({ type: 'jsonb', nullable: true })
+
+  @Column({type: 'jsonb', nullable: true})
   metadata?: any;
-  
+
   @OneToMany(() => Browser, browser => browser.user)
   browsers: Browser[];
 }
 ```
 
 **优势**:
+
 - ✅ 类型定义即 Schema，无需额外维护
 - ✅ 自动生成迁移
 - ✅ 成熟的 ORM，生态完善
 
 **局限性**:
+
 - ⚠️ 装饰器语法较重，影响代码可读性
 - ⚠️ 性能开销（ORM 抽象层）
 - ⚠️ 复杂查询支持不如 Prisma
@@ -210,11 +229,13 @@ export class User {
 ### 方案 3: 混合方案（Schema-First + 工具链）
 
 #### 核心理念
+
 保留现有架构，通过工具链增强自动化。
 
 ##### 3.1 当前架构 + Kysely Codegen + 自定义工具
 
 **工作流程**:
+
 ```bash
 # 1. 编写迁移文件（手动）
 migrations/003-add-orders-table.sql
@@ -230,6 +251,7 @@ npm run generate-mappers
 ```
 
 **自定义工具示例**:
+
 ```typescript
 // scripts/generate-mappers.ts
 // 读取 schema.ts，生成 mappers
@@ -237,20 +259,22 @@ function generateMapper(tableName: string, schema: TableSchema) {
   return `
 export function map${pascalCase(tableName)}Row(row: any): ${capitalizeTableType(tableName)} {
   return {
-    ${schema.columns.map(col => 
-      `${col.jsName}: ${convertColumn(col, 'row')}`
-    ).join(',\n    ')}
+    ${schema.columns
+      .map(col => `${col.jsName}: ${convertColumn(col, 'row')}`)
+      .join(',\n    ')}
   };
 }`;
 }
 ```
 
 **优势**:
+
 - ✅ 零架构变更，渐进式改进
 - ✅ 完全掌控工具链，可定制
 - ✅ 保留 Kysely 的灵活性
 
 **局限性**:
+
 - ⚠️ 需维护自定义工具
 - ⚠️ 自动化程度取决于投入
 
@@ -258,15 +282,15 @@ export function map${pascalCase(tableName)}Row(row: any): ${capitalizeTableType(
 
 ## 📊 方案对比矩阵
 
-| 维度 | Kysely Codegen | Prisma | Drizzle | TypeORM | 当前手动 |
-|------|---------------|--------|---------|---------|---------|
-| **集成成本** | ⭐⭐⭐⭐⭐ 极低 | ⭐⭐ 高 | ⭐⭐⭐ 中 | ⭐⭐ 高 | ⭐⭐⭐⭐⭐ |
-| **自动化程度** | ⭐⭐⭐⭐ 高 | ⭐⭐⭐⭐⭐ 极高 | ⭐⭐⭐⭐⭐ 极高 | ⭐⭐⭐⭐ 高 | ⭐ 低 |
-| **类型安全** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **性能** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **学习曲线** | ⭐⭐⭐⭐⭐ 平滑 | ⭐⭐⭐ 中等 | ⭐⭐⭐⭐ 较低 | ⭐⭐⭐ 中等 | N/A |
-| **生态成熟度** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | N/A |
-| **复杂查询支持** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| 维度             | Kysely Codegen  | Prisma          | Drizzle         | TypeORM     | 当前手动   |
+| ---------------- | --------------- | --------------- | --------------- | ----------- | ---------- |
+| **集成成本**     | ⭐⭐⭐⭐⭐ 极低 | ⭐⭐ 高         | ⭐⭐⭐ 中       | ⭐⭐ 高     | ⭐⭐⭐⭐⭐ |
+| **自动化程度**   | ⭐⭐⭐⭐ 高     | ⭐⭐⭐⭐⭐ 极高 | ⭐⭐⭐⭐⭐ 极高 | ⭐⭐⭐⭐ 高 | ⭐ 低      |
+| **类型安全**     | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐    | ⭐⭐⭐     |
+| **性能**         | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐        | ⭐⭐⭐⭐⭐      | ⭐⭐⭐      | ⭐⭐⭐⭐⭐ |
+| **学习曲线**     | ⭐⭐⭐⭐⭐ 平滑 | ⭐⭐⭐ 中等     | ⭐⭐⭐⭐ 较低   | ⭐⭐⭐ 中等 | N/A        |
+| **生态成熟度**   | ⭐⭐⭐⭐        | ⭐⭐⭐⭐⭐      | ⭐⭐⭐          | ⭐⭐⭐⭐    | N/A        |
+| **复杂查询支持** | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐        | ⭐⭐⭐⭐⭐      | ⭐⭐⭐      | ⭐⭐⭐⭐⭐ |
 
 ---
 
@@ -275,11 +299,13 @@ export function map${pascalCase(tableName)}Row(row: any): ${capitalizeTableType(
 ### 短期方案（1-2周）：Kysely Codegen
 
 **理由**:
+
 1. **零架构变更**：完全兼容现有 Kysely + node-pg-migrate
 2. **立即见效**：1小时内集成，消除手动维护 `schema.ts` 的负担
 3. **风险最低**：仅增加构建步骤，不影响运行时
 
 **实施步骤**:
+
 ```bash
 # 1. 安装依赖
 npm install --save-dev kysely-codegen
@@ -305,6 +331,7 @@ git diff src/multi-tenant/storage/schema.ts
 ```
 
 **配置 `.kyselyrc.json`**:
+
 ```json
 {
   "dialectName": "postgres",
@@ -326,29 +353,38 @@ Kysely Codegen 只解决类型问题，仍需手写 `mapUserRow`、`mapBrowserRo
 **解决方案**: 自定义代码生成脚本
 
 **实现示例**:
+
 ```typescript
 // scripts/generate-mappers.ts
-import { readFileSync, writeFileSync } from 'fs';
-import { parse } from 'typescript';
+import {readFileSync, writeFileSync} from 'fs';
+import {parse} from 'typescript';
 
 // 解析 schema.ts，提取表定义
-const schemaContent = readFileSync('src/multi-tenant/storage/schema.ts', 'utf-8');
+const schemaContent = readFileSync(
+  'src/multi-tenant/storage/schema.ts',
+  'utf-8',
+);
 const tables = parseTableInterfaces(schemaContent);
 
 // 生成 mapper 函数
-const mapperCode = tables.map(table => `
+const mapperCode = tables
+  .map(
+    table => `
 export function map${table.name}Row(row: any): ${table.typeName} {
   return {
     ${table.columns.map(col => `${col.tsName}: ${generateConverter(col)}`).join(',\n    ')}
   };
 }
-`).join('\n');
+`,
+  )
+  .join('\n');
 
 // 写入文件
 writeFileSync('src/multi-tenant/storage/mappers.generated.ts', mapperCode);
 ```
 
 **集成到工作流**:
+
 ```json
 {
   "scripts": {
@@ -366,6 +402,7 @@ writeFileSync('src/multi-tenant/storage/mappers.generated.ts', mapperCode);
 **时机**: 当业务复杂度达到阈值时
 
 **决策指标**:
+
 - 表数量 > 20
 - 频繁需要复杂关联查询
 - 团队对 SQL 不够熟悉
@@ -374,21 +411,23 @@ writeFileSync('src/multi-tenant/storage/mappers.generated.ts', mapperCode);
 **推荐**: **Drizzle ORM**
 
 **理由**:
+
 1. 性能接近 Kysely，远超 Prisma
 2. TypeScript 优先，类型推断极强
 3. SQL-like API，迁移成本低于 Prisma
 4. 支持边缘运行时（未来可能需要）
 
 **迁移策略**:
+
 ```typescript
 // 渐进式迁移
 // 第一步：新功能用 Drizzle
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { mcpProducts } from './drizzle-schema';
+import {drizzle} from 'drizzle-orm/node-postgres';
+import {mcpProducts} from './drizzle-schema';
 
 export class ProductService {
   constructor(private db: ReturnType<typeof drizzle>) {}
-  
+
   async createProduct(data: NewProduct) {
     return this.db.insert(mcpProducts).values(data).returning();
   }
@@ -405,24 +444,28 @@ export class ProductService {
 ## 🛠️ 实施路线图
 
 ### Phase 1: 类型自动化（Week 1-2）
+
 - [ ] 集成 `kysely-codegen`
 - [ ] 配置 CI/CD 自动运行 codegen
 - [ ] 添加类型校验到 pre-commit hook
 - [ ] 文档更新：开发者指南
 
 ### Phase 2: 序列化自动化（Week 3-6）
+
 - [ ] 开发 mapper 代码生成脚本
 - [ ] 重构现有 `PostgreSQLStorageAdapter`
 - [ ] 单元测试覆盖
 - [ ] 性能基准测试
 
 ### Phase 3: 迁移系统增强（Week 7-10）
+
 - [ ] 支持 DOWN 迁移自动生成
 - [ ] 迁移文件模板工具
 - [ ] 数据库版本检查中间件
 - [ ] 迁移回滚策略文档
 
 ### Phase 4: ORM 评估（Month 3-6）
+
 - [ ] 业务复杂度评估
 - [ ] Drizzle ORM POC
 - [ ] 性能对比测试
@@ -475,16 +518,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup PostgreSQL
         uses: ikalnytskyi/action-setup-postgres@v4
-      
+
       - name: Run migrations
         run: npm run migrate:up
-      
+
       - name: Generate types
         run: npm run codegen
-      
+
       - name: Check for uncommitted changes
         run: |
           git diff --exit-code src/multi-tenant/storage/schema.ts || \
@@ -508,16 +551,19 @@ jobs:
 ## 🎯 总结
 
 ### 立即行动
+
 1. **今天**：集成 `kysely-codegen`，消除手动维护 schema.ts
 2. **本周**：配置 CI/CD 自动检查类型同步
 3. **本月**：开发 mapper 代码生成，实现 90% 自动化
 
 ### 关键收益
+
 - ⚡ **开发效率**: 表结构变更从 30 分钟降至 3 分钟
 - 🛡️ **类型安全**: 编译时即可发现不匹配，减少 runtime 错误
 - 🎯 **专注业务**: 团队精力从基础设施转向业务价值
 
 ### 风险缓解
+
 - 渐进式集成，不影响现有功能
 - 每个阶段都有回退方案
 - 充分测试覆盖

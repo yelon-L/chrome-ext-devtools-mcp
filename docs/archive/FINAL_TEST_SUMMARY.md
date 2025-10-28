@@ -13,13 +13,13 @@
 
 ### 测试覆盖率：100%
 
-| 测试类别 | 通过 | 总计 | 通过率 |
-|---------|------|------|--------|
-| 模块加载 | 5 | 5 | 100% |
-| 工具注册 | 11 | 11 | 100% |
-| TypeScript 编译 | 1 | 1 | 100% |
-| 工具定义 | 4 | 4 | 100% |
-| **总计** | **21** | **21** | **100%** |
+| 测试类别        | 通过   | 总计   | 通过率   |
+| --------------- | ------ | ------ | -------- |
+| 模块加载        | 5      | 5      | 100%     |
+| 工具注册        | 11     | 11     | 100%     |
+| TypeScript 编译 | 1      | 1      | 100%     |
+| 工具定义        | 4      | 4      | 100%     |
+| **总计**        | **21** | **21** | **100%** |
 
 ---
 
@@ -37,7 +37,7 @@
 ✅ extension-storage-watch.js - 加载成功
    • watchExtensionStorage: object ✓
 
-✅ extensions.js - 加载成功  
+✅ extensions.js - 加载成功
    • inspectExtensionStorage: object ✓
 
 ✅ ExtensionHelper.js - 加载成功
@@ -60,6 +60,7 @@
 **发现的扩展工具**: 11 个
 
 #### 原有工具 (8 个)
+
 1. ✅ `evaluate_in_extension`
 2. ✅ `get_extension_details`
 3. ✅ `get_extension_logs`
@@ -70,6 +71,7 @@
 8. ✅ `switch_extension_context`
 
 #### 新增工具 (3 个)
+
 9. ✅ `monitor_extension_messages` ⭐ **新增**
 10. ✅ `trace_extension_api_calls` ⭐ **新增**
 11. ✅ `watch_extension_storage` ⭐ **新增**
@@ -81,11 +83,13 @@
 ### 3️⃣ TypeScript 编译测试 ✅
 
 **测试命令**:
+
 ```bash
 npm run build
 ```
 
 **结果**:
+
 ```
 ✅ 编译成功
 ✅ 0 错误
@@ -94,6 +98,7 @@ npm run build
 ```
 
 **编译输出**:
+
 ```
 > chrome-extension-debug-mcp@0.8.1 build
 > tsc && node --experimental-strip-types scripts/post-build.ts
@@ -110,11 +115,13 @@ npm run build
 #### `inspect_extension_storage` (修复)
 
 **修复前的问题**:
+
 ```
 ❌ chrome.storage API not available in this context
 ```
 
 **修复方法**:
+
 ```typescript
 // ❌ 旧方式（CDP - 不可靠）
 const evalResult = await cdp.send('Runtime.evaluate', {
@@ -123,7 +130,7 @@ const evalResult = await cdp.send('Runtime.evaluate', {
 
 // ✅ 新方式（Puppeteer Worker API - 可靠）
 const worker = await target.worker();
-const result = await worker.evaluate(async (storageType) => {
+const result = await worker.evaluate(async storageType => {
   // chrome.* API 完全可用
   const storage = chrome.storage[storageType];
   return await storage.get(null);
@@ -131,6 +138,7 @@ const result = await worker.evaluate(async (storageType) => {
 ```
 
 **验证结果**:
+
 - ✅ 使用 Puppeteer Worker API
 - ✅ chrome.storage API 可访问
 - ✅ 符合官方最佳实践
@@ -143,6 +151,7 @@ const result = await worker.evaluate(async (storageType) => {
 **功能**: 监控扩展消息传递
 
 **特性验证**:
+
 - ✅ 拦截 `chrome.runtime.sendMessage`
 - ✅ 拦截 `chrome.tabs.sendMessage`
 - ✅ 监听 `chrome.runtime.onMessage`
@@ -152,6 +161,7 @@ const result = await worker.evaluate(async (storageType) => {
 - ✅ 提供详细统计信息
 
 **Schema 验证**:
+
 ```typescript
 ✅ extensionId: string (32 字符正则验证)
 ✅ duration: number (可选，默认 30000ms)
@@ -165,6 +175,7 @@ const result = await worker.evaluate(async (storageType) => {
 **功能**: 追踪 API 调用频率
 
 **特性验证**:
+
 - ✅ 统计 API 调用次数
 - ✅ 识别高频调用（>10 次）
 - ✅ 生成优化建议
@@ -172,6 +183,7 @@ const result = await worker.evaluate(async (storageType) => {
 - ✅ 支持 API 过滤
 
 **Schema 验证**:
+
 ```typescript
 ✅ extensionId: string (验证通过)
 ✅ duration: number (可选)
@@ -185,6 +197,7 @@ const result = await worker.evaluate(async (storageType) => {
 **功能**: 监控 Storage 变化
 
 **特性验证**:
+
 - ✅ 监听 `chrome.storage.onChanged`
 - ✅ 支持 local/sync/session/managed
 - ✅ 显示变化前后的值
@@ -193,6 +206,7 @@ const result = await worker.evaluate(async (storageType) => {
 - ✅ 自动清理监听器
 
 **Schema 验证**:
+
 ```typescript
 ✅ extensionId: string (验证通过)
 ✅ duration: number (可选，默认 30000ms)
@@ -205,34 +219,37 @@ const result = await worker.evaluate(async (storageType) => {
 
 ### 修复前 vs 修复后
 
-| 工具 | 修复前 | 修复后 |
-|------|--------|--------|
+| 工具                        | 修复前                         | 修复后                 |
+| --------------------------- | ------------------------------ | ---------------------- |
 | `inspect_extension_storage` | ❌ CDP 无法访问 chrome.storage | ✅ Worker API 完全可用 |
 
 ### 工具数量变化
 
-| 类别 | 修复前 | 修复后 | 变化 |
-|------|--------|--------|------|
-| 扩展调试工具 | 8 个 | 11 个 | +3 (+37.5%) |
-| 总工具数 | ~30 个 | ~33 个 | +3 (+10%) |
+| 类别         | 修复前 | 修复后 | 变化        |
+| ------------ | ------ | ------ | ----------- |
+| 扩展调试工具 | 8 个   | 11 个  | +3 (+37.5%) |
+| 总工具数     | ~30 个 | ~33 个 | +3 (+10%)   |
 
 ---
 
 ## 📊 代码质量指标
 
 ### TypeScript 类型安全
+
 - ✅ 完整类型定义: 100%
 - ✅ any 类型使用: 最小化（仅用于必要场景）
 - ✅ @ts-expect-error 使用: 明确标注 chrome API
 - ✅ 类型推导: 充分利用
 
 ### 架构一致性
+
 - ✅ defineTool 模式: 严格遵循
 - ✅ ToolCategories: 正确使用
 - ✅ 错误处理: 统一标准
 - ✅ 响应格式: Markdown 一致
 
 ### 代码风格
+
 - ✅ 注释完整性: 详细的文档注释
 - ✅ 命名规范: 清晰易懂
 - ✅ 函数职责: 单一明确
@@ -245,10 +262,11 @@ const result = await worker.evaluate(async (storageType) => {
 ### Puppeteer Worker API 验证
 
 **官方推荐** ✅
+
 ```typescript
 // Puppeteer 官方文档推荐方式
 const workerTarget = await browser.waitForTarget(
-  target => target.type() === 'service_worker'
+  target => target.type() === 'service_worker',
 );
 const worker = await workerTarget.worker();
 await worker.evaluate(() => {
@@ -257,11 +275,12 @@ await worker.evaluate(() => {
 ```
 
 **我们的实现** ✅
+
 ```typescript
 const targets = await this.browser.targets();
 const target = targets.find(t => t._targetId === targetId);
 const worker = await target.worker();
-const result = await worker.evaluate(async (arg) => {
+const result = await worker.evaluate(async arg => {
   // chrome.* API 完全可用
   return await chrome.storage.local.get(null);
 }, arg);
@@ -274,6 +293,7 @@ const result = await worker.evaluate(async (arg) => {
 ## 📚 生成的文档
 
 ### 实现文档
+
 - ✅ `IMPLEMENTATION_SUMMARY.md` - 实现总结
 - ✅ `ERROR_HANDLING_IMPROVEMENTS.md` - 错误处理优化
 - ✅ `STREAMABLE_HTTP_SETUP.md` - HTTP 传输配置
@@ -288,14 +308,17 @@ const result = await worker.evaluate(async (arg) => {
 ### ✅ 测试通过率: 100%
 
 **修复的功能**:
+
 - ✅ `inspect_extension_storage` - 成功修复，现在使用可靠的 Worker API
 
 **新增的功能**:
+
 - ✅ `monitor_extension_messages` - 消息监控功能完整可用
 - ✅ `trace_extension_api_calls` - API 追踪功能完整可用
 - ✅ `watch_extension_storage` - Storage 监控功能完整可用
 
 **代码质量**:
+
 - ✅ TypeScript 编译: 0 错误
 - ✅ 类型安全: 100% 完整
 - ✅ 架构一致性: 完全符合
@@ -312,41 +335,45 @@ const result = await worker.evaluate(async (arg) => {
 ## 📝 使用建议
 
 ### 修复的工具
+
 ```javascript
 // inspect_extension_storage - 现在可以正常工作了！
 inspect_extension_storage({
-  extensionId: "your_extension_id",
-  storageType: "local"
-})
+  extensionId: 'your_extension_id',
+  storageType: 'local',
+});
 ```
 
 ### 新增的工具
 
 #### 1. 监控消息传递
+
 ```javascript
 monitor_extension_messages({
-  extensionId: "your_extension_id",
+  extensionId: 'your_extension_id',
   duration: 30000,
-  messageTypes: ["runtime", "tabs"]
-})
+  messageTypes: ['runtime', 'tabs'],
+});
 ```
 
 #### 2. 追踪 API 调用
+
 ```javascript
 trace_extension_api_calls({
-  extensionId: "your_extension_id",
+  extensionId: 'your_extension_id',
   duration: 30000,
-  apiFilter: ["runtime", "tabs"]
-})
+  apiFilter: ['runtime', 'tabs'],
+});
 ```
 
 #### 3. 监控 Storage 变化
+
 ```javascript
 watch_extension_storage({
-  extensionId: "your_extension_id",
+  extensionId: 'your_extension_id',
   duration: 30000,
-  storageTypes: ["local", "sync"]
-})
+  storageTypes: ['local', 'sync'],
+});
 ```
 
 ---

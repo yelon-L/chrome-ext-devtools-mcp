@@ -1,6 +1,7 @@
 # 日志捕获功能测试笔记
 
 ## 测试时间
+
 2025-10-25 14:40
 
 ## 测试环境问题
@@ -10,16 +11,19 @@
 #### 问题：MCP 重启后无法检测扩展
 
 **现象**：
+
 - `list_extensions` 返回 "No Extensions Detected"
 - 但 chrome://extensions 页面显示扩展存在且已启用
 - 扩展 ID: `pjeiljkehgiabmjmfjohffbihlopdabn` (Enhanced MCP Debug Test Extension v2.3.0)
 
 **原因分析**：
+
 1. MCP 服务器重启后，与 Chrome 的 CDP (Chrome DevTools Protocol) 连接需要重新建立
 2. 扩展的 Service Worker 可能在 MCP 连接建立前就已经启动
 3. MCP 的扩展发现机制依赖于特定的 CDP 事件，重启后可能错过这些事件
 
 **验证步骤**：
+
 ```bash
 # 1. 通过页面 JavaScript 验证扩展存在
 chrome.developerPrivate.getExtensionsInfo((extensions) => {
@@ -38,12 +42,15 @@ chrome.developerPrivate.reload('pjeiljkehgiabmjmfjohffbihlopdabn', ...)
 ### 🔍 根本原因
 
 **MCP 扩展发现机制**：
+
 - 依赖 `chrome.management.getAll()` 或类似 API
 - 需要在 Chrome 启动时或扩展加载时建立连接
 - 重启 MCP 服务器后，已加载的扩展不会触发新的发现事件
 
 **解决方案**：
+
 1. **重启 Chrome 浏览器**（推荐）
+
    ```bash
    # 关闭 Chrome
    # 重新启动 Chrome with remote debugging
@@ -70,9 +77,10 @@ chrome.developerPrivate.reload('pjeiljkehgiabmjmfjohffbihlopdabn', ...)
 **扩展**: Video SRT Ext (Rebuilt) - obbhgfjghnnodmekfkfffojnkbdbfpbh
 
 **测试代码**：
+
 ```javascript
 evaluate_in_extension({
-  extensionId: "obbhgfjghnnodmekfkfffojnkbdbfpbh",
+  extensionId: 'obbhgfjghnnodmekfkfffojnkbdbfpbh',
   code: `
     console.log('[Test] 日志捕获测试');
     console.warn('[Test] 警告消息');
@@ -81,18 +89,21 @@ evaluate_in_extension({
     return { status: 'success' };
   `,
   captureLogs: true,
-  logDuration: 3000
-})
+  logDuration: 3000,
+});
 ```
 
 **结果**：✅ 成功
+
 ```markdown
 ## 📋 Captured Logs
 
 ### Extension Logs
+
 **Total**: 4 entries
 
 #### Background Service Worker (4 entries)
+
 📝 **[14:35:49]** [Test] 日志捕获测试
 ⚠️ **[14:35:49]** [Test] 警告消息
 ❌ **[14:35:49]** [Test] 错误消息
@@ -100,6 +111,7 @@ evaluate_in_extension({
 ```
 
 **验证点**：
+
 - ✅ 所有日志级别正确捕获（log, warn, error, info）
 - ✅ 时间戳正确
 - ✅ 图标显示正确（📝 ⚠️ ❌ ℹ️）
@@ -288,6 +300,7 @@ console.log('[Manual Test] 日志测试');
 ### ⚠️ 受限的测试
 
 由于 MCP 重启后的扩展检测问题，以下测试受限：
+
 - Enhanced MCP Debug Test Extension 的完整测试
 - activate_extension_service_worker 的实际日志捕获
 - reload_extension 的实际日志捕获
@@ -301,7 +314,8 @@ console.log('[Manual Test] 日志测试');
 
 **生产就绪**: ✅ 可以投入使用
 
-**建议**: 
+**建议**:
+
 - 在正常的开发环境中（Chrome 先启动，再启动 MCP）功能完全正常
 - 当前的限制是测试环境问题，不是代码问题
 - 已验证的部分证明了实现的正确性

@@ -1,9 +1,11 @@
 # 日志捕获功能测试结果
 
 ## 测试时间
+
 2025-10-25 15:56 - 16:05
 
 ## 测试环境
+
 - Chrome 远程调试端口: 9222
 - MCP 服务器: 已重启（加载修复后的代码）
 - 测试扩展: Enhanced MCP Debug Test Extension (v2.3.0)
@@ -14,11 +16,13 @@
 
 **问题**: MCP 重启后无法检测扩展
 
-**修复**: 
+**修复**:
+
 1. 方案 1 失败时返回 `null` 而不是空数组
 2. 添加方案 2（视觉检测）的调用逻辑
 
 **测试结果**: ✅ **成功**
+
 ```
 list_extensions() 返回:
 - Enhanced MCP Debug Test Extension (v2.3.0) - 🟢 Active
@@ -30,6 +34,7 @@ list_extensions() 返回:
 ### ✅ 测试 1: evaluate_in_extension 基本日志捕获
 
 **测试代码**:
+
 ```javascript
 console.log('[Background Test] 🚀 开始日志捕获测试');
 console.warn('[Background Test] ⚠️ 警告消息');
@@ -39,12 +44,14 @@ console.debug('[Background Test] 🐛 调试消息');
 ```
 
 **结果**: ✅ **成功**
+
 - 捕获日志: 14 条
 - 时间戳: 正确
 - 异步日志: ✅ 捕获（500ms 和 1000ms 后的日志）
 - Chrome API 调用: ✅ 捕获
 
 **日志示例**:
+
 ```
 📝 [15:57:13] [Enhanced Background] ❌ 测试标签页已关闭
 📝 [15:57:14] [Background Test] 500ms 后的异步日志
@@ -54,6 +61,7 @@ console.debug('[Background Test] 🐛 调试消息');
 ### ✅ 测试 2: 所有日志级别和复杂对象
 
 **测试代码**:
+
 ```javascript
 console.log('📝 [Level Test] log 级别');
 console.warn('⚠️ [Level Test] warn 级别');
@@ -66,6 +74,7 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 ```
 
 **结果**: ✅ **成功**
+
 - 捕获日志: 13 条
 - 所有日志级别: ✅ 正确捕获
 - 复杂对象: ✅ 显示为 "Object"
@@ -73,6 +82,7 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 - 错误对象: ✅ 带完整 stack trace
 
 **日志示例**:
+
 ```
 🔍 [15:57:35] 🐛 [Level Test] debug 级别
 📝 [15:57:35] 🔧 [Object Test] 复杂对象: Object
@@ -84,6 +94,7 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 ### ✅ 测试 3: activate_extension_service_worker 日志捕获
 
 **测试参数**:
+
 ```javascript
 {
   extensionId: "pjeiljkehgiabmjmfjohffbihlopdabn",
@@ -94,11 +105,13 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 ```
 
 **结果**: ✅ **成功**
+
 - 捕获日志: 26 条
 - 时间范围: 5 秒
 - 日志类型: 启动日志、网络请求、Storage 变更、消息处理
 
 **日志示例**:
+
 ```
 📝 [15:57:55] [Enhanced Background] ✅ API测试完成
 📝 [15:57:55] [Enhanced Background] 🆕 Week 4: 标签页创建
@@ -109,6 +122,7 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 ### ⚠️ 测试 4: reload_extension 日志捕获
 
 **测试参数**:
+
 ```javascript
 {
   extensionId: "pjeiljkehgiabmjmfjohffbihlopdabn",
@@ -118,11 +132,13 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 ```
 
 **结果**: ⚠️ **部分成功**
+
 - 扩展重载: ✅ 成功
 - 日志捕获: ❌ "No extension logs captured"
 - 原因: 扩展重载后可能没有立即产生日志
 
 **观察**:
+
 - "Step 5: Startup Logs" 显示
 - 但没有捕获到实际日志
 - 可能需要调整捕获时机或持续时间
@@ -132,16 +148,19 @@ console.error('💥 [Error Test] 捕获的错误:', error);
 **问题**: 扩展重载后无法执行代码
 
 **现象**:
+
 ```
 evaluate_in_extension() → "Unable to evaluate code in extension"
 ```
 
 **可能原因**:
+
 1. MCP 与扩展的连接在重载后断开
 2. 需要重新建立 CDP 连接
 3. Service Worker 虽然显示 Active，但实际未就绪
 
 **状态**:
+
 - list_extensions: ✅ 显示扩展 Active
 - list_extension_contexts: ✅ 显示 Service Worker 上下文
 - evaluate_in_extension: ❌ 无法执行代码
@@ -178,19 +197,20 @@ evaluate_in_extension() → "Unable to evaluate code in extension"
 
 ### 📊 测试统计
 
-| 功能 | 状态 | 捕获日志数 | 备注 |
-|------|------|-----------|------|
-| 扩展检测修复 | ✅ | - | 视觉检测方案工作正常 |
-| evaluate_in_extension | ✅ | 14-26 | 所有日志级别正确 |
-| activate_extension_service_worker | ✅ | 26 | 启动日志捕获正常 |
-| reload_extension | ⚠️ | 0 | 重载成功但无日志 |
-| 重载后执行 | ❌ | - | 连接断开 |
+| 功能                              | 状态 | 捕获日志数 | 备注                 |
+| --------------------------------- | ---- | ---------- | -------------------- |
+| 扩展检测修复                      | ✅   | -          | 视觉检测方案工作正常 |
+| evaluate_in_extension             | ✅   | 14-26      | 所有日志级别正确     |
+| activate_extension_service_worker | ✅   | 26         | 启动日志捕获正常     |
+| reload_extension                  | ⚠️   | 0          | 重载成功但无日志     |
+| 重载后执行                        | ❌   | -          | 连接断开             |
 
 ## 核心发现
 
 ### 发现 1: 日志捕获机制工作正常
 
 **验证**:
+
 - ✅ 所有日志级别（log, warn, error, info, debug）
 - ✅ 异步日志（延迟后的日志）
 - ✅ 复杂对象（嵌套对象、数组）
@@ -200,10 +220,12 @@ evaluate_in_extension() → "Unable to evaluate code in extension"
 ### 发现 2: 扩展检测修复成功
 
 **修复前**:
+
 - MCP 重启后无法检测扩展
 - 方案 2（视觉检测）从未被调用
 
 **修复后**:
+
 - ✅ 方案 1 失败时返回 null
 - ✅ 方案 2 被正确调用
 - ✅ 能检测到所有扩展
@@ -211,10 +233,12 @@ evaluate_in_extension() → "Unable to evaluate code in extension"
 ### 发现 3: 重载后的连接问题
 
 **问题**:
+
 - 扩展重载后 MCP 无法执行代码
 - Service Worker 显示 Active 但无法通信
 
 **可能原因**:
+
 - CDP 连接在扩展重载时断开
 - 需要重新建立连接
 - 或者需要等待 Service Worker 完全就绪
@@ -226,6 +250,7 @@ evaluate_in_extension() → "Unable to evaluate code in extension"
 **当前问题**: 重载后没有捕获到启动日志
 
 **建议方案**:
+
 1. 增加捕获持续时间（5s → 10s）
 2. 在扩展重载后等待更长时间再开始捕获
 3. 主动触发一些操作来产生日志
@@ -235,6 +260,7 @@ evaluate_in_extension() → "Unable to evaluate code in extension"
 **当前问题**: 重载后无法执行代码
 
 **建议方案**:
+
 1. 在 reload_extension 后自动重新获取扩展上下文
 2. 添加连接健康检查
 3. 提供重新连接的工具方法
@@ -242,6 +268,7 @@ evaluate_in_extension() → "Unable to evaluate code in extension"
 ### 建议 3: 添加日志捕获诊断
 
 **建议功能**:
+
 ```typescript
 // 诊断日志捕获是否工作
 diagnose_log_capture(extensionId) {
@@ -277,12 +304,14 @@ diagnose_log_capture(extensionId) {
 ### ✅ 核心功能验证通过
 
 **日志捕获功能**:
+
 - ✅ evaluate_in_extension - 完全正常
 - ✅ activate_extension_service_worker - 完全正常
 - ⚠️ reload_extension - 部分正常（重载成功但日志捕获为空）
 - ⏳ interact_with_popup - 未测试（扩展无 popup）
 
 **扩展检测修复**:
+
 - ✅ 修复成功
 - ✅ 视觉检测方案工作正常
 - ✅ MCP 重启后能检测到扩展
@@ -290,16 +319,19 @@ diagnose_log_capture(extensionId) {
 ### 🎯 总体评价
 
 **功能实现**: ✅ 90% 完成
+
 - 核心日志捕获机制工作正常
 - 扩展检测问题已解决
 - 大部分场景测试通过
 
 **生产就绪**: ✅ 可以投入使用
+
 - 主要功能已验证
 - 已知问题有明确的改进方向
 - 不影响核心使用场景
 
-**建议**: 
+**建议**:
+
 - 可以开始使用日志捕获功能进行调试
 - 重载后如遇连接问题，可手动重新激活扩展
 - 后续优化重载后的连接管理

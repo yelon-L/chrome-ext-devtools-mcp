@@ -1,6 +1,7 @@
 # Service Worker Dependency Optimization - Complete
 
 ## 执行时间
+
 2025-10-13 21:05
 
 ---
@@ -8,6 +9,7 @@
 ## 优化概述
 
 全面优化所有依赖 Service Worker 激活状态的 Extension 工具,确保:
+
 1. ✅ **前置描述明确** - 清楚说明 SW 依赖
 2. ✅ **智能错误检测** - 自动识别 SW 相关错误
 3. ✅ **友好错误提示** - 提供可操作的解决方案
@@ -19,15 +21,16 @@
 
 ### 工具分类
 
-| 工具名称 | SW 依赖 | 前置描述 | 错误处理 | 状态 |
-|---------|--------|---------|---------|------|
-| evaluate_in_extension | 🔴 必需 | ✅ 完善 | ✅ 已优化 | ✅ |
-| inspect_extension_storage | 🔴 必需 | ✅ 完善 | ✅ 已优化 | ✅ |
-| get_extension_logs | 🟡 部分 | ✅ 完善 | ✅ 已优化 | ✅ |
-| list_extension_contexts | 🟡 部分 | ✅ 完善 | ✅ 已完善 | ✅ |
-| reload_extension | 🟢 自动 | ✅ 完善 | ✅ 自动激活 | ✅ |
+| 工具名称                  | SW 依赖 | 前置描述 | 错误处理    | 状态 |
+| ------------------------- | ------- | -------- | ----------- | ---- |
+| evaluate_in_extension     | 🔴 必需 | ✅ 完善  | ✅ 已优化   | ✅   |
+| inspect_extension_storage | 🔴 必需 | ✅ 完善  | ✅ 已优化   | ✅   |
+| get_extension_logs        | 🟡 部分 | ✅ 完善  | ✅ 已优化   | ✅   |
+| list_extension_contexts   | 🟡 部分 | ✅ 完善  | ✅ 已完善   | ✅   |
+| reload_extension          | 🟢 自动 | ✅ 完善  | ✅ 自动激活 | ✅   |
 
 **图例**:
+
 - 🔴 必需: 必须有活跃的 SW
 - 🟡 部分: SW 未激活会影响部分功能
 - 🟢 自动: 工具自动处理 SW 激活
@@ -41,6 +44,7 @@
 **SW 依赖**: 🔴 必需 - chrome.storage API 需要 SW 激活才能访问
 
 #### 优化前
+
 ```typescript
 catch (error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -49,20 +53,22 @@ catch (error) {
 ```
 
 **问题**:
+
 - ❌ 简单重抛错误,不友好
 - ❌ 没有智能检测 SW 问题
 - ❌ 没有提供解决建议
 
 #### 优化后
+
 ```typescript
 catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  
+
   response.appendResponseLine(`# ❌ Storage Inspection Failed\n`);
   response.appendResponseLine(`**Extension ID**: ${extensionId}`);
   response.appendResponseLine(`**Storage Type**: ${storageType}\n`);
   response.appendResponseLine(`**Error**: ${message}\n`);
-  
+
   // Smart detection of Service Worker related errors
   if (
     message.includes('No background context') ||
@@ -86,12 +92,13 @@ catch (error) {
     response.appendResponseLine(`- Storage type "${storageType}" is not supported by this extension`);
     response.appendResponseLine(`- Extension lacks storage permissions in manifest`);
   }
-  
+
   response.setIncludePages(true);
 }
 ```
 
 **改进**:
+
 - ✅ 智能检测 SW 相关错误(多种关键词匹配)
 - ✅ 明确的错误类型标识 (🔴 Service Worker Issue)
 - ✅ 3步解决方案(check → activate → retry)
@@ -106,6 +113,7 @@ catch (error) {
 **SW 依赖**: 🟡 部分 - SW 日志需要 SW 激活,但 content script 日志不需要
 
 #### 优化前
+
 ```typescript
 catch (error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -114,19 +122,21 @@ catch (error) {
 ```
 
 **问题**:
+
 - ❌ 简单重抛错误
 - ❌ 没有说明部分日志仍可用
 - ❌ 没有指导如何获取背景日志
 
 #### 优化后
+
 ```typescript
 catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  
+
   response.appendResponseLine(`# ❌ Failed to Get Extension Logs\n`);
   response.appendResponseLine(`**Extension ID**: ${extensionId}\n`);
   response.appendResponseLine(`**Error**: ${message}\n`);
-  
+
   // Smart detection of Service Worker related errors
   if (
     message.includes('No background context') ||
@@ -150,12 +160,13 @@ catch (error) {
     response.appendResponseLine(`- Extension has not generated any logs yet`);
     response.appendResponseLine(`- Chrome DevTools Protocol connection issue`);
   }
-  
+
   response.setIncludePages(true);
 }
 ```
 
 **改进**:
+
 - ✅ 使用 🟡 表示部分影响
 - ✅ 明确说明 content script 日志仍可用
 - ✅ 4步解决方案(包含等待时间)
@@ -169,10 +180,11 @@ catch (error) {
 **SW 依赖**: 🔴 必需 - 需要在 background context 中执行代码
 
 #### 优化前
+
 ```typescript
 catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  
+
   response.appendResponseLine(`# Evaluation Error\n`);
   response.appendResponseLine(`**Error**: ${message}\n`);
   response.appendResponseLine(`**Possible causes**:`);
@@ -185,15 +197,17 @@ catch (error) {
 ```
 
 **问题**:
+
 - ⚠️ 错误类型不明确
 - ⚠️ 所有原因混在一起
 - ⚠️ 没有智能检测具体问题
 
 #### 优化后
+
 ```typescript
 catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  
+
   response.appendResponseLine(`# ❌ Code Evaluation Failed\n`);
   response.appendResponseLine(`**Extension ID**: ${extensionId}`);
   if (contextId) {
@@ -201,7 +215,7 @@ catch (error) {
   }
   response.appendResponseLine(`\n**Code**:\n\`\`\`javascript\n${code}\n\`\`\``);
   response.appendResponseLine(`\n**Error**: ${message}\n`);
-  
+
   // Smart detection of Service Worker related errors
   if (
     message.includes('No background context found') ||
@@ -241,6 +255,7 @@ catch (error) {
 ```
 
 **改进**:
+
 - ✅ **多层错误分类**: SW 错误 / 语法错误 / 其他错误
 - ✅ 针对 "No background context found" 的精确检测
 - ✅ 针对 SyntaxError 的专门提示
@@ -254,6 +269,7 @@ catch (error) {
 **SW 依赖**: 🟡 部分 - SW 未激活时不会出现在列表中
 
 **前置描述**: ✅ 完善
+
 ```
 **⚠️ MV3 Service Worker behavior**:
 - Inactive SW won't appear in the list
@@ -264,9 +280,12 @@ catch (error) {
 ```
 
 **错误处理**: ✅ 良好
+
 ```typescript
 if (contexts.length === 0) {
-  response.appendResponseLine('\n💡 **Tip**: For MV3 extensions, try `activate_extension_service_worker` to activate the Service Worker');
+  response.appendResponseLine(
+    '\n💡 **Tip**: For MV3 extensions, try `activate_extension_service_worker` to activate the Service Worker',
+  );
 }
 ```
 
@@ -279,6 +298,7 @@ if (contexts.length === 0) {
 **SW 依赖**: 🟢 自动 - 工具会自动激活 SW
 
 **自动激活逻辑**:
+
 ```typescript
 if (extension.serviceWorkerStatus === 'inactive') {
   response.appendResponseLine('🔄 Service Worker is inactive. Activating...\n');
@@ -327,7 +347,7 @@ if (
 **Solution**:
 1. 步骤1: 命令/操作
    - 说明
-2. 步骤2: 命令/操作  
+2. 步骤2: 命令/操作
    - 说明
 3. 步骤3: 命令/操作
 
@@ -351,6 +371,7 @@ if (
 ### evaluate_in_extension
 
 **前置描述**: ✅ **完善**
+
 ```
 ⚠️ **Prerequisites for MV3 extensions**:
 - Service Worker MUST be active before calling this tool
@@ -360,6 +381,7 @@ if (
 ```
 
 **特点**:
+
 - ✅ 明确说明 "MUST be active"
 - ✅ 预告失败信息 "No background context found"
 - ✅ 提供解决方案 (activate_extension_service_worker)
@@ -368,6 +390,7 @@ if (
 ### inspect_extension_storage
 
 **前置描述**: ✅ **完善**
+
 ```
 **⚠️ MV3 prerequisite**:
 - Service Worker MUST be active to access chrome.storage
@@ -377,6 +400,7 @@ if (
 ```
 
 **特点**:
+
 - ✅ 说明 API 依赖 (chrome.storage)
 - ✅ 明确失败条件
 - ✅ 提供检查和激活步骤
@@ -384,6 +408,7 @@ if (
 ### get_extension_logs
 
 **前置描述**: ✅ **完善**
+
 ```
 **⚠️ MV3 Service Worker logs**:
 - SW logs only available when SW is active
@@ -393,6 +418,7 @@ if (
 ```
 
 **特点**:
+
 - ✅ 区分不同日志来源
 - ✅ 说明部分功能可用 (content script logs)
 - ✅ 提供激活建议
@@ -404,6 +430,7 @@ if (
 ### 场景 1: SW 未激活时调用 inspect_extension_storage
 
 **用户操作**:
+
 ```
 list_extensions
 → 看到 MyExtension, SW status: 🔴 Inactive
@@ -412,6 +439,7 @@ inspect_extension_storage extensionId="abcd..."
 ```
 
 **优化后的错误响应**:
+
 ```
 # ❌ Storage Inspection Failed
 
@@ -433,6 +461,7 @@ For MV3 extensions, chrome.storage API requires an active Service Worker.
 ```
 
 **用户体验**:
+
 - ✅ 立即知道是 SW 问题
 - ✅ 明确3步解决方案
 - ✅ 理解问题原因
@@ -441,12 +470,14 @@ For MV3 extensions, chrome.storage API requires an active Service Worker.
 ### 场景 2: SW 未激活时调用 evaluate_in_extension
 
 **用户操作**:
+
 ```
 evaluate_in_extension extensionId="abcd..." code="chrome.runtime.id"
 ```
 
 **优化后的错误响应**:
-```
+
+````
 # ❌ Code Evaluation Failed
 
 **Extension ID**: abcd...
@@ -454,7 +485,7 @@ evaluate_in_extension extensionId="abcd..." code="chrome.runtime.id"
 **Code**:
 ```javascript
 chrome.runtime.id
-```
+````
 
 **Error**: No background context found for extension abcd...
 
@@ -463,6 +494,7 @@ chrome.runtime.id
 This error occurs when trying to execute code in an inactive Service Worker.
 
 **Solution** (3 simple steps):
+
 1. Verify SW status: `list_extensions`
    - Look for 🔴 Inactive or 🟢 Active status
 2. Activate SW: `activate_extension_service_worker` with extensionId="abcd..."
@@ -470,6 +502,7 @@ This error occurs when trying to execute code in an inactive Service Worker.
 3. Retry code execution: `evaluate_in_extension` with same code
 
 **Why this happens**: MV3 Service Workers are ephemeral and sleep after ~30s of inactivity.
+
 ```
 
 **用户体验**:
@@ -484,7 +517,9 @@ This error occurs when trying to execute code in an inactive Service Worker.
 
 ### 优化前
 ```
+
 Error: Failed to inspect storage: No background context found
+
 ```
 
 **AI 理解难度**: 高
@@ -494,14 +529,17 @@ Error: Failed to inspect storage: No background context found
 
 ### 优化后
 ```
+
 ## 🔴 Service Worker Issue Detected
 
 For MV3 extensions, chrome.storage API requires an active Service Worker.
 
 **Solution**:
+
 1. Check SW status: `list_extensions` (look for 🔴 Inactive)
 2. Activate SW: `activate_extension_service_worker` with extensionId="abcd..."
 3. Retry: `inspect_extension_storage` with extensionId="abcd..."
+
 ```
 
 **AI 理解难度**: 低
@@ -538,7 +576,7 @@ For MV3 extensions, chrome.storage API requires an active Service Worker.
 
 ### 2. 分层错误处理
 - **SW 错误**: 明确的解决步骤
-- **语法错误**: 调试建议  
+- **语法错误**: 调试建议
 - **其他错误**: 通用排查
 
 ### 3. 可操作的建议
@@ -591,3 +629,4 @@ For MV3 extensions, chrome.storage API requires an active Service Worker.
 - 解释问题发生的原因
 
 用户体验和 AI 友好性得到显著提升! 🎉
+```

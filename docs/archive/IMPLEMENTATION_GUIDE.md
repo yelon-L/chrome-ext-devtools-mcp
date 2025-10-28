@@ -5,6 +5,7 @@
 ## 📁 文件创建清单
 
 ### Phase 1: 基础架构
+
 ```
 src/extension/
 ├── types.ts                   # 扩展相关类型定义
@@ -12,10 +13,11 @@ src/extension/
 ```
 
 ### Phase 2: 工具实现
+
 ```
 src/tools/
 ├── extension-discovery.ts     # list_extensions, get_extension_details
-├── extension-contexts.ts      # list_extension_contexts, switch_extension_context  
+├── extension-contexts.ts      # list_extension_contexts, switch_extension_context
 ├── extension-storage.ts       # inspect_extension_storage, watch_extension_storage
 ├── extension-messaging.ts     # monitor_extension_messages, trace_extension_api_calls
 ├── extension-logs.ts          # get_extension_logs
@@ -40,7 +42,12 @@ export interface ExtensionInfo {
   hostPermissions?: string[];
 }
 
-export type ExtensionContextType = 'background' | 'popup' | 'options' | 'devtools' | 'content_script';
+export type ExtensionContextType =
+  | 'background'
+  | 'popup'
+  | 'options'
+  | 'devtools'
+  | 'content_script';
 
 export interface ExtensionContext {
   type: ExtensionContextType;
@@ -66,14 +73,17 @@ export interface StorageData {
 ```typescript
 export type Context = Readonly<{
   // ... 现有方法
-  
+
   // 新增
   getBrowser(): Browser;
   getExtensions(includeDisabled?: boolean): Promise<ExtensionInfo[]>;
   getExtensionDetails(extensionId: string): Promise<ExtensionInfo | null>;
   getExtensionContexts(extensionId: string): Promise<ExtensionContext[]>;
   switchToExtensionContext(contextId: string): Promise<Page>;
-  getExtensionStorage(extensionId: string, storageType: StorageType): Promise<StorageData>;
+  getExtensionStorage(
+    extensionId: string,
+    storageType: StorageType,
+  ): Promise<StorageData>;
 }>;
 ```
 
@@ -88,22 +98,30 @@ export const listExtensions = defineTool({
     readOnlyHint: true,
   },
   schema: {
-    includeDisabled: z.boolean().optional()
+    includeDisabled: z
+      .boolean()
+      .optional()
       .describe('Include disabled extensions'),
   },
   handler: async (request, response, context) => {
-    const extensions = await context.getExtensions(request.params.includeDisabled);
-    
-    response.appendResponseLine(`# Installed Extensions (${extensions.length})\n`);
-    
+    const extensions = await context.getExtensions(
+      request.params.includeDisabled,
+    );
+
+    response.appendResponseLine(
+      `# Installed Extensions (${extensions.length})\n`,
+    );
+
     for (const ext of extensions) {
       response.appendResponseLine(`## ${ext.name}`);
       response.appendResponseLine(`- ID: ${ext.id}`);
       response.appendResponseLine(`- Version: ${ext.version}`);
-      response.appendResponseLine(`- Status: ${ext.enabled ? '✅ Enabled' : '❌ Disabled'}`);
+      response.appendResponseLine(
+        `- Status: ${ext.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+      );
       response.appendResponseLine('');
     }
-    
+
     response.setIncludePages(true);
   },
 });
@@ -112,30 +130,37 @@ export const listExtensions = defineTool({
 ## 📋 完整工具列表
 
 ### 扩展发现 (3 tools)
+
 - `list_extensions` - 列出所有扩展
 - `get_extension_details` - 获取扩展详情
 - `inspect_extension_manifest` - 检查 manifest.json
 
 ### 上下文管理 (2 tools)
+
 - `list_extension_contexts` - 列出扩展上下文
 - `switch_extension_context` - 切换上下文
 
 ### Storage 检查 (2 tools)
+
 - `inspect_extension_storage` - 检查 Storage
 - `watch_extension_storage` - 监控 Storage 变化
 
 ### 消息追踪 (2 tools)
+
 - `monitor_extension_messages` - 监控消息
 - `trace_extension_api_calls` - 追踪 API 调用
 
 ### 日志收集 (1 tool)
+
 - `get_extension_logs` - 收集扩展日志
 
 ### 性能分析 (2 tools)
+
 - `analyze_extension_performance` - 性能分析
 - `detect_extension_conflicts` - 冲突检测
 
 ### 批量测试 (1 tool)
+
 - `test_extension_compatibility` - 兼容性测试
 
 ## 🔧 注册工具

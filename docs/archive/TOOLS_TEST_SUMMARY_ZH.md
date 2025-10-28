@@ -18,19 +18,22 @@
 ## ✅ 正常工作的部分
 
 ### 1. HTTP API 端点 (100% 通过)
-| 端点 | 状态 | 响应时间 |
-|------|------|---------|
-| `/health` | ✅ 正常 | < 50ms |
-| `/api/register` | ✅ 正常 | < 100ms |
-| `/api/auth/token` | ✅ 正常 | < 100ms |
+
+| 端点              | 状态    | 响应时间 |
+| ----------------- | ------- | -------- |
+| `/health`         | ✅ 正常 | < 50ms   |
+| `/api/register`   | ✅ 正常 | < 100ms  |
+| `/api/auth/token` | ✅ 正常 | < 100ms  |
 | `/sse?userId=xxx` | ✅ 正常 | 连接成功 |
 
 ### 2. 身份认证 (✅ 正常)
+
 - Bearer Token 认证: ✅ 工作正常
 - Token 生成: ✅ 格式正确
 - Authorization 头验证: ✅ 正常
 
 ### 3. SSE 连接 (✅ 正常)
+
 - 连接建立: ✅ 成功
 - Session ID 接收: ✅ 正常
 - 消息格式:
@@ -47,17 +50,20 @@
 
 **现象**:  
 SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` 返回:
+
 ```json
-{"error":"Session not found"}
+{"error": "Session not found"}
 ```
 
 **时间线**:
+
 1. ✅ SSE 连接建立
 2. ✅ 接收 Session ID: `a532be41-9f7f-4e6b-953d-fb944bbec688`
-3. ⏱️  立即 POST (< 100ms)
+3. ⏱️ 立即 POST (< 100ms)
 4. ❌ 错误: "Session not found"
 
 **影响**:
+
 - **阻塞所有工具测试**
 - 无法调用任何 MCP 工具
 - 无法完成综合测试
@@ -78,6 +84,7 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
    - SSE 和 HTTP 使用不同的 Session 存储
 
 **证据**:
+
 - 服务器健康指标显示错误率 100%
 - 4 次连接,4 次错误
 - 所有测试尝试失败
@@ -108,19 +115,19 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
 
 ### Extension 工具 (12个) - 全部阻塞
 
-| 工具 | 状态 |
-|------|------|
-| list_extensions | ⏳ 阻塞 |
-| get_extension_details | ⏳ 阻塞 |
+| 工具                              | 状态    |
+| --------------------------------- | ------- |
+| list_extensions                   | ⏳ 阻塞 |
+| get_extension_details             | ⏳ 阻塞 |
 | activate_extension_service_worker | ⏳ 阻塞 |
-| inspect_extension_storage | ⏳ 阻塞 |
-| get_extension_logs | ⏳ 阻塞 |
-| diagnose_extension_errors | ⏳ 阻塞 |
-| inspect_extension_manifest | ⏳ 阻塞 |
-| check_content_script_injection | ⏳ 阻塞 |
-| evaluate_in_extension | ⏳ 阻塞 |
-| reload_extension | ⏳ 阻塞 |
-| ... 其他 | ⏳ 阻塞 |
+| inspect_extension_storage         | ⏳ 阻塞 |
+| get_extension_logs                | ⏳ 阻塞 |
+| diagnose_extension_errors         | ⏳ 阻塞 |
+| inspect_extension_manifest        | ⏳ 阻塞 |
+| check_content_script_injection    | ⏳ 阻塞 |
+| evaluate_in_extension             | ⏳ 阻塞 |
+| reload_extension                  | ⏳ 阻塞 |
+| ... 其他                          | ⏳ 阻塞 |
 
 ### Browser 工具 (26个) - 全部阻塞
 
@@ -133,13 +140,18 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
 ### 优先级 1: 修复 Session 管理
 
 1. **添加调试日志**
+
    ```typescript
    // 在 handleSSE() 中:
    console.log('Session created:', sessionId);
-   console.log('SessionManager has session:', this.sessionManager.hasSession(sessionId));
+   console.log(
+     'SessionManager has session:',
+     this.sessionManager.hasSession(sessionId),
+   );
    ```
 
 2. **确保 Session 创建完成再发送 SSE 消息**
+
    ```typescript
    // 确保这个顺序:
    await this.sessionManager.createSession(...);  // 等待完成
@@ -147,6 +159,7 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
    ```
 
 3. **添加调试端点**
+
    ```typescript
    GET /api/debug/sessions
    → 列出所有活跃 Session 及时间戳
@@ -159,6 +172,7 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
 ### 优先级 2: 完成工具测试
 
 修复后立即:
+
 1. 重新运行测试脚本
 2. 测试所有 38 个工具
 3. 记录每个工具的行为
@@ -185,12 +199,14 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
 ## 📈 下一步行动
 
 ### 服务器团队
+
 1. 🔴 修复 Session 管理竞态条件
 2. 添加 Session 生命周期日志
 3. 增加初始 Session 超时时间
 4. 添加 Session 调试端点
 
 ### 测试团队
+
 1. 修复后重新运行测试
 2. 记录所有工具行为
 3. 创建回归测试套件
@@ -201,18 +217,23 @@ SSE 连接成功接收 Session ID 后,立即 POST 到 `/message?sessionId=xxx` �
 ## 🏁 结论
 
 ### 现状
+
 Multi-Tenant MCP 服务器**基础设施正常运行**,但存在**严重的 Session 管理 Bug**,导致无法使用任何工具。Bug 表现为 Session ID 在发送后立即失效,100% 可复现。
 
 ### 测试完成度
+
 - 基础设施: 100% 测试,全部通过
 - 工具测试: 0% 完成,被阻塞
 - 总体: 30% 完成
 
 ### 优先级建议
+
 **🔴 高优先级**: 修复 Session 管理后再部署生产或继续测试。此问题 100% 复现,影响所有工具功能。
 
 ### 修复后预期
+
 修复 Session 管理后:
+
 - 所有工具可测试
 - 5分钟内完成完整测试
 - 生成详细工具行为文档

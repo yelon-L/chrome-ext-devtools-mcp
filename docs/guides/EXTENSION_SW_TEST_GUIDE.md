@@ -27,6 +27,7 @@
 ### 方法 1: 安装现有扩展 (推荐)
 
 1. **打开 Chrome**
+
    ```bash
    # 访问本地 Chrome
    chromium --remote-debugging-port=9222 &
@@ -35,10 +36,10 @@
 2. **安装测试扩展**
    - 访问: `chrome://extensions/`
    - 打开"开发者模式"
-   - 推荐安装: 
-     * uBlock Origin (有 Service Worker)
-     * JSONView (简单扩展)
-     * React DevTools (复杂扩展)
+   - 推荐安装:
+     - uBlock Origin (有 Service Worker)
+     - JSONView (简单扩展)
+     - React DevTools (复杂扩展)
 
 3. **验证安装**
    ```bash
@@ -100,6 +101,7 @@ node test-extension-tools.mjs
 ```
 
 **预期输出:**
+
 ```
 Test 1: list_extensions
   ✅ list_extensions
@@ -109,6 +111,7 @@ Test 1: list_extensions
 ### 2. 检查 Service Worker 状态
 
 测试会自动执行以下检查:
+
 1. List Extension Contexts - 查看 SW 是否活跃
 2. Activate Service Worker - 尝试激活
 3. Verify SW Activation - 确认激活成功
@@ -128,11 +131,13 @@ Test 1: list_extensions
 ```
 
 **然后运行测试:**
+
 ```bash
 node test-extension-tools.mjs
 ```
 
 **预期行为:**
+
 1. `list_extension_contexts` 应该显示 SW 不活跃
 2. `activate_extension_service_worker` 应该成功激活 SW
 3. 再次 `list_extension_contexts` 应该显示 SW 已激活
@@ -312,11 +317,13 @@ curl -s http://localhost:9222/json | jq -r '.[] | .url' | grep chrome-extension
 ### 问题 2: Service Worker 无法激活
 
 **可能原因:**
+
 1. 扩展没有 Service Worker (MV2 扩展)
 2. Manifest 配置错误
 3. Chrome 版本不支持
 
 **解决方法:**
+
 ```bash
 # 检查扩展类型
 node test-extension-tools.mjs | grep "MV3\|MV2"
@@ -422,14 +429,15 @@ sleep 60 && node test-extension-tools.mjs
 
 ### 测试结果总结
 
-| 工具 | 状态 | 日志捕获 | 备注 |
-|------|------|----------|------|
-| `get_background_logs` | ✅ **正常** | ✅ 成功捕获 10 条 | 实时捕获机制工作正常 |
-| `get_offscreen_logs` | ❌ **有Bug** | ❌ 返回 0 条 | Target 匹配失败 |
+| 工具                  | 状态         | 日志捕获          | 备注                 |
+| --------------------- | ------------ | ----------------- | -------------------- |
+| `get_background_logs` | ✅ **正常**  | ✅ 成功捕获 10 条 | 实时捕获机制工作正常 |
+| `get_offscreen_logs`  | ❌ **有Bug** | ❌ 返回 0 条      | Target 匹配失败      |
 
 ### Background 日志工具验证 ✅
 
 **测试流程:**
+
 1. 在 Service Worker 中启动定时器，每秒打印 3 条不同级别的日志
 2. 调用 `getBackgroundLogs({capture: true, duration: 6000})`
 3. **成功捕获 10 条日志**，包含:
@@ -439,22 +447,25 @@ sleep 60 && node test-extension-tools.mjs
    - 源文件信息
 
 **关键发现:**
+
 - 工具采用**实时捕获机制**
 - **必须先启动捕获，再产生日志**（时机很重要）
 - 捕获期间的日志才能被记录
 - 历史日志需要扩展在 `globalThis.__logs` 中存储
-- **注意:** 
+- **注意:**
 - `includeHistory` 使用 CDP Log domain 获取 Chrome 收集的历史日志
 - **无需扩展实现任何功能**，直接从 Chrome 获取已收集的日志
 - 默认 `includeHistory=false` 是为了性能（历史日志可能很多）
 - `duration` 控制实时捕获的时长，可根据场景调整（3-20 秒）
 
 **技术实现**：
+
 - 历史日志：通过 `Log.enable` → `Log.entryAdded` 事件获取
 - 实时日志：通过 `Runtime.consoleAPICalled` 事件捕获
 - 两者独立工作，互不干扰
 
 **示例输出:**
+
 ```
 📊 Total: 10 entries
 - 📝 log: 4 entries
@@ -470,16 +481,19 @@ sleep 60 && node test-extension-tools.mjs
 ### Offscreen 日志工具问题 ❌
 
 **问题描述:**
+
 - Offscreen Document 确实存在（`list_extension_contexts` 可见）
 - Offscreen 有在打印日志（通过页面方式可见 5 条历史日志）
 - 但 `getOffscreenLogs` 始终返回 0 条日志
 
 **验证步骤:**
+
 1. 通过 `list_extension_contexts` 确认 Offscreen target 存在
    - Target ID: `DE80498E7E154C40D6C9F47EF3CB037A`
    - URL: `chrome-extension://obbhgfjghnnodmekfkfffojnkbdbfpbh/offscreen/offscreen.html`
 
 2. 直接导航到 Offscreen 页面，成功获取到 5 条历史日志:
+
    ```
    [04:06:33] [Offscreen] Document loaded (v0.4.263)
    [04:06:33] [Offscreen] ✅ Ready to handle WebSocket connections
@@ -503,16 +517,21 @@ const offscreenTarget = await this.getExtensionOffscreenTarget(extensionId);
 // 第二步：通过 Puppeteer API 匹配 target
 const targets = await this.browser.targets();
 const offTarget = targets.find(
-  t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+  t =>
+    (t as unknown as {_targetId: string})._targetId ===
+    offscreenTarget.targetId,
 );
 
 if (!offTarget) {
-  this.logError('[ExtensionHelper] 未找到 Offscreen Document 的 Puppeteer Target');
+  this.logError(
+    '[ExtensionHelper] 未找到 Offscreen Document 的 Puppeteer Target',
+  );
   return {logs: [], isActive: false};
 }
 ```
 
 **问题点:**
+
 1. **使用私有属性** `_targetId` 进行 target 匹配
 2. 这种匹配方式对 Offscreen Document 不可靠
 3. Background logs 使用相同的模式但能工作，说明 Offscreen target 的特性不同
@@ -524,7 +543,9 @@ if (!offTarget) {
 ```typescript
 // ❌ 修改前：使用私有属性
 const offTarget = targets.find(
-  t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+  t =>
+    (t as unknown as {_targetId: string})._targetId ===
+    offscreenTarget.targetId,
 );
 
 // ✅ 修改后：使用 URL 匹配
@@ -535,6 +556,7 @@ const offTarget = targets.find(t => {
 ```
 
 **优点:**
+
 - 使用公开 API
 - 更可靠
 - 与 `getExtensionOffscreenTarget` 的查找逻辑一致
@@ -546,11 +568,12 @@ const offTarget = targets.find(t => {
 const cdp = await this.getCDPSession();
 const session = await cdp.send('Target.attachToTarget', {
   targetId: offscreenTarget.targetId,
-  flatten: true
+  flatten: true,
 });
 ```
 
 **优点:**
+
 - 更底层，更直接
 - 避免 Puppeteer 封装的问题
 
@@ -569,13 +592,13 @@ this.log(`[Debug] Found matching target: ${!!offTarget}`);
 
 ### 对比分析
 
-| 特性 | Background Logs | Offscreen Logs |
-|------|-----------------|----------------|
+| 特性        | Background Logs                | Offscreen Logs                |
+| ----------- | ------------------------------ | ----------------------------- |
 | Target 查找 | `getExtensionBackgroundTarget` | `getExtensionOffscreenTarget` |
-| Target 匹配 | 使用 `_targetId` | 使用 `_targetId` |
-| CDP Session | ✅ 成功创建 | ❌ 可能失败 |
-| 日志捕获 | ✅ 正常工作 | ❌ 返回空 |
-| 代码模式 | 完全相同 | 完全相同 |
+| Target 匹配 | 使用 `_targetId`               | 使用 `_targetId`              |
+| CDP Session | ✅ 成功创建                    | ❌ 可能失败                   |
+| 日志捕获    | ✅ 正常工作                    | ❌ 返回空                     |
+| 代码模式    | 完全相同                       | 完全相同                      |
 
 **结论:** 相同的代码模式，但 Offscreen 失败，说明问题在于 Offscreen target 的特性与 Background 不同。
 
@@ -597,11 +620,13 @@ evaluate_script(() => {
 ```
 
 **优点:**
+
 - 可以立即使用
 - 能获取完整的历史日志
 - 支持实时监听
 
 **缺点:**
+
 - 不是真正的 Offscreen Document（是作为普通页面打开的）
 - 生命周期不同
 
@@ -624,6 +649,7 @@ evaluate_script(() => {
 ### 测试数据
 
 **扩展信息:**
+
 - ID: `obbhgfjghnnodmekfkfffojnkbdbfpbh`
 - 名称: Video SRT Ext (Rebuilt)
 - 版本: 0.4.263
@@ -632,11 +658,13 @@ evaluate_script(() => {
 - Offscreen Document: ✅ Exists
 
 **测试时间:**
+
 - 开始: 2025-10-25 12:03
 - 结束: 2025-10-25 12:20
 - 总计: ~17 分钟
 
 **测试次数:**
+
 - Background logs: 3 次测试，全部成功
 - Offscreen logs: 5 次测试，全部失败
 - 页面方式访问 Offscreen: 1 次测试，成功
@@ -652,15 +680,16 @@ evaluate_script(() => {
 ## 🎉 修复完成与验证报告
 
 ### 修复日期
+
 - Offscreen 修复: 2025-10-25 12:14
 - Background 修复: 2025-10-25 12:17
 
 ### 最终测试结果
 
-| 工具 | 状态 | 捕获日志 | 验证方法 |
-|------|------|----------|----------|
-| **get_background_logs** | ✅ **正常** | 15 条 | 定时器打印 log/warn/error |
-| **get_offscreen_logs** | ✅ **正常** | 156 条 | 实际扩展使用场景 |
+| 工具                    | 状态        | 捕获日志 | 验证方法                  |
+| ----------------------- | ----------- | -------- | ------------------------- |
+| **get_background_logs** | ✅ **正常** | 15 条    | 定时器打印 log/warn/error |
+| **get_offscreen_logs**  | ✅ **正常** | 156 条   | 实际扩展使用场景          |
 
 ### 修复内容详解
 
@@ -669,14 +698,18 @@ evaluate_script(() => {
 **Git Commit:** 289c858
 
 **问题:**
+
 - 使用私有属性 `_targetId` 匹配不可靠
 - Offscreen Document 的 target 特性与 Background 不同
 
 **修复:**
+
 ```typescript
 // ❌ 修改前
 const offTarget = targets.find(
-  t => (t as unknown as {_targetId: string})._targetId === offscreenTarget.targetId
+  t =>
+    (t as unknown as {_targetId: string})._targetId ===
+    offscreenTarget.targetId,
 );
 
 // ✅ 修改后
@@ -689,6 +722,7 @@ const offTarget = targets.find(t => {
 ```
 
 **验证结果:**
+
 - ✅ 成功捕获 156 条 Offscreen 日志
 - 日志内容：`[Offscreen] 📨 Received message from Background Object`
 
@@ -697,15 +731,18 @@ const offTarget = targets.find(t => {
 **Git Commit:** 3d2e6e2
 
 **问题:**
+
 - 第一次修复使用了错误的 `url.includes(backgroundTarget.url)` 逻辑
 - `backgroundTarget.url` 是完整 URL，不应该用 includes
 
 **修复:**
+
 ```typescript
 // ❌ 第一次修复（错误）
 const swTarget = targets.find(t => {
   const url = t.url();
-  const matches = url.includes(extensionId) && url.includes(backgroundTarget.url);
+  const matches =
+    url.includes(extensionId) && url.includes(backgroundTarget.url);
   return matches;
 });
 
@@ -719,6 +756,7 @@ const swTarget = targets.find(t => {
 ```
 
 **验证结果:**
+
 - ✅ 成功捕获 15 条 Background 日志
 - 日志类型：5 log + 5 warning + 5 error
 
@@ -727,6 +765,7 @@ const swTarget = targets.find(t => {
 #### Background 日志测试
 
 **步骤:**
+
 ```javascript
 // 1. 在 Service Worker 中启动定时器
 let count = 0;
@@ -739,10 +778,11 @@ const interval = setInterval(() => {
 }, 1000);
 
 // 2. 立即捕获日志
-get_background_logs({capture: true, duration: 10000})
+get_background_logs({capture: true, duration: 10000});
 ```
 
 **结果:**
+
 ```
  Total: 15 entries
 - log: 5 entries
@@ -758,12 +798,14 @@ get_background_logs({capture: true, duration: 10000})
 #### Offscreen 日志测试
 
 **步骤:**
+
 1. 打开 HLS 测试页面
 2. Hover 到视频，点击"字幕"按钮
 3. 播放视频，等待状态变为"运行中"
 4. 捕获 Offscreen 日志
 
 **结果:**
+
 ```
 📊 Total: 156 entries
 - 📝 log: 156 entries
@@ -779,12 +821,13 @@ get_background_logs({capture: true, duration: 10000})
 
 **为什么使用不同的匹配方式？**
 
-| Target 类型 | 匹配方式 | 原因 |
-|------------|---------|------|
+| Target 类型    | 匹配方式                       | 原因                                   |
+| -------------- | ------------------------------ | -------------------------------------- |
 | **Background** | `url === backgroundTarget.url` | CDP 返回完整准确的 URL，直接比较最可靠 |
-| **Offscreen** | `url.includes('/offscreen')` | 需要模式匹配，因为 URL 路径可能变化 |
+| **Offscreen**  | `url.includes('/offscreen')`   | 需要模式匹配，因为 URL 路径可能变化    |
 
 **核心区别:**
+
 - Background target 通过 `type === 'service_worker'` 唯一确定，URL 固定
 - Offscreen target 没有专用 type，需要通过 URL 模式识别
 
@@ -800,12 +843,14 @@ get_background_logs({capture: true, duration: 10000})
 ### 遗留问题与改进
 
 #### 已解决 ✅
+
 - ✅ Offscreen target 匹配失败
 - ✅ Background target 匹配失败
 - ✅ 私有属性依赖问题
 - ✅ 调试日志缺失
 
 #### 后续优化建议
+
 1. 考虑添加 fallback 机制（URL 匹配失败时尝试其他方式）
 2. 优化调试日志级别（production 环境可关闭）
 3. 添加单元测试覆盖 target 匹配逻辑
@@ -830,6 +875,7 @@ get_background_logs({capture: true, duration: 10000})
 #### 1. Timeout 机制缺陷
 
 **原代码:**
+
 ```typescript
 const checkTimeout = () => {
   const elapsed = Date.now() - startTime;
@@ -843,6 +889,7 @@ const checkTimeout = () => {
 ```
 
 **问题:**
+
 - `return` 只退出定时器回调，不退出主 handler
 - 主函数继续执行，可能永久卡住
 - 没有真正中断操作
@@ -850,6 +897,7 @@ const checkTimeout = () => {
 #### 2. devPage.evaluate 无超时保护
 
 **原代码:**
+
 ```typescript
 const reloadResult = await devPage.evaluate((extId: string) => {
   return new Promise((resolve, reject) => {
@@ -866,6 +914,7 @@ const reloadResult = await devPage.evaluate((extId: string) => {
 ```
 
 **问题:**
+
 - `developerPrivate.reload()` 回调可能永远不被调用
 - 扩展加载失败或卡住时，Promise 永远不 resolve/reject
 - `devPage.evaluate` 本身没有设置 timeout
@@ -892,23 +941,28 @@ const reloadResult = await devPage.evaluate((extId: string) => {
 #### 双重超时保护
 
 **修复后代码:**
+
 ```typescript
 // 🛡️ 内部超时：evaluate 内部 8 秒
 const reloadPromise = devPage.evaluate((extId: string) => {
   return new Promise((resolve, reject) => {
     const chromeAPI = (window as any).chrome;
-    
+
     // 验证 API 可用性
     if (!chromeAPI?.developerPrivate?.reload) {
       reject(new Error('chrome.developerPrivate.reload() not available'));
       return;
     }
-    
+
     // 🛡️ Safety timeout: 8 秒内回调未触发则 reject
     const safetyTimeout = setTimeout(() => {
-      reject(new Error('Extension reload callback timeout (8s) - reload may have failed'));
+      reject(
+        new Error(
+          'Extension reload callback timeout (8s) - reload may have failed',
+        ),
+      );
     }, 8000);
-    
+
     chromeAPI.developerPrivate.reload(extId, options, () => {
       clearTimeout(safetyTimeout); // ✅ 清除超时
       if (chromeAPI.runtime.lastError) {
@@ -934,13 +988,14 @@ const reloadResult = await Promise.race([reloadPromise, timeoutPromise]);
 
 **保护层级:**
 
-| 层级 | 超时时间 | 作用 |
-|------|---------|------|
-| **内部保护** | 8 秒 | 检测 reload 回调未触发 |
-| **外部保护** | 10 秒 | 防止 evaluate 整体卡住 |
-| **全局保护** | 20 秒 | 整个 handler 的最大执行时间 |
+| 层级         | 超时时间 | 作用                        |
+| ------------ | -------- | --------------------------- |
+| **内部保护** | 8 秒     | 检测 reload 回调未触发      |
+| **外部保护** | 10 秒    | 防止 evaluate 整体卡住      |
+| **全局保护** | 20 秒    | 整个 handler 的最大执行时间 |
 
 **错误消息:**
+
 - 8 秒超时：`Extension reload callback timeout (8s) - reload may have failed`
 - 10 秒超时：`Extension reload operation timeout (10s)`
 - 20 秒超时：`Reload operation timeout`
@@ -971,9 +1026,9 @@ callback(() => {
 
 ```typescript
 // ✅ 区分不同超时层级
-'Extension reload callback timeout (8s)' // 内部
-'Extension reload operation timeout (10s)' // 外部
-'Reload operation timeout (20s)' // 全局
+'Extension reload callback timeout (8s)'; // 内部
+'Extension reload operation timeout (10s)'; // 外部
+'Reload operation timeout (20s)'; // 全局
 ```
 
 ### 测试建议
@@ -981,12 +1036,14 @@ callback(() => {
 #### 测试场景
 
 1. **正常重载**
+
    ```bash
    reload_extension(extensionId)
    # 预期：2-3 秒内完成
    ```
 
 2. **扩展加载失败**
+
    ```bash
    # 修改 manifest.json 引入语法错误
    reload_extension(extensionId)
@@ -994,6 +1051,7 @@ callback(() => {
    ```
 
 3. **Service Worker 卡住**
+
    ```bash
    # background.js 中添加死循环
    reload_extension(extensionId)
@@ -1010,6 +1068,7 @@ callback(() => {
 ### 相关工具
 
 **受影响的工具:**
+
 - ✅ `reload_extension` - 已修复
 - ⚠️ `activate_extension_service_worker` - 可能需要类似保护
 - ⚠️ `evaluate_in_extension` - 可能需要类似保护

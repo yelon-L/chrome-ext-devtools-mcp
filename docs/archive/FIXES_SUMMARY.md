@@ -6,11 +6,13 @@
 
 **问题：** Service Worker 手动激活的提示信息对用户来说过于技术化，且不必要。
 
-**修复：** 
+**修复：**
+
 - 文件：`src/main.ts`
 - 删除了第 98-109 行的 Chrome Extension Debugging 提示块
 
 **修改前：**
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔌 CHROME EXTENSION DEBUGGING
@@ -26,6 +28,7 @@ This ensures chrome.* APIs are available.
 ```
 
 **修改后：**
+
 ```
 （已删除）
 ```
@@ -37,17 +40,19 @@ This ensures chrome.* APIs are available.
 **问题：** 用户使用 `--mode multi-tenant` 参数时，程序应该给出友好的错误提示。
 
 **修复：**
+
 - 文件：`src/index.ts`
 - 添加了参数检测逻辑（第 26-50 行）
 
 **实现：**
+
 ```typescript
 // 检测 --mode 参数（已废弃）
 const modeIndex = process.argv.indexOf('--mode');
 if (modeIndex !== -1) {
   const modeValue = process.argv[modeIndex + 1];
   console.error('\n⚠️  WARNING: The --mode parameter is not supported.');
-  
+
   if (modeValue === 'multi-tenant') {
     console.error('');
     console.error('For Multi-tenant mode, please use:');
@@ -70,6 +75,7 @@ if (modeIndex !== -1) {
 ```
 
 **效果：**
+
 ```bash
 $ ./chrome-extension-debug-linux-x64 --mode multi-tenant
 
@@ -129,6 +135,7 @@ export const VERSION = '0.8.2';
 #### 3.3 更新所有使用版本号的文件
 
 **修改的文件：**
+
 - `src/index.ts` - 使用 `VERSION` 替代 `readPackageJson().version`
 - `src/main.ts` - 使用 `VERSION` 替代 `readPackageJson().version`
 - `src/server-http.ts` - 使用 `VERSION` 替代 `readPackageJson().version`
@@ -136,6 +143,7 @@ export const VERSION = '0.8.2';
 - `src/multi-tenant/server-multi-tenant.ts` - 使用 `VERSION` 替代 `readPackageJson().version`
 
 **示例修改（src/index.ts）：**
+
 ```typescript
 // 修改前
 import {readPackageJson} from './utils/common.js';
@@ -159,6 +167,7 @@ const pkgVersion = VERSION;
 ```
 
 **构建流程：**
+
 ```
 1. inject-version.ts → 生成 src/version.ts
 2. tsc → 编译 TypeScript
@@ -172,10 +181,12 @@ const pkgVersion = VERSION;
 **问题：** `scripts/package-bun.sh` 中的使用说明还在用旧文件名。
 
 **修复：**
+
 - 文件：`scripts/package-bun.sh`
 - 将所有 `chrome-devtools-mcp` 改为 `${binaryName}`（变量值为 `chrome-extension-debug`）
 
 **修改：**
+
 ```bash
 # 修改前
 echo "📦 文件列表:"
@@ -229,6 +240,7 @@ Ensure you trust the MCP client before connecting.
 ```
 
 ✅ **验证通过：**
+
 - 版本号显示为 `v0.8.2`（从 package.json 读取）
 - 没有 manually activate 提示
 
@@ -258,6 +270,7 @@ Continuing with default stdio mode...
 ```
 
 ✅ **验证通过：**
+
 - 显示友好的警告信息
 - 提供正确的使用方法
 - 继续以默认 stdio 模式运行
@@ -267,10 +280,12 @@ Continuing with default stdio mode...
 ## 文件变更清单
 
 ### 新增文件
+
 - ✅ `scripts/inject-version.ts` - 版本号注入脚本
 - ✅ `src/version.ts` - 版本常量文件（自动生成）
 
 ### 修改文件
+
 - ✅ `src/index.ts` - 添加 --mode 检测，使用 VERSION
 - ✅ `src/main.ts` - 删除 manually activate 提示，使用 VERSION
 - ✅ `src/server-http.ts` - 使用 VERSION，添加缺失导入
@@ -291,7 +306,7 @@ Continuing with default stdio mode...
      ↓
   npm run build
      ↓
-  scripts/inject-version.ts 
+  scripts/inject-version.ts
      ↓
   生成 src/version.ts (export const VERSION = '0.8.2')
      ↓
@@ -348,7 +363,8 @@ bash scripts/package-bun.sh
 
 **测试结果：** 全部通过 ✅
 
-**影响范围：** 
+**影响范围：**
+
 - 用户体验改善
 - 版本管理更规范
 - 打包流程更可靠

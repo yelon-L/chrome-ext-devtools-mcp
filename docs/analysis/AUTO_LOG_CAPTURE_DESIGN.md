@@ -5,10 +5,12 @@
 ### 现状
 
 **页面工具已实现**：
+
 - `click`, `fill`, `evaluate_script` 等工具已自动包含页面日志
 - 使用 `response.setIncludeConsoleData(true)` 自动附加日志
 
 **扩展工具缺失**：
+
 - `evaluate_in_extension` 等扩展工具没有自动日志
 - 需要手动调用 `get_background_logs` / `get_offscreen_logs`
 - AI 无法在一次调用中获得完整的执行结果 + 日志
@@ -36,7 +38,7 @@
 ```typescript
 schema: {
   // ... 原有参数 ...
-  
+
   captureLogs: z.boolean()
     .optional()
     .default(true)
@@ -44,13 +46,13 @@ schema: {
     - true: Automatically capture all component logs (Background + Offscreen)
     - false: Skip log capture (for performance-critical operations)
     Default: true (recommended for most operations)`),
-    
+
   logDuration: z.number()
     .optional()
     .default(3000)
     .min(1000)
     .max(15000)
-    .describe(`Log capture duration in milliseconds. 
+    .describe(`Log capture duration in milliseconds.
     How long to listen for logs after the operation.
     Default: 3000ms (3 seconds)
     Range: 1000ms - 15000ms`),
@@ -77,34 +79,34 @@ schema: {
 ```typescript
 handler: async (request, response, context) => {
   const {
-    extensionId, 
+    extensionId,
     // ... 其他参数 ...
-    captureLogs = true, 
+    captureLogs = true,
     logDuration = 3000
   } = request.params;
 
   try {
     // 1. 执行主要操作
     const result = await performMainOperation(extensionId, ...);
-    
+
     // 2. 输出结果
     response.appendResponseLine(`# Operation Result\n`);
     response.appendResponseLine(`...result details...`);
-    
+
     // 3. 自动捕获日志（如果启用）
     if (captureLogs) {
       await captureExtensionLogs(
-        extensionId, 
-        logDuration, 
-        response, 
+        extensionId,
+        logDuration,
+        response,
         context
       );
     }
-    
+
   } catch (error) {
     // 错误处理
   }
-  
+
   response.setIncludePages(true);
 }
 ```
@@ -118,7 +120,7 @@ handler: async (request, response, context) => {
 ```typescript
 /**
  * 自动捕获扩展所有组件的日志
- * 
+ *
  * @param extensionId - 扩展 ID
  * @param duration - 捕获时长（毫秒）
  * @param response - Response 对象
@@ -128,82 +130,87 @@ async function captureExtensionLogs(
   extensionId: string,
   duration: number,
   response: any,
-  context: any
+  context: any,
 ): Promise<void> {
   response.appendResponseLine(`\n---\n\n## 📋 Extension Logs\n`);
   response.appendResponseLine(`*Capturing logs for ${duration}ms...*\n\n`);
-  
+
   try {
     // 并行捕获所有组件日志
     const [backgroundResult, offscreenResult] = await Promise.allSettled([
       // Background Service Worker
-      context.getBackgroundLogs(extensionId, {
-        capture: true,
-        duration,
-        includeStored: false,
-      }).catch((err: any) => ({ 
-        logs: [], 
-        error: err.message 
-      })),
-      
+      context
+        .getBackgroundLogs(extensionId, {
+          capture: true,
+          duration,
+          includeStored: false,
+        })
+        .catch((err: any) => ({
+          logs: [],
+          error: err.message,
+        })),
+
       // Offscreen Document
-      context.getOffscreenLogs(extensionId, {
-        capture: true,
-        duration,
-        includeStored: false,
-      }).catch((err: any) => ({ 
-        logs: [], 
-        error: err.message 
-      })),
+      context
+        .getOffscreenLogs(extensionId, {
+          capture: true,
+          duration,
+          includeStored: false,
+        })
+        .catch((err: any) => ({
+          logs: [],
+          error: err.message,
+        })),
     ]);
-    
+
     // 提取结果
-    const backgroundLogs = backgroundResult.status === 'fulfilled' 
-      ? backgroundResult.value 
-      : { logs: [], error: 'Failed to capture' };
-      
-    const offscreenLogs = offscreenResult.status === 'fulfilled'
-      ? offscreenResult.value
-      : { logs: [], error: 'Failed to capture' };
-    
+    const backgroundLogs =
+      backgroundResult.status === 'fulfilled'
+        ? backgroundResult.value
+        : {logs: [], error: 'Failed to capture'};
+
+    const offscreenLogs =
+      offscreenResult.status === 'fulfilled'
+        ? offscreenResult.value
+        : {logs: [], error: 'Failed to capture'};
+
     // 统计总数
-    const totalLogs = 
-      (backgroundLogs.logs?.length || 0) + 
-      (offscreenLogs.logs?.length || 0);
-    
+    const totalLogs =
+      (backgroundLogs.logs?.length || 0) + (offscreenLogs.logs?.length || 0);
+
     if (totalLogs === 0) {
-      response.appendResponseLine(`*No logs captured during this operation*\n\n`);
+      response.appendResponseLine(
+        `*No logs captured during this operation*\n\n`,
+      );
       response.appendResponseLine(`**Possible reasons**:`);
       response.appendResponseLine(`- Extension didn't log anything`);
-      response.appendResponseLine(`- Logs were produced before capture started`);
+      response.appendResponseLine(
+        `- Logs were produced before capture started`,
+      );
       response.appendResponseLine(`- Service Worker is inactive\n`);
       return;
     }
-    
-    response.appendResponseLine(`**Total captured**: ${totalLogs} log entries\n`);
-    
+
+    response.appendResponseLine(
+      `**Total captured**: ${totalLogs} log entries\n`,
+    );
+
     // Background 日志
     formatComponentLogs(
       'Background Service Worker',
       backgroundLogs,
       response,
-      10 // 显示最近 10 条
+      10, // 显示最近 10 条
     );
-    
+
     // Offscreen 日志
-    formatComponentLogs(
-      'Offscreen Document',
-      offscreenLogs,
-      response,
-      10
-    );
-    
+    formatComponentLogs('Offscreen Document', offscreenLogs, response, 10);
   } catch (error) {
     response.appendResponseLine(
-      `\n⚠️  **Log capture failed**: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+      `\n⚠️  **Log capture failed**: ${error instanceof Error ? error.message : 'Unknown error'}\n`,
     );
     response.appendResponseLine(
-      `*Tip: Try increasing \`logDuration\` or check if extension is active*\n`
+      `*Tip: Try increasing \`logDuration\` or check if extension is active*\n`,
     );
   }
 }
@@ -217,55 +224,55 @@ async function captureExtensionLogs(
  */
 function formatComponentLogs(
   componentName: string,
-  logsResult: { logs?: any[]; error?: string },
+  logsResult: {logs?: any[]; error?: string},
   response: any,
-  maxDisplay: number = 10
+  maxDisplay: number = 10,
 ): void {
   response.appendResponseLine(`### ${componentName}\n`);
-  
+
   // 检查错误
   if (logsResult.error) {
     response.appendResponseLine(`*Error: ${logsResult.error}*\n`);
     return;
   }
-  
+
   const logs = logsResult.logs || [];
-  
+
   if (logs.length === 0) {
     response.appendResponseLine(`*No logs*\n`);
     return;
   }
-  
+
   response.appendResponseLine(`**Total**: ${logs.length} entries\n`);
-  
+
   // 显示最近的日志
   const displayLogs = logs.slice(-maxDisplay);
-  
+
   for (const log of displayLogs) {
     const timestamp = new Date(log.timestamp).toLocaleTimeString();
     const level = log.level || 'log';
     const icon = getLogIcon(level);
     const message = truncateMessage(log.message, 150);
-    
+
     response.appendResponseLine(`${icon} **[${timestamp}]** ${message}`);
-    
+
     // 如果有 stack trace，显示第一行
     if (log.stackTrace && level === 'error') {
       const firstFrame = log.stackTrace.callFrames?.[0];
       if (firstFrame) {
         response.appendResponseLine(
-          `  ↳ at ${firstFrame.functionName} (${firstFrame.url}:${firstFrame.lineNumber})`
+          `  ↳ at ${firstFrame.functionName} (${firstFrame.url}:${firstFrame.lineNumber})`,
         );
       }
     }
   }
-  
+
   if (logs.length > maxDisplay) {
     response.appendResponseLine(
-      `\n*...and ${logs.length - maxDisplay} more entries (use \`get_background_logs\` for full history)*\n`
+      `\n*...and ${logs.length - maxDisplay} more entries (use \`get_background_logs\` for full history)*\n`,
     );
   }
-  
+
   response.appendResponseLine('');
 }
 
@@ -313,6 +320,7 @@ function truncateMessage(message: string, maxLength: number): string {
    - 已有部分实现，需要优化
 
 **实现文件**：
+
 - `src/tools/extension/execution.ts`
 
 ### Phase 2: 交互工具（P1）
@@ -328,6 +336,7 @@ function truncateMessage(message: string, maxLength: number): string {
    - 验证 UI 操作结果
 
 **实现文件**：
+
 - `src/tools/extension/service-worker-activation.ts`
 - `src/tools/extension/popup-lifecycle.ts`
 
@@ -347,14 +356,15 @@ function truncateMessage(message: string, maxLength: number): string {
 ```typescript
 // AI 调用（最常见）
 evaluate_in_extension({
-  extensionId: "obbhgfjghnnodmekfkfffojnkbdbfpbh",
-  code: "chrome.storage.local.get(['settings'])"
+  extensionId: 'obbhgfjghnnodmekfkfffojnkbdbfpbh',
+  code: "chrome.storage.local.get(['settings'])",
   // captureLogs 默认 true，自动捕获 3 秒日志
-})
+});
 ```
 
 **输出**：
-```
+
+````
 # Evaluation Result
 
 **Extension ID**: obbhgfjghnnodmekfkfffojnkbdbfpbh
@@ -363,9 +373,10 @@ evaluate_in_extension({
 **Code**:
 ```javascript
 chrome.storage.local.get(['settings'])
-```
+````
 
 **Result**:
+
 ```json
 {
   "settings": {
@@ -379,7 +390,7 @@ chrome.storage.local.get(['settings'])
 
 ## 📋 Extension Logs
 
-*Capturing logs for 3000ms...*
+_Capturing logs for 3000ms..._
 
 **Total captured**: 15 log entries
 
@@ -398,7 +409,8 @@ chrome.storage.local.get(['settings'])
 📝 **[13:45:12]** [Offscreen] 📨 Received message from Background
 📝 **[13:45:12]** [Offscreen] Processing audio data
 📝 **[13:45:13]** [Offscreen] Audio processing complete
-```
+
+````
 
 ### 示例 2：自定义捕获时长
 
@@ -410,7 +422,7 @@ evaluate_in_extension({
   captureLogs: true,
   logDuration: 10000  // 捕获 10 秒
 })
-```
+````
 
 ### 示例 3：禁用日志（性能优化）
 
@@ -418,10 +430,10 @@ evaluate_in_extension({
 // 批量操作，不需要日志
 for (let i = 0; i < 100; i++) {
   evaluate_in_extension({
-    extensionId: "obbhgfjghnnodmekfkfffojnkbdbfpbh",
+    extensionId: 'obbhgfjghnnodmekfkfffojnkbdbfpbh',
     code: `processItem(${i})`,
-    captureLogs: false  // 关闭日志提升性能
-  })
+    captureLogs: false, // 关闭日志提升性能
+  });
 }
 ```
 
@@ -433,10 +445,11 @@ for (let i = 0; i < 100; i++) {
 
 ```typescript
 // click, fill, evaluate_script 等
-response.setIncludeConsoleData(true);  // 自动包含页面日志
+response.setIncludeConsoleData(true); // 自动包含页面日志
 ```
 
 **特点**：
+
 - ✅ 简单：一行代码搞定
 - ✅ 自动：无需参数控制
 - ❌ 不灵活：无法关闭
@@ -452,6 +465,7 @@ if (captureLogs) {
 ```
 
 **特点**：
+
 - ✅ 灵活：可选是否捕获
 - ✅ 可控：可调整捕获时长
 - ✅ 完整：包含所有组件日志
@@ -464,11 +478,13 @@ if (captureLogs) {
 ### 性能影响
 
 **日志捕获开销**：
+
 - 捕获时间：主要是 `duration` 参数（默认 3 秒）
 - 内存占用：每条日志约 500 bytes，100 条日志约 50KB
 - 网络开销：日志通过 CDP 传输，约 1-2KB/条
 
 **优化措施**：
+
 1. 默认只显示最近 10 条日志
 2. 可以通过 `captureLogs: false` 完全禁用
 3. 并行捕获 Background 和 Offscreen，不串行等待
@@ -477,11 +493,13 @@ if (captureLogs) {
 ### 错误处理
 
 **失败场景**：
+
 1. Service Worker 未激活 → 捕获 0 条日志
 2. Offscreen 不存在 → 只捕获 Background 日志
 3. 超时 → 已有超时保护机制
 
 **处理策略**：
+
 - 使用 `Promise.allSettled` 确保部分失败不影响整体
 - 每个组件单独 try-catch
 - 友好的错误消息和建议
@@ -489,6 +507,7 @@ if (captureLogs) {
 ### 向后兼容
 
 **兼容性考虑**：
+
 1. 新增参数都是可选的（`optional()`）
 2. 默认值保证旧代码行为不变
 3. 不修改现有 API 签名
@@ -509,30 +528,30 @@ describe('captureExtensionLogs', () => {
       mockResponse,
       mockContext
     );
-    
+
     expect(mockContext.getBackgroundLogs).toHaveBeenCalled();
     expect(mockContext.getOffscreenLogs).toHaveBeenCalled();
     expect(mockResponse.appendResponseLine).toHaveBeenCalledWith(
       expect.stringContaining('Extension Logs')
     );
   });
-  
+
   it('should handle when no logs are captured', async () => {
     mockContext.getBackgroundLogs.mockResolvedValue({ logs: [] });
     mockContext.getOffscreenLogs.mockResolvedValue({ logs: [] });
-    
+
     await captureExtensionLogs(...);
-    
+
     expect(mockResponse.appendResponseLine).toHaveBeenCalledWith(
       expect.stringContaining('No logs captured')
     );
   });
-  
+
   it('should handle capture failures gracefully', async () => {
     mockContext.getBackgroundLogs.mockRejectedValue(new Error('Timeout'));
-    
+
     await captureExtensionLogs(...);
-    
+
     // Should not throw, should log error message
     expect(mockResponse.appendResponseLine).toHaveBeenCalledWith(
       expect.stringContaining('Log capture failed')
@@ -549,6 +568,7 @@ describe('captureExtensionLogs', () => {
 ```
 
 **测试场景**：
+
 1. ✅ 默认捕获日志
 2. ✅ 禁用日志捕获
 3. ✅ 自定义捕获时长
@@ -573,12 +593,13 @@ for 3 seconds after execution. This includes:
 To disable log capture (for performance), set \`captureLogs: false\`.
 
 ...
-`
+`;
 ```
 
 ### 使用指南
 
 需要在以下文档中添加说明：
+
 1. `README.md` - 快速开始部分
 2. `docs/guides/EXTENSION_DEBUGGING_GUIDE.md` - 详细说明
 3. `docs/examples/` - 添加示例代码

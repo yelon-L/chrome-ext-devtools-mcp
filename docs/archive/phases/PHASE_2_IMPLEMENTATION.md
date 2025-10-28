@@ -3,6 +3,7 @@
 ## 已完成 ✅
 
 **Phase 1**: PersistentStoreV2 完整实现
+
 - 文件: `src/multi-tenant/storage/PersistentStoreV2.ts`
 - 所有用户和浏览器管理方法已实现
 - 包含完整的日志持久化和压缩机制
@@ -14,12 +15,16 @@
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts
 // 在顶部添加
-import {PersistentStoreV2, type UserRecord, type BrowserRecord} from './storage/PersistentStoreV2.js';
+import {
+  PersistentStoreV2,
+  type UserRecord,
+  type BrowserRecord,
+} from './storage/PersistentStoreV2.js';
 
 // 在类中替换
 class MultiTenantMCPServer {
-  private store: PersistentStoreV2;  // 替换原来的 PersistentStore
-  
+  private store: PersistentStoreV2; // 替换原来的 PersistentStore
+
   constructor() {
     // ...
     this.store = new PersistentStoreV2({
@@ -39,9 +44,9 @@ class MultiTenantMCPServer {
 ```typescript
 private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const url = new URL(req.url!, `http://${req.headers.host}`);
-  
+
   // ... 现有代码 ...
-  
+
   try {
     // ========== 用户管理 API ==========
     if (url.pathname === '/api/users' && req.method === 'POST') {
@@ -55,7 +60,7 @@ private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse)
     } else if (url.pathname.match(/^\/api\/users\/[^\/]+$/) && req.method === 'DELETE') {
       await this.handleDeleteUser(req, res, url);
     }
-    
+
     // ========== 浏览器管理 API ==========
     else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers$/) && req.method === 'POST') {
       await this.handleBindBrowser(req, res, url);
@@ -68,17 +73,17 @@ private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse)
     } else if (url.pathname.match(/^\/api\/users\/[^\/]+\/browsers\/[^\/]+$/) && req.method === 'DELETE') {
       await this.handleUnbindBrowser(req, res, url);
     }
-    
+
     // ========== SSE 连接（更新） ==========
     else if (url.pathname === '/sse' && req.method === 'GET') {
       await this.handleSSEV2(req, res);
     }
-    
+
     // ========== 向后兼容：旧的注册端点 ==========
     else if (url.pathname === '/api/register' && req.method === 'POST') {
       await this.handleLegacyRegister(req, res);
     }
-    
+
     // ... 其他现有路由 ...
     else {
       res.writeHead(404);
@@ -101,20 +106,20 @@ private async handleRegisterUser(req: http.IncomingMessage, res: http.ServerResp
     const body = await this.readRequestBody(req);
     const data = JSON.parse(body);
     const { email, username } = data;
-    
+
     if (!email) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'email is required' }));
       return;
     }
-    
+
     // 检查邮箱格式
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Invalid email format' }));
       return;
     }
-    
+
     // 检查邮箱是否已注册
     if (this.store.hasEmail(email)) {
       res.writeHead(409, { 'Content-Type': 'application/json' });
@@ -124,10 +129,10 @@ private async handleRegisterUser(req: http.IncomingMessage, res: http.ServerResp
       }));
       return;
     }
-    
+
     // 注册用户
     const user = await this.store.registerUserByEmail(email, username);
-    
+
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -154,16 +159,16 @@ private async handleGetUser(req: http.IncomingMessage, res: http.ServerResponse,
     res.end(JSON.stringify({ error: 'Invalid userId' }));
     return;
   }
-  
+
   const user = this.store.getUserById(userId);
   if (!user) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'User not found' }));
     return;
   }
-  
+
   const browsers = this.store.listUserBrowsers(userId);
-  
+
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     userId: user.userId,
@@ -193,22 +198,22 @@ private async handleUpdateUsername(req: http.IncomingMessage, res: http.ServerRe
     res.end(JSON.stringify({ error: 'Invalid userId' }));
     return;
   }
-  
+
   try {
     const body = await this.readRequestBody(req);
     const data = JSON.parse(body);
     const { username } = data;
-    
+
     if (!username) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'username is required' }));
       return;
     }
-    
+
     await this.store.updateUsername(userId, username);
-    
+
     const user = this.store.getUserById(userId)!;
-    
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -234,10 +239,10 @@ private async handleDeleteUser(req: http.IncomingMessage, res: http.ServerRespon
     res.end(JSON.stringify({ error: 'Invalid userId' }));
     return;
   }
-  
+
   try {
     const deletedBrowsers = await this.store.deleteUser(userId);
-    
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -258,7 +263,7 @@ private async handleDeleteUser(req: http.IncomingMessage, res: http.ServerRespon
  */
 private async handleListUsersV2(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const users = this.store.getAllUsers();
-  
+
   const usersWithBrowserCount = users.map(user => {
     const browsers = this.store.listUserBrowsers(user.userId);
     return {
@@ -269,7 +274,7 @@ private async handleListUsersV2(req: http.IncomingMessage, res: http.ServerRespo
       createdAt: new Date(user.registeredAt).toISOString(),
     };
   });
-  
+
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     users: usersWithBrowserCount,
@@ -287,27 +292,27 @@ private async handleListUsersV2(req: http.IncomingMessage, res: http.ServerRespo
 private async handleBindBrowser(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const pathParts = url.pathname.split('/');
   const userId = pathParts[pathParts.length - 2];
-  
+
   if (!userId) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Invalid userId' }));
     return;
   }
-  
+
   try {
     const body = await this.readRequestBody(req);
     const data = JSON.parse(body);
     const { browserURL, tokenName, description } = data;
-    
+
     if (!browserURL) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'browserURL is required' }));
       return;
     }
-    
+
     // 检测浏览器连接
     const browserDetection = await this.detectBrowser(browserURL);
-    
+
     if (!browserDetection.connected) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -323,10 +328,10 @@ private async handleBindBrowser(req: http.IncomingMessage, res: http.ServerRespo
       }));
       return;
     }
-    
+
     // 绑定浏览器
     const browser = await this.store.bindBrowser(userId, browserURL, tokenName, description);
-    
+
     // 保存浏览器信息
     if (browserDetection.browserInfo && browser.metadata) {
       browser.metadata.browserInfo = {
@@ -335,7 +340,7 @@ private async handleBindBrowser(req: http.IncomingMessage, res: http.ServerRespo
         protocolVersion: browserDetection.browserInfo['Protocol-Version'],
       };
     }
-    
+
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -366,15 +371,15 @@ private async handleBindBrowser(req: http.IncomingMessage, res: http.ServerRespo
 private async handleListBrowsers(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const pathParts = url.pathname.split('/');
   const userId = pathParts[pathParts.length - 2];
-  
+
   if (!userId) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Invalid userId' }));
     return;
   }
-  
+
   const browsers = this.store.listUserBrowsers(userId);
-  
+
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     browsers: browsers.map(b => ({
@@ -399,13 +404,13 @@ private async handleUnbindBrowser(req: http.IncomingMessage, res: http.ServerRes
   const pathParts = url.pathname.split('/');
   const tokenName = pathParts[pathParts.length - 1];
   const userId = pathParts[pathParts.length - 3];
-  
+
   if (!userId || !tokenName) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Invalid userId or tokenName' }));
     return;
   }
-  
+
   try {
     const browser = this.store.getBrowserByUserAndName(userId, tokenName);
     if (!browser) {
@@ -413,9 +418,9 @@ private async handleUnbindBrowser(req: http.IncomingMessage, res: http.ServerRes
       res.end(JSON.stringify({ error: 'Browser not found' }));
       return;
     }
-    
+
     await this.store.unbindBrowser(browser.browserId);
-    
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -441,7 +446,7 @@ private async handleUnbindBrowser(req: http.IncomingMessage, res: http.ServerRes
 private async handleSSEV2(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const startTime = Date.now();
   this.stats.totalConnections++;
-  
+
   // 认证
   const authResult = await this.authenticate(req);
   if (!authResult.success) {
@@ -450,7 +455,7 @@ private async handleSSEV2(req: http.IncomingMessage, res: http.ServerResponse): 
     res.end(JSON.stringify({ error: authResult.error }));
     return;
   }
-  
+
   // 从 Authorization header 提取 token
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -459,9 +464,9 @@ private async handleSSEV2(req: http.IncomingMessage, res: http.ServerResponse): 
     res.end(JSON.stringify({ error: 'Missing or invalid Authorization header' }));
     return;
   }
-  
+
   const token = authHeader.substring(7); // Remove 'Bearer '
-  
+
   // 从 token 查找浏览器
   const browser = this.store.getBrowserByToken(token);
   if (!browser) {
@@ -473,12 +478,12 @@ private async handleSSEV2(req: http.IncomingMessage, res: http.ServerResponse): 
     }));
     return;
   }
-  
+
   logger(`[Server] 📡 SSE connection: ${browser.userId}/${browser.tokenName}`);
-  
+
   // 更新最后连接时间
   await this.store.updateLastConnected(browser.browserId);
-  
+
   // 建立连接（使用浏览器的 URL）
   try {
     const browserInstance = await this.browserPool.connect(browser.browserId, browser.browserURL);
@@ -503,18 +508,18 @@ private async handleLegacyRegister(req: http.IncomingMessage, res: http.ServerRe
     const body = await this.readRequestBody(req);
     const data = JSON.parse(body);
     const { userId, browserURL, metadata } = data;
-    
+
     if (!userId || !browserURL) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'userId and browserURL are required' }));
       return;
     }
-    
+
     // 转换为新流程：
     // 1. 创建用户（email = userId@legacy.local）
     const email = `${userId}@legacy.local`;
     let user;
-    
+
     try {
       user = await this.store.registerUserByEmail(email, userId);
     } catch (error) {
@@ -522,10 +527,10 @@ private async handleLegacyRegister(req: http.IncomingMessage, res: http.ServerRe
       user = this.store.getUserById(userId);
       if (!user) throw error;
     }
-    
+
     // 2. 绑定浏览器
     const browserDetection = await this.detectBrowser(browserURL);
-    
+
     if (!browserDetection.connected) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -535,9 +540,9 @@ private async handleLegacyRegister(req: http.IncomingMessage, res: http.ServerRe
       }));
       return;
     }
-    
+
     const browser = await this.store.bindBrowser(userId, browserURL, 'default', 'Migrated from legacy API');
-    
+
     // 3. 返回兼容的响应
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({

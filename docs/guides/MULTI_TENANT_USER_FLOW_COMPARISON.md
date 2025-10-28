@@ -147,17 +147,17 @@
 
 ## 📊 详细对比
 
-| 指标 | 当前流程 | 方案 A（服务器管理） | 方案 B（脚本辅助） |
-|------|---------|-------------------|------------------|
-| **步骤数** | 4 步 | 3 步 | 3 步 |
-| **耗时** | 10-15 分钟 | 2-3 分钟 | 3-5 分钟 |
-| **技术门槛** | ⭐⭐⭐ | ⭐ | ⭐⭐ |
-| **用户体验** | 复杂 | 极简 | 简单 |
-| **服务器资源** | 低 | 高（Docker容器） | 低 |
-| **适用场景** | 外网 | 局域网 | 局域网/外网 |
-| **需要 Chrome** | 用户自己启动 | 服务器自动创建 | 脚本自动启动 |
-| **需要 curl** | ✅ 是 | ❌ 否 | ❌ 否（脚本内置） |
-| **需要编辑 JSON** | ✅ 是 | ❌ 否（自动生成） | ❌ 否（脚本生成） |
+| 指标              | 当前流程     | 方案 A（服务器管理） | 方案 B（脚本辅助） |
+| ----------------- | ------------ | -------------------- | ------------------ |
+| **步骤数**        | 4 步         | 3 步                 | 3 步               |
+| **耗时**          | 10-15 分钟   | 2-3 分钟             | 3-5 分钟           |
+| **技术门槛**      | ⭐⭐⭐       | ⭐                   | ⭐⭐               |
+| **用户体验**      | 复杂         | 极简                 | 简单               |
+| **服务器资源**    | 低           | 高（Docker容器）     | 低                 |
+| **适用场景**      | 外网         | 局域网               | 局域网/外网        |
+| **需要 Chrome**   | 用户自己启动 | 服务器自动创建       | 脚本自动启动       |
+| **需要 curl**     | ✅ 是        | ❌ 否                | ❌ 否（脚本内置）  |
+| **需要编辑 JSON** | ✅ 是        | ❌ 否（自动生成）    | ❌ 否（脚本生成）  |
 
 ---
 
@@ -168,6 +168,7 @@
 **推荐：方案 A（服务器管理浏览器）**
 
 **理由：**
+
 ```
 ✓ 用户体验最好（3步，2分钟完成）
 ✓ 无需技术背景
@@ -176,6 +177,7 @@
 ```
 
 **架构：**
+
 ```
 192.168.1.100 (服务器)
 ├─ Multi-Tenant Server
@@ -196,6 +198,7 @@
 **推荐：方案 B（脚本辅助）**
 
 **理由：**
+
 ```
 ✓ 浏览器在用户本地（更安全）
 ✓ 服务器资源消耗小
@@ -204,6 +207,7 @@
 ```
 
 **架构：**
+
 ```
 远程服务器 (server.com:32122)
 └─ Multi-Tenant Server
@@ -229,6 +233,7 @@ bash register.sh alice --auto-import
 ```
 
 脚本自动：
+
 - 检测 Claude Desktop 配置文件位置
 - 备份原配置
 - 合并新配置
@@ -237,6 +242,7 @@ bash register.sh alice --auto-import
 ### 2. 提供桌面应用
 
 开发一个简单的桌面应用（Electron）：
+
 ```
 [Chrome Extension Debug MCP - 注册工具]
 
@@ -253,6 +259,7 @@ bash register.sh alice --auto-import
 ### 3. 提供二维码注册
 
 服务器生成二维码：
+
 ```
 用户扫码 → 输入用户名 → 自动下载配置
 ```
@@ -271,25 +278,25 @@ app.get('/admin', (req, res) => {
 
 // 用户注册（自动创建 Chrome 容器）
 app.post('/api/register', async (req, res) => {
-  const { userId } = req.body;
-  
+  const {userId} = req.body;
+
   // 1. 创建 Docker Chrome 容器
   const port = await createChromeContainer(userId);
-  
+
   // 2. 连接到容器
   const browser = await puppeteer.connect({
-    browserURL: `http://localhost:${port}`
+    browserURL: `http://localhost:${port}`,
   });
-  
+
   // 3. 创建会话
   const session = await createSession(userId, browser);
-  
+
   // 4. 返回配置
   res.json({
     success: true,
     userId,
     sseEndpoint: `http://${req.headers.host}/sse?userId=${userId}`,
-    config: generateMCPConfig(userId, req.headers.host)
+    config: generateMCPConfig(userId, req.headers.host),
   });
 });
 
@@ -307,16 +314,19 @@ app.get('/api/config/:userId', (req, res) => {
 ### 局域网最佳实践（题主场景）
 
 **当前问题：**
+
 - 用户需要启动 Chrome → ❌ 太复杂
 - 需要 curl 注册 → ❌ 技术门槛高
 - 需要编辑 JSON → ❌ 容易出错
 
 **解决方案：方案 A（服务器管理）**
+
 ```
 访问 Web 界面 → 输入用户名 → 下载配置 → 完成
 ```
 
 **核心优势：**
+
 - ⭐⭐⭐⭐⭐ 用户体验
 - 🚀 2-3 分钟完成
 - 👶 普通用户可用

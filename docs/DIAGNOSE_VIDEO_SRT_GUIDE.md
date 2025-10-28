@@ -20,6 +20,7 @@
 ```
 
 **在输出中查找**：
+
 - 扩展名包含 "Video SRT" 或 "MVP"
 - 记录32位小写字母的扩展ID（例如：`obbhgfjghnnodmekfkfffojnkbdbfpbh`）
 
@@ -41,6 +42,7 @@
 ```
 
 **查看输出**：
+
 - 是否显示"No errors detected"？
 - 如果有错误，查看错误分类和频率
 
@@ -74,6 +76,7 @@
 ```
 
 **这个工具会做什么**：
+
 - ✅ 注入全局错误监听器
 - ✅ 捕获未处理的JavaScript错误
 - ✅ 捕获未处理的Promise拒绝
@@ -101,6 +104,7 @@
 ```
 
 **现在应该能看到**：
+
 - [EXTENSION_ERROR] 标记的错误
 - 完整的堆栈跟踪
 - 错误类型（UNCAUGHT_ERROR 或 UNHANDLED_REJECTION）
@@ -127,11 +131,13 @@
 ### 问题1：Service Worker is inactive
 
 **症状**：
+
 ```
 ⚠️ Service Worker is inactive
 ```
 
 **解决方案**：
+
 ```json
 {
   "name": "activate_extension_service_worker",
@@ -144,17 +150,21 @@
 ### 问题2：No Background Context Found
 
 **症状**：
+
 ```
 ❌ No Background Context Found
 ```
 
 **原因**：
+
 - 扩展被禁用
 - 扩展崩溃了
 - Service Worker未启动
 
 **解决方案**：
+
 1. 检查扩展是否启用：
+
    ```json
    {
      "name": "get_extension_details",
@@ -177,6 +187,7 @@
 ### 问题3：错误是Promise拒绝
 
 **症状**：
+
 ```json
 {
   "type": "UNHANDLED_REJECTION",
@@ -185,10 +196,12 @@
 ```
 
 **这是什么**：
+
 - 异步操作失败但没有被catch
 - 常见于fetch()、async函数等
 
 **示例代码问题**：
+
 ```javascript
 // ❌ 错误：没有catch
 async function loadData() {
@@ -206,6 +219,7 @@ loadData().catch(err => console.error('Load failed:', err));
 ### 问题4：错误是UNCAUGHT_ERROR
 
 **症状**：
+
 ```json
 {
   "type": "UNCAUGHT_ERROR",
@@ -214,10 +228,12 @@ loadData().catch(err => console.error('Load failed:', err));
 ```
 
 **这是什么**：
+
 - 同步代码中的JavaScript运行时错误
 - 没有被try-catch捕获
 
 **修复建议**：
+
 - 检查错误的文件名和行号
 - 添加空值检查
 - 使用可选链操作符（?.）
@@ -266,10 +282,12 @@ Use `enhance_extension_error_capture` to catch uncaught errors and Promise rejec
 ## Most Frequent Errors
 
 ### 1. Error (2 times)
+
 **Message**: [EXTENSION_ERROR] {"type":"UNCAUGHT_ERROR","message":"Cannot read property 'querySelector' of null",...}
 **Source**: background
 
 ### 2. Error (1 time)
+
 **Message**: [EXTENSION_ERROR] {"type":"UNHANDLED_REJECTION","reason":"Failed to fetch",...}
 **Source**: background
 ```

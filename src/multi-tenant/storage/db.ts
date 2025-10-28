@@ -12,6 +12,7 @@
 
 import {Kysely, PostgresDialect} from 'kysely';
 import type {Pool} from 'pg';
+
 import type {Database} from './schema.js';
 
 /**

@@ -9,9 +9,9 @@ import type {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
 import type {Browser} from 'puppeteer-core';
 
 import type {McpContext} from '../../McpContext.js';
+import {MaxSessionsReachedError} from '../errors/index.js';
 import type {Session, SessionConfig, SessionStats} from '../types/session.types.js';
 import {createLogger} from '../utils/Logger.js';
-import {MaxSessionsReachedError} from '../errors/index.js';
 
 /**
  * 会话管理器

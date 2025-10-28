@@ -10,8 +10,8 @@
  * 包装现有的 PersistentStoreV2，提供统一接口
  */
 
-import type {StorageAdapter} from './StorageAdapter.js';
 import {PersistentStoreV2, type UserRecordV2, type BrowserRecordV2} from './PersistentStoreV2.js';
+import type {StorageAdapter} from './StorageAdapter.js';
 
 /**
  * JSONL 存储适配器

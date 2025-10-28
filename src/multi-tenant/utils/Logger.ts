@@ -263,7 +263,7 @@ class LoggerFactory {
   /**
    * 从环境变量获取日志级别
    */
-  getLevelFromEnv(envVar: string = 'LOG_LEVEL'): LogLevel {
+  getLevelFromEnv(envVar = 'LOG_LEVEL'): LogLevel {
     const levelStr = process.env[envVar]?.toUpperCase();
     switch (levelStr) {
       case 'DEBUG':
@@ -304,7 +304,7 @@ export function setGlobalLogLevel(level: LogLevel): void {
 /**
  * 从环境变量设置全局日志级别
  */
-export function setLogLevelFromEnv(envVar: string = 'LOG_LEVEL'): void {
+export function setLogLevelFromEnv(envVar = 'LOG_LEVEL'): void {
   const level = loggerFactory.getLevelFromEnv(envVar);
   setGlobalLogLevel(level);
 }

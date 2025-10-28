@@ -41,7 +41,7 @@ AUTH_ENABLED=false PORT=3000 node build/src/multi-tenant/server-multi-tenant.js
       - SSE:      http://localhost:32122/sse
       - Message:  http://localhost:32122/message
       - Test:     http://localhost:32122/test
-      
+
 [Server] 🔐 认证: 已启用
 [Server] 传输方式: Server-Sent Events (SSE)
 [Server] 按 Ctrl+C 停止
@@ -73,6 +73,7 @@ AUTH_ENABLED=false PORT=3000 node build/src/multi-tenant/server-multi-tenant.js
 每个开发者在自己的机器上启动 Chrome：
 
 **Windows:**
+
 ```powershell
 "C:\Program Files\Google\Chrome\Application\chrome.exe" `
   --remote-debugging-port=9222 `
@@ -80,6 +81,7 @@ AUTH_ENABLED=false PORT=3000 node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **Mac:**
+
 ```bash
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
   --remote-debugging-port=9222 \
@@ -87,6 +89,7 @@ AUTH_ENABLED=false PORT=3000 node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **Linux:**
+
 ```bash
 google-chrome \
   --remote-debugging-port=9222 \
@@ -126,6 +129,7 @@ curl -X POST http://192.168.1.50:32122/api/register \
 **方式 B: 使用测试页面**
 
 访问 `http://192.168.1.50:32122/test`，在页面上填写：
+
 - User ID: `developer-a`
 - Browser URL: `http://192.168.1.100:9222`
 
@@ -153,6 +157,7 @@ curl -X POST http://192.168.1.50:32122/api/register \
 #### Claude Desktop
 
 编辑配置文件:
+
 - **Mac**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
@@ -193,6 +198,7 @@ curl -X POST http://192.168.1.50:32122/api/register \
 **端点**: `GET /health`
 
 **响应**:
+
 ```json
 {
   "status": "ok",
@@ -225,12 +231,14 @@ curl -X POST http://192.168.1.50:32122/api/register \
 **端点**: `POST /api/register`
 
 **请求头**:
+
 ```
 Content-Type: application/json
 Authorization: Bearer <token>  (如果启用认证)
 ```
 
 **请求体**:
+
 ```json
 {
   "userId": "developer-a",
@@ -243,6 +251,7 @@ Authorization: Bearer <token>  (如果启用认证)
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -257,11 +266,13 @@ Authorization: Bearer <token>  (如果启用认证)
 **端点**: `GET /api/users`
 
 **请求头**:
+
 ```
 Authorization: Bearer <token>  (如果启用认证)
 ```
 
 **响应**:
+
 ```json
 {
   "users": [
@@ -283,6 +294,7 @@ Authorization: Bearer <token>  (如果启用认证)
 **端点**: `GET /api/users/:userId/status`
 
 **响应**:
+
 ```json
 {
   "userId": "developer-a",
@@ -298,6 +310,7 @@ Authorization: Bearer <token>  (如果启用认证)
 **端点**: `GET /sse`
 
 **请求头**:
+
 ```
 X-User-Id: developer-a
 Authorization: Bearer <token>  (如果启用认证)
@@ -359,14 +372,20 @@ console.log(`Token: ${token}`);
 const authManager = new AuthManager({
   enabled: true,
   tokens: new Map([
-    ['secret-token-1', {
-      userId: 'developer-a',
-      permissions: ['*'],
-    }],
-    ['secret-token-2', {
-      userId: 'developer-b',
-      permissions: ['read'],
-    }],
+    [
+      'secret-token-1',
+      {
+        userId: 'developer-a',
+        permissions: ['*'],
+      },
+    ],
+    [
+      'secret-token-2',
+      {
+        userId: 'developer-b',
+        permissions: ['read'],
+      },
+    ],
   ]),
 });
 ```
@@ -378,6 +397,7 @@ const authManager = new AuthManager({
 **错误**: `Failed to connect to browser`
 
 **解决方案**:
+
 1. 确认 Chrome 已启动且端口正确
 2. 检查防火墙是否阻止连接
 3. 验证浏览器 URL 可访问:
@@ -392,6 +412,7 @@ const authManager = new AuthManager({
 **原因**: 会话已过期或已被清理
 
 **解决方案**:
+
 1. 重新连接 SSE
 2. 增加会话超时时间（修改代码）
 
@@ -400,6 +421,7 @@ const authManager = new AuthManager({
 **错误**: `User not registered`
 
 **解决方案**:
+
 1. 先调用 `/api/register` 注册用户
 2. 确认 userId 正确
 
@@ -408,6 +430,7 @@ const authManager = new AuthManager({
 **错误**: `Authorization header is required`
 
 **解决方案**:
+
 1. 在请求头中添加 `Authorization: Bearer <token>`
 2. 或禁用认证: `AUTH_ENABLED=false`
 
@@ -475,10 +498,10 @@ this.browserPool = new BrowserConnectionPool({
 server {
     listen 443 ssl;
     server_name mcp.yourdomain.com;
-    
+
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
-    
+
     location / {
         proxy_pass http://localhost:32122;
         proxy_http_version 1.1;
@@ -610,6 +633,7 @@ A: 理论上无限制。实际取决于服务器资源和网络带宽。建议�
 ### Q: 可以在公网部署吗？
 
 A: 可以，但务必：
+
 1. 启用 HTTPS
 2. 启用认证
 3. 配置防火墙

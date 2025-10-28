@@ -3,12 +3,14 @@
 ## 已完成 ✅
 
 ### 1. 名称更新
+
 - [x] package.json → `chrome-extension-debug-mcp`
 - [x] 所有脚本更新
 - [x] IDE 配置生成器更新
 - [x] 配置名称 → `chrome-extension-debug`
 
 ### 2. Caddy 配置
+
 - [x] Caddyfile.dev 创建
 - [x] 监听 :3000（所有接口）
 - [x] 反向代理到 localhost:32122
@@ -17,6 +19,7 @@
 - [x] 超时配置（24h）
 
 ### 3. 文档
+
 - [x] CADDY_LAN_SETUP.md - 完整部署指南
 - [x] REMOTE_MCP_GUIDE.md - 远程服务指南
 - [x] 本检查清单
@@ -74,7 +77,8 @@ PORT=32122 ./scripts/start-remote-mcp.sh
 PORT=32122 node build/src/server-sse.js --browser-url http://localhost:9222
 ```
 
-**预期输出**: 
+**预期输出**:
+
 ```
 [SSE] 🚀 初始化浏览器...
 [SSE] ✅ 浏览器已连接
@@ -136,16 +140,19 @@ curl http://$SERVER_IP:3000/health
 ### 网络检查
 
 - [ ] Caddy 监听 3000 端口
+
   ```bash
   sudo netstat -tlnp | grep 3000
   ```
 
 - [ ] MCP SSE 监听 32122 端口
+
   ```bash
   sudo netstat -tlnp | grep 32122
   ```
 
 - [ ] Chrome 监听 9222 端口
+
   ```bash
   sudo netstat -tlnp | grep 9222
   ```
@@ -158,11 +165,13 @@ curl http://$SERVER_IP:3000/health
 ### 服务检查
 
 - [ ] Caddy 运行正常
+
   ```bash
   sudo systemctl status caddy
   ```
 
 - [ ] MCP SSE 服务运行
+
   ```bash
   ps aux | grep server-sse
   ```
@@ -175,16 +184,19 @@ curl http://$SERVER_IP:3000/health
 ### 功能检查
 
 - [ ] 本地健康检查通过
+
   ```bash
   curl http://localhost:3000/health
   ```
 
 - [ ] 局域网健康检查通过
+
   ```bash
   curl http://服务器IP:3000/health
   ```
 
 - [ ] SSE 连接正常
+
   ```bash
   curl -N http://localhost:3000/sse
   # 应该保持连接，不立即返回
@@ -202,6 +214,7 @@ curl http://$SERVER_IP:3000/health
 ### 问题 1: 无法连接到 3000 端口
 
 **检查**:
+
 ```bash
 # 1. Caddy 是否运行
 sudo systemctl status caddy
@@ -217,6 +230,7 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 ```
 
 **解决**:
+
 ```bash
 # 重启 Caddy
 sudo systemctl restart caddy
@@ -228,6 +242,7 @@ sudo systemctl reload caddy
 ### 问题 2: MCP SSE 服务无法启动
 
 **检查**:
+
 ```bash
 # 1. 端口是否被占用
 sudo lsof -i :32122
@@ -240,6 +255,7 @@ ls -la build/src/server-sse.js
 ```
 
 **解决**:
+
 ```bash
 # 重新编译
 npm run build
@@ -254,6 +270,7 @@ PORT=32122 node build/src/server-sse.js --browser-url http://localhost:9222
 ### 问题 3: SSE 连接断开
 
 **检查**:
+
 ```bash
 # 查看 Caddy 日志
 tail -f /var/log/caddy/mcp-sse.log
@@ -266,6 +283,7 @@ netstat -an | grep 3000
 ```
 
 **解决**:
+
 - 确认 Caddyfile.dev 中 `flush_interval -1` 配置
 - 确认超时设置为 24h
 - 检查网络稳定性
@@ -273,6 +291,7 @@ netstat -an | grep 3000
 ### 问题 4: CORS 错误
 
 **检查 Caddyfile.dev**:
+
 ```caddy
 header {
     Access-Control-Allow-Origin "*"
@@ -282,6 +301,7 @@ header {
 ```
 
 **重新加载**:
+
 ```bash
 sudo systemctl reload caddy
 ```
@@ -391,7 +411,7 @@ sudo netstat -tlnp | grep -E '3000|32122|9222'
 ✅ Chrome 运行并监听 9222  
 ✅ 本地 health 检查通过  
 ✅ 局域网 health 检查通过  
-✅ 客户端可以连接并使用 MCP 工具  
+✅ 客户端可以连接并使用 MCP 工具
 
 ---
 

@@ -5,20 +5,22 @@
 用户报告当 `AUTH_ENABLED=true` 时遇到以下问题：
 
 ### 问题 1: Token 生成端点不存在
+
 ```bash
 curl -X POST http://localhost:32122/api/auth/token \
   -H "Content-Type: application/json" \
   -d '{"userId": "alice", "permissions": ["*"]}'
-  
+
 # 返回: Not found
 ```
 
 ### 问题 2: 注册需要认证
+
 ```bash
 curl -X POST http://localhost:32122/api/register \
   -H "Content-Type: application/json" \
   -d '{"userId": "alice", "browserURL": "http://localhost:9222"}'
-  
+
 # 返回: {"error":"Authorization header is required"}
 ```
 
@@ -36,6 +38,7 @@ curl -X POST http://localhost:32122/api/register \
 **文件：** `src/multi-tenant/server-multi-tenant.ts`
 
 **新增路由：**
+
 ```typescript
 } else if (url.pathname === '/api/auth/token' && req.method === 'POST') {
   await this.handleGenerateToken(req, res);
@@ -43,6 +46,7 @@ curl -X POST http://localhost:32122/api/register \
 ```
 
 **新增处理函数：**
+
 ```typescript
 /**
  * 生成认证 Token
@@ -53,7 +57,7 @@ private async handleGenerateToken(
 ): Promise<void> {
   // 读取请求体
   const body = await this.readRequestBody(req);
-  
+
   // 解析JSON
   let data;
   try {
@@ -107,11 +111,13 @@ AUTH_ENABLED=true node build/src/index.js --mode multi-tenant
 ```
 
 或使用二进制文件：
+
 ```bash
 AUTH_ENABLED=true ./dist/chrome-extension-debug-linux-x64 --mode multi-tenant
 ```
 
 **输出：**
+
 ```
 ✅ Multi-tenant server started successfully
    Authentication: Enabled  # ← 认证已启用
@@ -128,6 +134,7 @@ curl -X POST http://localhost:32122/api/auth/token \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -139,6 +146,7 @@ curl -X POST http://localhost:32122/api/auth/token \
 ```
 
 **参数说明：**
+
 - `userId` (必需): 用户 ID
 - `permissions` (可选): 权限列表，默认 `["*"]` (全部权限)
 - `expiresIn` (可选): 过期时间（秒），默认 86400 (24小时)
@@ -155,6 +163,7 @@ curl -X POST http://localhost:32122/api/register \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -169,12 +178,14 @@ curl -X POST http://localhost:32122/api/register \
 ### 步骤 4: 后续 API 调用都需要带 Token
 
 **查询用户列表：**
+
 ```bash
 curl -H "Authorization: Bearer mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_" \
   http://localhost:32122/api/users
 ```
 
 **连接 SSE：**
+
 ```bash
 curl -N -H "Authorization: Bearer mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_" \
   -H "Accept: text/event-stream" \
@@ -229,11 +240,13 @@ curl -X POST http://localhost:32122/api/register \
 生成的 token 格式：`mcp_<base64url>`
 
 示例：
+
 ```
 mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_
 ```
 
 **特性：**
+
 - 使用 crypto.randomBytes(24) 生成，密码学安全
 - Base64URL 编码，安全用于 HTTP headers 和 URL
 - 前缀 `mcp_` 便于识别
@@ -245,11 +258,13 @@ mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_
 支持两种格式：
 
 ### 格式 1: Bearer Token (推荐)
+
 ```bash
 Authorization: Bearer mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_
 ```
 
 ### 格式 2: 直接使用 Token
+
 ```bash
 Authorization: mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_
 ```
@@ -260,20 +275,20 @@ Authorization: mcp_3Z4Fh4jHpzWSGiVFLOXAZsIugew4jOj_
 
 ### 无需认证的端点
 
-| 端点 | 方法 | 说明 |
-|------|-----|------|
-| `/health` | GET | 健康检查 |
+| 端点              | 方法 | 说明           |
+| ----------------- | ---- | -------------- |
+| `/health`         | GET  | 健康检查       |
 | `/api/auth/token` | POST | **生成 Token** |
-| `/test` | GET | 测试页面 |
+| `/test`           | GET  | 测试页面       |
 
 ### 需要认证的端点
 
-| 端点 | 方法 | 说明 |
-|------|-----|------|
-| `/api/register` | POST | 注册用户 |
-| `/api/users` | GET | 查询用户列表 |
-| `/api/users/:userId` | GET | 查询用户状态 |
-| `/sse?userId=xxx` | GET | SSE 连接 |
+| 端点                 | 方法 | 说明         |
+| -------------------- | ---- | ------------ |
+| `/api/register`      | POST | 注册用户     |
+| `/api/users`         | GET  | 查询用户列表 |
+| `/api/users/:userId` | GET  | 查询用户状态 |
+| `/sse?userId=xxx`    | GET  | SSE 连接     |
 
 ---
 
@@ -296,6 +311,7 @@ node build/src/index.js --mode multi-tenant
 ```
 
 **生产环境建议：**
+
 1. ✅ 启用认证 (`AUTH_ENABLED=true`)
 2. ✅ 使用 HTTPS (通过 Nginx 反向代理)
 3. ✅ 配置防火墙限制访问
@@ -311,6 +327,7 @@ node build/src/index.js --mode multi-tenant
 **原因：** 启用认证但未提供 token
 
 **解决：**
+
 ```bash
 # 先生成 token
 TOKEN=$(curl -s -X POST http://localhost:32122/api/auth/token \
@@ -328,6 +345,7 @@ curl -H "Authorization: Bearer $TOKEN" ...
 **原因：** Token 过期（默认 24 小时）
 
 **解决：**
+
 ```bash
 # 生成新 token
 curl -X POST http://localhost:32122/api/auth/token \
@@ -342,6 +360,7 @@ curl -X POST http://localhost:32122/api/auth/token \
 **原因：** Token 错误或已撤销
 
 **解决：**
+
 ```bash
 # 重新生成 token
 curl -X POST http://localhost:32122/api/auth/token \
@@ -355,12 +374,12 @@ curl -X POST http://localhost:32122/api/auth/token \
 
 ### 环境变量
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `AUTH_ENABLED` | `true` | 是否启用认证 |
-| `PORT` | `32122` | 服务器端口 |
+| 变量               | 默认值  | 说明               |
+| ------------------ | ------- | ------------------ |
+| `AUTH_ENABLED`     | `true`  | 是否启用认证       |
+| `PORT`             | `32122` | 服务器端口         |
 | `TOKEN_EXPIRATION` | `86400` | Token 有效期（秒） |
-| `MAX_SESSIONS` | `100` | 最大会话数 |
+| `MAX_SESSIONS`     | `100`   | 最大会话数         |
 
 ### 示例
 

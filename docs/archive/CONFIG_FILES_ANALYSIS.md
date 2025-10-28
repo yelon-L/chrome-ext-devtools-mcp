@@ -1,6 +1,7 @@
 # Configuration Files Analysis
 
 ## Overview
+
 Analysis of JSON configuration files and recommendations for cleanup.
 
 ---
@@ -8,10 +9,12 @@ Analysis of JSON configuration files and recommendations for cleanup.
 ## Files Analyzed
 
 ### 1. server.json
+
 **Purpose:** MCP Server Registry Configuration  
 **Status:** ⚠️ **Keep but needs update**
 
 **Content:**
+
 ```json
 {
   "name": "io.github.ChromeDevTools/chrome-devtools-mcp",
@@ -22,11 +25,13 @@ Analysis of JSON configuration files and recommendations for cleanup.
 ```
 
 **Usage:**
+
 - Used by MCP server registry
 - Synced by `scripts/sync-server-json-version.ts`
 - Has npm script: `sync-server-json-version`
 
 **Action:** ✅ **Keep and Update**
+
 ```bash
 npm run sync-server-json-version
 ```
@@ -34,10 +39,12 @@ npm run sync-server-json-version
 ---
 
 ### 2. release-please-config.json
+
 **Purpose:** Release Please Configuration  
 **Status:** ⚠️ **Potentially conflicting**
 
 **Content:**
+
 ```json
 {
   "packages": {
@@ -47,11 +54,13 @@ npm run sync-server-json-version
 ```
 
 **Usage:**
+
 - Used by GitHub Actions (`.github/workflows/release-please.yml`)
 - Automates releases based on conventional commits
 - **Conflicts with manual release process** described in `RELEASE.md`
 
 **Current Situation:**
+
 - `RELEASE.md` describes **manual release process** (git tags)
 - GitHub Actions has **release-please** workflow
 - These two approaches conflict!
@@ -59,12 +68,14 @@ npm run sync-server-json-version
 **Recommendation:** ❌ **Remove** (choose manual release)
 
 **Reasons:**
+
 1. Project already has manual release workflow
 2. `RELEASE.md` documents tag-based releases
 3. release-please adds complexity without clear benefit
 4. Manual process gives more control
 
 **Alternative:** ✅ **Keep manual release**
+
 - Better control over release notes
 - Simpler for contributors to understand
 - Existing documentation supports this
@@ -72,13 +83,15 @@ npm run sync-server-json-version
 ---
 
 ### 3. .release-please-manifest.json
+
 **Purpose:** Release Please Version Manifest  
 **Status:** ⚠️ **Outdated and redundant**
 
 **Content:**
+
 ```json
 {
-  ".": "0.8.0"  // ❌ Outdated (current: 0.8.5)
+  ".": "0.8.0" // ❌ Outdated (current: 0.8.5)
 }
 ```
 
@@ -87,10 +100,12 @@ npm run sync-server-json-version
 ---
 
 ### 4. gemini-extension.json
+
 **Purpose:** Gemini Extension Configuration  
 **Status:** ✅ **Keep**
 
 **Content:**
+
 ```json
 {
   "name": "chrome-devtools-mcp",
@@ -105,6 +120,7 @@ npm run sync-server-json-version
 ```
 
 **Usage:**
+
 - Configuration for Gemini extension users
 - Allows easy integration via npx
 - No version sync needed (uses "latest")
@@ -115,18 +131,19 @@ npm run sync-server-json-version
 
 ## Summary Table
 
-| File | Purpose | Status | Action |
-|------|---------|--------|--------|
-| `server.json` | MCP registry | ⚠️ Outdated | ✅ Update version |
-| `release-please-config.json` | Auto-release | ⚠️ Conflicts | ❌ Remove |
-| `.release-please-manifest.json` | Release manifest | ⚠️ Redundant | ❌ Remove |
-| `gemini-extension.json` | Gemini config | ✅ Good | ✅ Keep |
+| File                            | Purpose          | Status       | Action            |
+| ------------------------------- | ---------------- | ------------ | ----------------- |
+| `server.json`                   | MCP registry     | ⚠️ Outdated  | ✅ Update version |
+| `release-please-config.json`    | Auto-release     | ⚠️ Conflicts | ❌ Remove         |
+| `.release-please-manifest.json` | Release manifest | ⚠️ Redundant | ❌ Remove         |
+| `gemini-extension.json`         | Gemini config    | ✅ Good      | ✅ Keep           |
 
 ---
 
 ## Action Plan
 
 ### Step 1: Update server.json ✅
+
 ```bash
 npm run sync-server-json-version
 git add server.json
@@ -134,6 +151,7 @@ git commit -m "chore: sync server.json version to 0.8.5"
 ```
 
 ### Step 2: Remove release-please files
+
 ```bash
 rm release-please-config.json
 rm .release-please-manifest.json
@@ -142,6 +160,7 @@ git commit -m "chore: remove release-please (use manual release process)"
 ```
 
 ### Step 3: Remove release-please workflow
+
 ```bash
 rm .github/workflows/release-please.yml
 git add .
@@ -149,6 +168,7 @@ git commit -m "chore: remove release-please workflow"
 ```
 
 ### Step 4: Update .gitignore (if needed)
+
 No changes needed - these files were tracked.
 
 ---
@@ -158,6 +178,7 @@ No changes needed - these files were tracked.
 ### Why Remove release-please?
 
 **Pros of Manual Release:**
+
 1. ✅ Better control over release timing
 2. ✅ Can review all changes before release
 3. ✅ Simpler for contributors
@@ -165,6 +186,7 @@ No changes needed - these files were tracked.
 5. ✅ Existing GitHub Actions for binary builds work well
 
 **Cons of release-please:**
+
 1. ❌ Requires strict conventional commits
 2. ❌ Adds complexity
 3. ❌ Conflicts with manual process
@@ -190,12 +212,13 @@ No changes needed - these files were tracked.
 ## Verification
 
 After cleanup:
+
 ```bash
 ls -la *.json
 
 # Should have:
 # package.json
-# package-lock.json  
+# package-lock.json
 # server.json (updated)
 # gemini-extension.json
 # tsconfig.json

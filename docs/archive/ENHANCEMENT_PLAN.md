@@ -5,6 +5,7 @@
 ### 项目 #1: chrome-ext-devtools-mcp (Google 官方)
 
 **架构特点：**
+
 - ✅ **高代码质量** - Google 官方维护，Apache 2.0 许可
 - ✅ **清晰架构** - 基于 MCP SDK 标准实现
 - ✅ **类型安全** - 完整的 TypeScript 类型系统，零 ts-ignore
@@ -13,14 +14,16 @@
 - ✅ **CLI 支持完善** - 16 个配置选项
 
 **工具数量：** 约 30 个
+
 - 输入自动化 (7)
-- 导航自动化 (7) 
+- 导航自动化 (7)
 - 模拟 (3)
 - 性能 (3)
 - 网络 (2)
 - 调试 (4)
 
 **核心优势：**
+
 - Puppeteer Core 集成优秀
 - McpResponse 响应构建器统一
 - WaitForHelper 智能等待机制
@@ -28,6 +31,7 @@
 - 文档完善，易于维护
 
 **局限性：**
+
 - ❌ 无扩展调试专业功能
 - ❌ 无多上下文管理
 - ❌ 无扩展 Storage 检查
@@ -39,6 +43,7 @@
 ### 项目 #2: chrome-extension-debug-mcp (专业扩展调试)
 
 **架构特点：**
+
 - ✅ **扩展专业化** - 51 个工具专注扩展调试
 - ✅ **双传输模式** - stdio + RemoteTransport (HTTP/SSE)
 - ✅ **模块化 Handlers** - 11 个专业扩展模块
@@ -47,6 +52,7 @@
 - ⚠️ **依赖混乱** - chrome-remote-interface + puppeteer 双依赖
 
 **工具数量：** 51 个
+
 - 浏览器控制 (5)
 - **扩展调试 (10)** ⭐ 核心差异化
 - DOM 交互 (12)
@@ -60,6 +66,7 @@
 - 评估 (1)
 
 **核心优势：**
+
 - ExtensionDetector - 扩展发现与元数据
 - ExtensionContextManager - 多上下文切换
 - ExtensionStorageManager - Storage 检查
@@ -70,6 +77,7 @@
 - RemoteTransport 支持
 
 **局限性：**
+
 - ❌ 代码质量需提升
 - ❌ 架构过度复杂
 - ❌ 缺少官方支持
@@ -80,6 +88,7 @@
 ## 🎯 增强策略（基于第一性原理）
 
 ### 核心原则
+
 1. **以 chrome-ext-devtools-mcp 为基础** - 架构清晰，代码质量高
 2. **引入 chrome-extension-debug-mcp 的扩展能力** - 差异化核心价值
 3. **保持简洁** - 避免过度设计
@@ -95,6 +104,7 @@
 **目标：** 为扩展调试建立基础设施
 
 #### 1.1 创建扩展相关类型定义
+
 ```typescript
 // src/extension/types.ts
 export interface ExtensionInfo {
@@ -121,20 +131,25 @@ export interface StorageData {
 ```
 
 #### 1.2 扩展 McpContext
+
 ```typescript
 // src/McpContext.ts - 增强
 export type Context = Readonly<{
   // ... 现有方法
-  
+
   // 新增扩展相关方法
   getExtensions(): Promise<ExtensionInfo[]>;
   getExtensionContexts(extensionId: string): Promise<ExtensionContext[]>;
   switchToExtensionContext(contextId: string): Promise<void>;
-  getExtensionStorage(extensionId: string, type: 'local' | 'sync' | 'session'): Promise<StorageData>;
+  getExtensionStorage(
+    extensionId: string,
+    type: 'local' | 'sync' | 'session',
+  ): Promise<StorageData>;
 }>;
 ```
 
 #### 1.3 创建扩展工具类别
+
 ```typescript
 // src/tools/categories.ts - 扩展
 export enum ToolCategories {
@@ -152,6 +167,7 @@ export enum ToolCategories {
 **目标：** 实现 10 个核心扩展调试工具
 
 #### 2.1 扩展发现与管理 (3 tools)
+
 ```typescript
 // src/tools/extension-discovery.ts
 
@@ -163,7 +179,10 @@ export const listExtensions = defineTool({
     readOnlyHint: true,
   },
   schema: {
-    includeDisabled: z.boolean().optional().describe('Include disabled extensions'),
+    includeDisabled: z
+      .boolean()
+      .optional()
+      .describe('Include disabled extensions'),
   },
   handler: async (request, response, context) => {
     const extensions = await context.getExtensions();
@@ -203,12 +222,14 @@ export const inspectExtensionManifest = defineTool({
 ```
 
 #### 2.2 上下文管理 (2 tools)
+
 ```typescript
 // src/tools/extension-contexts.ts
 
 export const listExtensionContexts = defineTool({
   name: 'list_extension_contexts',
-  description: 'List all contexts (background, popup, content scripts) for an extension',
+  description:
+    'List all contexts (background, popup, content scripts) for an extension',
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -217,7 +238,9 @@ export const listExtensionContexts = defineTool({
     extensionId: z.string().describe('Extension ID'),
   },
   handler: async (request, response, context) => {
-    const contexts = await context.getExtensionContexts(request.params.extensionId);
+    const contexts = await context.getExtensionContexts(
+      request.params.extensionId,
+    );
     // 格式化输出
   },
 });
@@ -239,6 +262,7 @@ export const switchExtensionContext = defineTool({
 ```
 
 #### 2.3 Storage 检查 (2 tools)
+
 ```typescript
 // src/tools/extension-storage.ts
 
@@ -256,7 +280,7 @@ export const inspectExtensionStorage = defineTool({
   handler: async (request, response, context) => {
     const storage = await context.getExtensionStorage(
       request.params.extensionId,
-      request.params.storageType || 'local'
+      request.params.storageType || 'local',
     );
     // 格式化输出
   },
@@ -280,6 +304,7 @@ export const watchExtensionStorage = defineTool({
 ```
 
 #### 2.4 消息追踪 (2 tools)
+
 ```typescript
 // src/tools/extension-messaging.ts
 
@@ -317,12 +342,14 @@ export const traceExtensionApiCalls = defineTool({
 ```
 
 #### 2.5 日志收集 (1 tool)
+
 ```typescript
 // src/tools/extension-logs.ts
 
 export const getExtensionLogs = defineTool({
   name: 'get_extension_logs',
-  description: 'Collect logs from extension contexts (background, content scripts)',
+  description:
+    'Collect logs from extension contexts (background, content scripts)',
   annotations: {
     category: ToolCategories.EXTENSION_DEBUGGING,
     readOnlyHint: true,
@@ -345,6 +372,7 @@ export const getExtensionLogs = defineTool({
 **目标：** 实现性能分析和批量测试
 
 #### 3.1 性能分析 (2 tools)
+
 ```typescript
 // src/tools/extension-performance.ts
 
@@ -381,6 +409,7 @@ export const detectExtensionConflicts = defineTool({
 ```
 
 #### 3.2 批量测试 (1 tool)
+
 ```typescript
 // src/tools/extension-testing.ts
 
@@ -458,11 +487,13 @@ chrome-ext-devtools-mcp/
 ## 📊 预期成果
 
 ### 工具数量
+
 - 现有工具: 30 个
 - 新增工具: 13 个
 - **总计: 43 个工具**
 
 ### 新增能力
+
 ✅ 扩展发现与元数据检查  
 ✅ 多上下文调试（background/popup/content）  
 ✅ Storage 实时检查与监控  
@@ -470,27 +501,28 @@ chrome-ext-devtools-mcp/
 ✅ API 调用追踪  
 ✅ 扩展性能影响分析  
 ✅ 扩展冲突检测  
-✅ 批量兼容性测试  
+✅ 批量兼容性测试
 
 ### 代码质量
+
 ✅ 100% TypeScript  
 ✅ 零 @ts-nocheck  
 ✅ 完整类型定义  
 ✅ 统一架构风格  
-✅ 完善的文档  
+✅ 完善的文档
 
 ---
 
 ## 🎯 实施时间表
 
-| 阶段 | 任务 | 工作量 | 完成标准 |
-|------|------|--------|----------|
-| **Phase 1** | 基础架构准备 | 3-5 天 | 类型定义完成，Context 扩展完成 |
-| **Phase 2** | 核心工具实现 | 10-14 天 | 10 个核心工具通过测试 |
-| **Phase 3** | 高级分析工具 | 5-7 天 | 3 个高级工具通过测试 |
-| **Testing** | 集成测试 | 2-3 天 | 所有工具测试覆盖 100% |
-| **Documentation** | 文档完善 | 2-3 天 | 文档更新，示例完整 |
-| **总计** | | **3-4 周** | 13 个新工具生产就绪 |
+| 阶段              | 任务         | 工作量     | 完成标准                       |
+| ----------------- | ------------ | ---------- | ------------------------------ |
+| **Phase 1**       | 基础架构准备 | 3-5 天     | 类型定义完成，Context 扩展完成 |
+| **Phase 2**       | 核心工具实现 | 10-14 天   | 10 个核心工具通过测试          |
+| **Phase 3**       | 高级分析工具 | 5-7 天     | 3 个高级工具通过测试           |
+| **Testing**       | 集成测试     | 2-3 天     | 所有工具测试覆盖 100%          |
+| **Documentation** | 文档完善     | 2-3 天     | 文档更新，示例完整             |
+| **总计**          |              | **3-4 周** | 13 个新工具生产就绪            |
 
 ---
 
@@ -554,9 +586,9 @@ import assert from 'node:assert';
 test('list_extensions returns all extensions', async () => {
   const context = await createTestContext();
   const response = new McpResponse();
-  
+
   await listExtensions.handler({params: {}}, response, context);
-  
+
   const content = await response.handle('list_extensions', context);
   assert(content.length > 0);
 });
@@ -590,17 +622,20 @@ test('list_extensions returns all extensions', async () => {
 ## 🚀 下一步行动
 
 ### 立即可开始
+
 1. **创建分支** - `feature/extension-debugging`
 2. **实现 Phase 1** - 基础架构
 3. **编写第一个工具** - `list_extensions`
 4. **添加测试** - 确保质量
 
 ### 本周目标
+
 - [ ] Phase 1 完成
 - [ ] 前 3 个工具实现
 - [ ] 基础测试通过
 
 ### 本月目标
+
 - [ ] 全部 13 个工具实现
 - [ ] 测试覆盖 100%
 - [ ] 文档完善

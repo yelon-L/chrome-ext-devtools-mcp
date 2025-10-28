@@ -12,6 +12,7 @@
 **文件**: `src/multi-tenant/utils/load-env.ts`
 
 #### 特性
+
 - ✅ 零依赖实现（手动解析 .env 文件）
 - ✅ 支持注释行（`#` 开头）
 - ✅ 支持空行
@@ -21,14 +22,15 @@
 - ✅ 加载成功显示提示信息
 
 #### 实现细节
+
 ```typescript
 export function loadEnvFile(envPath?: string): void {
   const finalPath = envPath || path.join(process.cwd(), '.env');
-  
+
   if (!fs.existsSync(finalPath)) {
     return; // 不存在是正常的
   }
-  
+
   // 解析 KEY=VALUE 格式
   // 移除引号
   // 只在环境变量不存在时设置
@@ -42,6 +44,7 @@ export function loadEnvFile(envPath?: string): void {
 **文件**: `src/multi-tenant/server-multi-tenant.ts`
 
 #### 修改内容
+
 ```typescript
 import '../polyfill.js';
 
@@ -54,6 +57,7 @@ import crypto from 'node:crypto';
 ```
 
 #### 关键点
+
 - 在所有导入之前加载 .env
 - 确保环境变量在初始化时可用
 - 自动检测当前目录的 .env 文件
@@ -67,18 +71,22 @@ import crypto from 'node:crypto';
 #### 新增配置项（30+）
 
 ##### 服务器配置
+
 - `PORT` - 监听端口
 
 ##### 存储配置
+
 - `STORAGE_TYPE` - 存储类型 (jsonl/postgresql)
 
 **JSONL 模式**:
+
 - `DATA_DIR` - 数据目录
 - `LOG_FILE_NAME` - 日志文件名
 - `SNAPSHOT_THRESHOLD` - 快照阈值
 - `AUTO_COMPACTION` - 自动压缩
 
 **PostgreSQL 模式**:
+
 - `DB_HOST` - 数据库地址
 - `DB_PORT` - 数据库端口
 - `DB_NAME` - 数据库名称
@@ -88,11 +96,13 @@ import crypto from 'node:crypto';
 - `DB_IDLE_TIMEOUT` - 空闲超时
 
 ##### 会话配置
+
 - `SESSION_TIMEOUT` - 会话超时
 - `SESSION_CLEANUP_INTERVAL` - 清理间隔
 - `MAX_SESSIONS` - 最大会话数
 
 ##### 浏览器连接池
+
 - `BROWSER_HEALTH_CHECK_INTERVAL` - 健康检查间隔
 - `MAX_RECONNECT_ATTEMPTS` - 最大重连次数
 - `RECONNECT_DELAY` - 重连延迟
@@ -100,25 +110,30 @@ import crypto from 'node:crypto';
 - `BROWSER_DETECTION_TIMEOUT` - 检测超时
 
 ##### 性能配置
+
 - `API_CACHE_TTL` - API 缓存 TTL
 - `API_CACHE_MAX_SIZE` - 缓存最大条目
 - `MONITOR_BUFFER_SIZE` - 监控缓冲区大小
 - `CONNECTION_TIMES_BUFFER_SIZE` - 连接时间缓冲
 
 ##### 安全配置
+
 - `ALLOWED_IPS` - IP 白名单
 - `ALLOWED_ORIGINS` - CORS 允许来源
 
 ##### 日志配置
+
 - `LOG_LEVEL` - 日志级别
 - `ERROR_VERBOSITY` - 错误详细程度
 - `NODE_ENV` - 运行环境
 
 ##### 实验性功能
+
 - `USE_CDP_HYBRID` - CDP 混合架构
 - `USE_CDP_OPERATIONS` - CDP 操作
 
 #### 注释格式
+
 ```bash
 # ==========================================
 # 分类标题
@@ -140,6 +155,7 @@ import crypto from 'node:crypto';
 **文件**: `docs/introduce/MULTI_TENANT_ENV_CONFIG.md`
 
 #### 内容包括
+
 - 📋 概述和配置优先级
 - 🚀 快速开始指南
 - ⚙️ 每个配置项的详细说明
@@ -154,6 +170,7 @@ import crypto from 'node:crypto';
 **文件**: `.gitignore`
 
 #### 修改内容
+
 ```gitignore
 # dotenv environment variable files
 .env
@@ -167,6 +184,7 @@ import crypto from 'node:crypto';
 ```
 
 #### 说明
+
 - `.env` - 忽略（包含敏感信息）
 - `.env.example` - 不忽略（提交到版本控制，供其他开发者参考）
 - 其他本地环境文件 - 忽略
@@ -176,6 +194,7 @@ import crypto from 'node:crypto';
 ## ✅ 验证结果
 
 ### 测试命令
+
 ```bash
 # 创建测试 .env
 cat > .env << 'EOF'
@@ -190,6 +209,7 @@ timeout 5 node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 ### 实际输出
+
 ```
 ✅ Loaded environment variables from: /path/to/.env
 💾 Storage type: jsonl
@@ -198,6 +218,7 @@ timeout 5 node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 ### 验证点
+
 - ✅ .env 文件被正确加载
 - ✅ 环境变量被正确读取
 - ✅ 配置生效（STORAGE_TYPE=jsonl）
@@ -210,11 +231,13 @@ timeout 5 node build/src/multi-tenant/server-multi-tenant.js
 ### 快速开始
 
 #### 1. 创建配置文件
+
 ```bash
 cp .env.example .env
 ```
 
 #### 2. 编辑配置
+
 ```bash
 # JSONL 模式（开发）
 STORAGE_TYPE=jsonl
@@ -231,6 +254,7 @@ DB_PASSWORD=your_password
 ```
 
 #### 3. 启动服务
+
 ```bash
 node build/src/multi-tenant/server-multi-tenant.js
 ```
@@ -238,23 +262,27 @@ node build/src/multi-tenant/server-multi-tenant.js
 ### 配置优先级
 
 **1. 系统环境变量** (最高优先级)
+
 ```bash
 export PORT=8080
 node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **2. .env 文件**
+
 ```bash
 # .env
 PORT=32122
 ```
 
 **3. 代码默认值** (最低优先级)
+
 ```typescript
 const port = process.env.PORT || '32122';
 ```
 
 ### 示例
+
 ```bash
 # .env 文件中
 PORT=32122
@@ -270,23 +298,27 @@ PORT=8080 node server.js
 ## 🌟 特性亮点
 
 ### 1. 零依赖
+
 - 手动解析 .env 文件
 - 无需安装 `dotenv` 包
 - 减少依赖冲突风险
 - 更轻量级
 
 ### 2. 智能优先级
+
 - 环境变量 > .env > 默认值
 - 灵活覆盖配置
 - 适应不同部署环境
 
 ### 3. 完整文档
+
 - 每个配置都有中文说明
 - 注明默认值和可选值
 - 提供多环境示例
 - 包含安全建议
 
 ### 4. 环境隔离
+
 - 支持多环境配置
 - `.env.development`
 - `.env.production`
@@ -294,6 +326,7 @@ PORT=8080 node server.js
 - `.env` 不提交版本控制
 
 ### 5. 用户友好
+
 - 启动时显示加载状态
 - 配置错误有清晰提示
 - 便于调试和验证
@@ -304,11 +337,13 @@ PORT=8080 node server.js
 ## 📁 文件清单
 
 ### 新增文件
+
 - `src/multi-tenant/utils/load-env.ts` - .env 加载器
 - `docs/introduce/MULTI_TENANT_ENV_CONFIG.md` - 配置文档
 - `docs/ENV_CONFIG_IMPLEMENTATION.md` - 实现总结（本文档）
 
 ### 修改文件
+
 - `src/multi-tenant/server-multi-tenant.ts` - 集成 .env 加载
 - `.env.example` - 添加所有配置项
 - `.gitignore` - 修复 .env.example 规则
@@ -318,6 +353,7 @@ PORT=8080 node server.js
 ## 🔒 安全建议
 
 ### 1. 保护敏感信息
+
 ```bash
 # ❌ 不要提交 .env 到版本控制
 echo ".env" >> .gitignore
@@ -327,6 +363,7 @@ git add .env.example
 ```
 
 ### 2. 使用强密码
+
 ```bash
 # ❌ 弱密码
 DB_PASSWORD=admin
@@ -336,6 +373,7 @@ DB_PASSWORD=Xy9$mK2#pL8@nQ5&wR3!
 ```
 
 ### 3. 限制 IP 访问
+
 ```bash
 # ❌ 开放所有 IP（生产环境）
 # ALLOWED_IPS=
@@ -345,6 +383,7 @@ ALLOWED_IPS=10.0.0.0/8,172.16.0.0/12
 ```
 
 ### 4. 生产环境配置
+
 ```bash
 NODE_ENV=production
 ERROR_VERBOSITY=minimal
@@ -356,18 +395,18 @@ ALLOWED_ORIGINS=https://your-domain.com
 
 ## 📊 配置项统计
 
-| 分类 | 配置项数量 |
-|------|-----------|
-| 服务器 | 1 |
-| 存储 (JSONL) | 4 |
-| 存储 (PostgreSQL) | 7 |
-| 会话 | 3 |
-| 浏览器连接池 | 5 |
-| 性能 | 4 |
-| 安全 | 2 |
-| 日志 | 3 |
-| 实验性 | 2 |
-| **总计** | **31** |
+| 分类              | 配置项数量 |
+| ----------------- | ---------- |
+| 服务器            | 1          |
+| 存储 (JSONL)      | 4          |
+| 存储 (PostgreSQL) | 7          |
+| 会话              | 3          |
+| 浏览器连接池      | 5          |
+| 性能              | 4          |
+| 安全              | 2          |
+| 日志              | 3          |
+| 实验性            | 2          |
+| **总计**          | **31**     |
 
 ---
 
@@ -399,4 +438,3 @@ ALLOWED_ORIGINS=https://your-domain.com
 
 **实施完成**: 2025-10-16 14:37  
 **状态**: ✅ 全部完成并验证通过
-

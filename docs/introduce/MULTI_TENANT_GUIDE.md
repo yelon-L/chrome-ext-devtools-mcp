@@ -74,6 +74,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **端点**: `GET /health`
 
 **响应示例**:
+
 ```json
 {
   "status": "ok",
@@ -94,6 +95,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **测试命令**:
+
 ```bash
 curl http://localhost:32122/health | jq .
 ```
@@ -103,10 +105,11 @@ curl http://localhost:32122/health | jq .
 **端点**: `GET /metrics`
 
 **响应示例**:
+
 ```json
 {
-  "sessions": { "total": 2, "active": 2 },
-  "browsers": { "total": 3, "connected": 2 },
+  "sessions": {"total": 2, "active": 2},
+  "browsers": {"total": 3, "connected": 2},
   "performance": {
     "totalConnections": 150,
     "totalRequests": 1523,
@@ -125,6 +128,7 @@ curl http://localhost:32122/health | jq .
 **端点**: `POST /api/v2/users`
 
 **请求体**:
+
 ```json
 {
   "email": "user@example.com",
@@ -133,6 +137,7 @@ curl http://localhost:32122/health | jq .
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -144,6 +149,7 @@ curl http://localhost:32122/health | jq .
 ```
 
 **测试命令**:
+
 ```bash
 curl -X POST http://localhost:32122/api/v2/users \
   -H "Content-Type: application/json" \
@@ -158,6 +164,7 @@ curl -X POST http://localhost:32122/api/v2/users \
 **端点**: `GET /api/v2/users/:userId`
 
 **响应**:
+
 ```json
 {
   "userId": "alice",
@@ -175,6 +182,7 @@ curl -X POST http://localhost:32122/api/v2/users \
 ```
 
 **测试命令**:
+
 ```bash
 curl http://localhost:32122/api/v2/users/alice | jq .
 ```
@@ -184,6 +192,7 @@ curl http://localhost:32122/api/v2/users/alice | jq .
 **端点**: `GET /api/v2/users`
 
 **响应**:
+
 ```json
 {
   "users": [
@@ -200,6 +209,7 @@ curl http://localhost:32122/api/v2/users/alice | jq .
 ```
 
 **测试命令**:
+
 ```bash
 curl http://localhost:32122/api/v2/users | jq .
 ```
@@ -209,6 +219,7 @@ curl http://localhost:32122/api/v2/users | jq .
 **端点**: `PUT /api/v2/users/:userId`
 
 **请求体**:
+
 ```json
 {
   "username": "Alice Updated"
@@ -216,6 +227,7 @@ curl http://localhost:32122/api/v2/users | jq .
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -226,6 +238,7 @@ curl http://localhost:32122/api/v2/users | jq .
 ```
 
 **测试命令**:
+
 ```bash
 curl -X PUT http://localhost:32122/api/v2/users/alice \
   -H "Content-Type: application/json" \
@@ -237,6 +250,7 @@ curl -X PUT http://localhost:32122/api/v2/users/alice \
 **端点**: `DELETE /api/v2/users/:userId`
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -247,6 +261,7 @@ curl -X PUT http://localhost:32122/api/v2/users/alice \
 ```
 
 **测试命令**:
+
 ```bash
 curl -X DELETE http://localhost:32122/api/v2/users/alice | jq .
 ```
@@ -258,6 +273,7 @@ curl -X DELETE http://localhost:32122/api/v2/users/alice | jq .
 **端点**: `POST /api/v2/users/:userId/browsers`
 
 **请求体**:
+
 ```json
 {
   "browserURL": "http://localhost:9222",
@@ -267,6 +283,7 @@ curl -X DELETE http://localhost:32122/api/v2/users/alice | jq .
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -279,6 +296,7 @@ curl -X DELETE http://localhost:32122/api/v2/users/alice | jq .
 ```
 
 **测试命令**:
+
 ```bash
 curl -X POST http://localhost:32122/api/v2/users/alice/browsers \
   -H "Content-Type: application/json" \
@@ -294,6 +312,7 @@ curl -X POST http://localhost:32122/api/v2/users/alice/browsers \
 **端点**: `GET /api/v2/users/:userId/browsers`
 
 **响应**:
+
 ```json
 {
   "browsers": [
@@ -312,6 +331,7 @@ curl -X POST http://localhost:32122/api/v2/users/alice/browsers \
 ```
 
 **测试命令**:
+
 ```bash
 curl http://localhost:32122/api/v2/users/alice/browsers | jq .
 ```
@@ -321,6 +341,7 @@ curl http://localhost:32122/api/v2/users/alice/browsers | jq .
 **端点**: `GET /api/v2/users/:userId/browsers/:browserId`
 
 **响应**:
+
 ```json
 {
   "browserId": "550e8400-e29b-41d4-a716-446655440000",
@@ -335,6 +356,7 @@ curl http://localhost:32122/api/v2/users/alice/browsers | jq .
 ```
 
 **测试命令**:
+
 ```bash
 BROWSER_ID="550e8400-e29b-41d4-a716-446655440000"
 curl http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID | jq .
@@ -345,6 +367,7 @@ curl http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID | jq .
 **端点**: `PUT /api/v2/users/:userId/browsers/:browserId`
 
 **请求体**:
+
 ```json
 {
   "browserURL": "http://localhost:9223",
@@ -353,6 +376,7 @@ curl http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID | jq .
 ```
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -365,6 +389,7 @@ curl http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID | jq .
 ```
 
 **测试命令**:
+
 ```bash
 curl -X PUT http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID \
   -H "Content-Type: application/json" \
@@ -376,6 +401,7 @@ curl -X PUT http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID \
 **端点**: `DELETE /api/v2/users/:userId/browsers/:browserId`
 
 **响应**:
+
 ```json
 {
   "success": true,
@@ -385,6 +411,7 @@ curl -X PUT http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID \
 ```
 
 **测试命令**:
+
 ```bash
 curl -X DELETE http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID | jq .
 ```
@@ -396,37 +423,42 @@ curl -X DELETE http://localhost:32122/api/v2/users/alice/browsers/$BROWSER_ID | 
 **端点**: `GET /sse?token=<token>`
 
 **参数**:
+
 - `token`: 浏览器绑定时返回的 token
 
 **示例**:
+
 ```bash
 # 建立 SSE 连接
 curl -N "http://localhost:32122/sse?token=mcp_1a2b3c4d5e6f..."
 ```
 
 **JavaScript 客户端**:
-```javascript
-const token = "mcp_1a2b3c4d5e6f...";
-const eventSource = new EventSource(`http://localhost:32122/sse?token=${token}`);
 
-eventSource.addEventListener('message', (event) => {
+```javascript
+const token = 'mcp_1a2b3c4d5e6f...';
+const eventSource = new EventSource(
+  `http://localhost:32122/sse?token=${token}`,
+);
+
+eventSource.addEventListener('message', event => {
   const response = JSON.parse(event.data);
   console.log('MCP 响应:', response);
 });
 
-eventSource.addEventListener('endpoint', (event) => {
+eventSource.addEventListener('endpoint', event => {
   const data = JSON.parse(event.data);
   console.log('端点:', data.uri);
-  
+
   // 发送 MCP 请求
   fetch(data.uri, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
-      method: 'tools/list'
-    })
+      method: 'tools/list',
+    }),
   });
 });
 ```
@@ -496,6 +528,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **访问地址**: `http://localhost:32122/`
 
 **主要功能**:
+
 - ✅ 用户注册和管理
 - ✅ 浏览器绑定和配置
 - ✅ Token 生成和复制
@@ -529,6 +562,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 #### 首页 - 系统概览
 
 **显示内容**:
+
 - 服务器版本信息
 - 存储类型（JSONL / PostgreSQL）
 - 实时统计数据：
@@ -537,6 +571,7 @@ node build/src/multi-tenant/server-multi-tenant.js
   - 活跃会话数
 
 **示例**:
+
 ```
 ╔═══════════════════════════════════════╗
 ║  Chrome DevTools MCP 多租户管理        ║
@@ -553,6 +588,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 **操作步骤**:
 
 1. **填写用户信息**
+
    ```
    邮箱地址: user@example.com  (必填)
    用户名: Alice               (可选，默认使用邮箱前缀)
@@ -565,6 +601,7 @@ node build/src/multi-tenant/server-multi-tenant.js
    - 显示新注册的用户信息
 
 **注意事项**:
+
 - ✅ 邮箱必须唯一
 - ✅ 用户名可选，为空时使用邮箱@前的部分
 - ⚠️ 注册后需要绑定浏览器才能获取 Token
@@ -572,11 +609,13 @@ node build/src/multi-tenant/server-multi-tenant.js
 #### Tab 2: 用户列表
 
 **功能**:
+
 - 查看所有注册用户
 - 显示用户的浏览器数量
 - 管理用户浏览器
 
 **用户卡片显示**:
+
 ```
 ┌─────────────────────────────────────┐
 │ 👤 Alice (alice)                    │
@@ -588,12 +627,14 @@ node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **操作按钮**:
+
 - **管理浏览器**: 查看和管理该用户的所有浏览器
 - **删除用户**: 删除用户及其所有浏览器（谨慎操作）
 
 #### Tab 3: 关于
 
 **显示内容**:
+
 - V2 API 核心特性
 - API 端点列表
 - 文档链接
@@ -634,6 +675,7 @@ google-chrome --remote-debugging-port=9222
 **步骤 4: 获取 Token**
 
 绑定成功后，系统会显示 Token：
+
 ```
 ┌─────────────────────────────────────┐
 │ 🎉 浏览器绑定成功！                 │
@@ -649,10 +691,12 @@ google-chrome --remote-debugging-port=9222
 
 ```javascript
 // 使用 Token 建立 SSE 连接
-const token = "mcp_1a2b3c4d5e6f...";
-const eventSource = new EventSource(`http://localhost:32122/sse?token=${token}`);
+const token = 'mcp_1a2b3c4d5e6f...';
+const eventSource = new EventSource(
+  `http://localhost:32122/sse?token=${token}`,
+);
 
-eventSource.addEventListener('message', (event) => {
+eventSource.addEventListener('message', event => {
   const response = JSON.parse(event.data);
   console.log('收到 MCP 响应:', response);
 });
@@ -663,11 +707,13 @@ eventSource.addEventListener('message', (event) => {
 点击"管理浏览器"后，会弹出浏览器管理窗口：
 
 **显示内容**:
+
 - 用户的所有浏览器列表
 - 每个浏览器的详细信息
 - 操作按钮
 
 **浏览器卡片**:
+
 ```
 ┌─────────────────────────────────────┐
 │ 🌐 my-chrome                        │
@@ -682,6 +728,7 @@ eventSource.addEventListener('message', (event) => {
 ```
 
 **操作**:
+
 - **复制 Token**: 复制该浏览器的访问 Token
 - **解绑**: 删除该浏览器绑定（Token 将失效）
 
@@ -695,10 +742,10 @@ eventSource.addEventListener('message', (event) => {
 server {
     listen 443 ssl http2;
     server_name mcp.example.com;
-    
+
     ssl_certificate /etc/ssl/certs/mcp.crt;
     ssl_certificate_key /etc/ssl/private/mcp.key;
-    
+
     # Web UI
     location / {
         proxy_pass http://localhost:32122;
@@ -711,7 +758,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
-    
+
     # SSE 长连接
     location /sse {
         proxy_pass http://localhost:32122/sse;
@@ -719,13 +766,13 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection '';
         proxy_set_header Host $host;
-        
+
         # SSE 特殊配置
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
-        
+
         # CORS（如需要）
         add_header Access-Control-Allow-Origin *;
     }
@@ -750,6 +797,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 #### Docker 部署（含 UI）
 
 **Dockerfile**:
+
 ```dockerfile
 FROM node:22-alpine
 
@@ -766,6 +814,7 @@ CMD ["node", "build/src/multi-tenant/server-multi-tenant.js"]
 ```
 
 **docker-compose.yml**:
+
 ```yaml
 version: '3.8'
 
@@ -773,7 +822,7 @@ services:
   mcp-server:
     build: .
     ports:
-      - "32122:32122"
+      - '32122:32122'
     environment:
       - STORAGE_TYPE=postgresql
       - DB_HOST=postgres
@@ -801,8 +850,8 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/ssl:ro
@@ -840,13 +889,14 @@ node build/src/multi-tenant/server-multi-tenant.js
 location / {
     auth_basic "MCP Admin";
     auth_basic_user_file /etc/nginx/.htpasswd;
-    
+
     proxy_pass http://localhost:32122;
     # ...其他配置
 }
 ```
 
 生成密码文件：
+
 ```bash
 htpasswd -c /etc/nginx/.htpasswd admin
 ```
@@ -856,29 +906,36 @@ htpasswd -c /etc/nginx/.htpasswd admin
 UI 界面位于 `src/multi-tenant/public/index.html`，可以根据需要自定义：
 
 **修改主题颜色**:
+
 ```css
 /* 修改渐变背景 */
 body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    /* 改为: */
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* 改为: */
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 ```
 
 **修改标题**:
+
 ```html
 <div class="header">
-    <h1>Chrome DevTools MCP - 多租户管理</h1>
-    <!-- 改为: -->
-    <h1>您的公司名 - MCP 管理平台</h1>
+  <h1>Chrome DevTools MCP - 多租户管理</h1>
+  <!-- 改为: -->
+  <h1>您的公司名 - MCP 管理平台</h1>
 </div>
 ```
 
 **添加公司 Logo**:
+
 ```html
 <div class="header">
-    <img src="/logo.png" alt="Logo" style="height: 60px; margin-bottom: 20px;">
-    <h1>Chrome DevTools MCP - 多租户管理</h1>
+  <img
+    src="/logo.png"
+    alt="Logo"
+    style="height: 60px; margin-bottom: 20px;"
+  />
+  <h1>Chrome DevTools MCP - 多租户管理</h1>
 </div>
 ```
 
@@ -1040,7 +1097,7 @@ services:
   mcp-server:
     build: .
     ports:
-      - "32122:32122"
+      - '32122:32122'
     environment:
       - STORAGE_TYPE=postgresql
       - DB_HOST=postgres
@@ -1117,10 +1174,10 @@ node build/src/multi-tenant/server-multi-tenant.js
 server {
     listen 443 ssl http2;
     server_name mcp.example.com;
-    
+
     ssl_certificate /etc/ssl/certs/mcp.crt;
     ssl_certificate_key /etc/ssl/private/mcp.key;
-    
+
     location / {
         proxy_pass http://localhost:32122;
         proxy_http_version 1.1;
@@ -1128,7 +1185,7 @@ server {
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
-        
+
         # SSE 支持
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -1217,6 +1274,7 @@ node --max-old-space-size=8192 build/src/multi-tenant/server-multi-tenant.js
 ## 📚 API 完整示例
 
 完整的 curl 测试脚本请参见:
+
 - [test-multi-tenant-mode.sh](../examples/test-multi-tenant-mode.sh)
 - [test-v2-api-curl.sh](../examples/test-v2-api-curl.sh)
 

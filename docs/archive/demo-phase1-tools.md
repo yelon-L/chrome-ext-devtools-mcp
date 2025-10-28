@@ -1,6 +1,7 @@
 # Phase 1 新工具实际演示
 
 ## 测试环境
+
 - **Chrome**: 192.168.0.201:9222
 - **MCP Server**: stdio 模式
 - **日期**: 2025-10-13
@@ -21,12 +22,12 @@ $ BROWSER_URL=http://192.168.0.201:9222 node build/src/index.js
 
 所有 41 个工具已正确注册，包括 Phase 1 新增的 3 个工具：
 
-| 工具 | 状态 |
-|------|------|
-| `diagnose_extension_errors` | ✅ 已注册 |
-| `inspect_extension_manifest` | ✅ 已注册 |
+| 工具                             | 状态      |
+| -------------------------------- | --------- |
+| `diagnose_extension_errors`      | ✅ 已注册 |
+| `inspect_extension_manifest`     | ✅ 已注册 |
 | `check_content_script_injection` | ✅ 已注册 |
-| `reload_extension`（增强版）| ✅ 已注册 |
+| `reload_extension`（增强版）     | ✅ 已注册 |
 
 ---
 
@@ -35,6 +36,7 @@ $ BROWSER_URL=http://192.168.0.201:9222 node build/src/index.js
 ### 1. diagnose_extension_errors - 错误诊断器
 
 **调用示例：**
+
 ```json
 {
   "tool": "diagnose_extension_errors",
@@ -47,6 +49,7 @@ $ BROWSER_URL=http://192.168.0.201:9222 node build/src/index.js
 ```
 
 **预期输出：**
+
 ```markdown
 # Extension Health Diagnosis
 
@@ -68,20 +71,24 @@ $ BROWSER_URL=http://192.168.0.201:9222 node build/src/index.js
 ## Most Frequent Errors
 
 ### 1. Error (5 times)
+
 **Message**: Uncaught TypeError: Cannot read property 'tabs' of undefined
 **Source**: background.js:42
 
 ### 2. Error (3 times)
+
 **Message**: chrome.storage.local.get is not a function
 **Source**: content.js:15
 
 ## 🔧 Diagnostic Recommendations
 
 ### 🐛 Fix JavaScript Errors
+
 Found 10 JavaScript errors.
 **Solution**: Review the error messages above and check your code for syntax or logic errors.
 
 ### 🔌 Review Chrome API Usage
+
 Found 3 Chrome API errors.
 **Solution**: Ensure APIs are available in your extension context and you have required permissions.
 
@@ -95,6 +102,7 @@ Found 3 Chrome API errors.
 ### 2. inspect_extension_manifest - Manifest 检查
 
 **调用示例：**
+
 ```json
 {
   "tool": "inspect_extension_manifest",
@@ -108,6 +116,7 @@ Found 3 Chrome API errors.
 ```
 
 **预期输出：**
+
 ```markdown
 # Manifest Inspection Report
 
@@ -127,12 +136,14 @@ Found 3 Chrome API errors.
 ⚠️ **Warning**: MV2 is deprecated. Migrate to MV3 by June 2024.
 
 **Background**:
+
 - Scripts: 2 file(s)
 - Persistent: true
 
 ## 🔒 Permission Analysis
 
 **Declared Permissions** (5):
+
 - 🟡 `tabs` - Medium risk - ensure necessary
 - 🔴 `<all_urls>` - High risk - requires strong justification
 - 🟢 `storage` - Low risk
@@ -140,6 +151,7 @@ Found 3 Chrome API errors.
 - 🟢 `notifications` - Low risk
 
 **⚠️ Permission Warnings**:
+
 - `<all_urls>` requires additional justification for Chrome Web Store
 
 ## 🔄 MV3 Migration Compatibility
@@ -152,12 +164,14 @@ Found 3 Chrome API errors.
 ❌ `webRequestBlocking` is deprecated in MV3
 
 **Recommended Actions**:
+
 1. Combine background scripts into a single service worker file
 2. Remove persistent property and design for event-driven architecture
 3. Rename to `action` and update references in code
 4. Migrate to declarativeNetRequest API
 
 **Migration Resources**:
+
 - [Chrome MV3 Migration Guide](https://developer.chrome.com/docs/extensions/migrating/)
 - [MV3 Migration Checklist](https://developer.chrome.com/docs/extensions/mv3/mv3-migration-checklist/)
 
@@ -183,6 +197,7 @@ Found 3 Chrome API errors.
 ### 3. check_content_script_injection - Content Script 检查
 
 **调用示例：**
+
 ```json
 {
   "tool": "check_content_script_injection",
@@ -195,7 +210,8 @@ Found 3 Chrome API errors.
 ```
 
 **预期输出：**
-```markdown
+
+````markdown
 # Content Script Injection Check
 
 **Extension**: My Test Extension
@@ -206,17 +222,19 @@ Found 3 Chrome API errors.
 ### ✅ Rule 1
 
 **Match Patterns** (2):
-  - ✅ `*://github.com/*`
-  - ❌ `*://gitlab.com/*`
+
+- ✅ `*://github.com/*`
+- ❌ `*://gitlab.com/*`
 
 **Files** (2): content.js, styles.css
-**Run At**: document_idle
-**Result**: Matched pattern: *://github.com/*
+**Run At**: document*idle
+**Result**: Matched pattern: *://github.com/\_
 
 ### ❌ Rule 2
 
 **Match Patterns** (1):
-  - ❌ `*://example.com/*`
+
+- ❌ `*://example.com/*`
 
 **Files** (1): other.js
 **Run At**: document_start
@@ -227,6 +245,7 @@ Found 3 Chrome API errors.
 ✅ **1 rule(s) match this URL**
 
 **This means**:
+
 - Content scripts SHOULD be injected on this page
 - Scripts will run according to their `run_at` timing
 
@@ -242,17 +261,21 @@ Found 3 Chrome API errors.
 ## 💡 Verification Methods
 
 **Check if content script is running**:
+
 ```javascript
 // Add to your content script:
-console.log("✅ Content script loaded:", chrome.runtime.id);
+console.log('✅ Content script loaded:', chrome.runtime.id);
 ```
+````
 
 **Or check in browser console**:
+
 ```javascript
 // This only works if your script sets it:
-window.MY_EXTENSION_LOADED === true
+window.MY_EXTENSION_LOADED === true;
 ```
-```
+
+````
 
 ---
 
@@ -269,9 +292,10 @@ window.MY_EXTENSION_LOADED === true
     "captureErrors": true
   }
 }
-```
+````
 
 **预期输出：**
+
 ```markdown
 # Smart Extension Reload
 
@@ -315,12 +339,14 @@ window.MY_EXTENSION_LOADED === true
 ## ✅ Reload Complete
 
 **What happened**:
+
 - Background script/service worker has been restarted
 - All extension pages (popup, options) have been closed
 - Content scripts will be re-injected on next page navigation
 - Storage data was preserved and restored
 
 **Next Steps**:
+
 - Use `list_extension_contexts` to see active contexts
 - Use `get_extension_logs` to monitor extension activity
 - Reload pages to re-inject content scripts
@@ -354,12 +380,12 @@ window.MY_EXTENSION_LOADED === true
 
 ### 🎯 功能完整性
 
-| 工具 | 注册 | 参数验证 | 输出格式 | 错误处理 |
-|------|------|---------|---------|---------|
-| diagnose_extension_errors | ✅ | ✅ | ✅ | ✅ |
-| inspect_extension_manifest | ✅ | ✅ | ✅ | ✅ |
-| check_content_script_injection | ✅ | ✅ | ✅ | ✅ |
-| reload_extension (增强) | ✅ | ✅ | ✅ | ✅ |
+| 工具                           | 注册 | 参数验证 | 输出格式 | 错误处理 |
+| ------------------------------ | ---- | -------- | -------- | -------- |
+| diagnose_extension_errors      | ✅   | ✅       | ✅       | ✅       |
+| inspect_extension_manifest     | ✅   | ✅       | ✅       | ✅       |
+| check_content_script_injection | ✅   | ✅       | ✅       | ✅       |
+| reload_extension (增强)        | ✅   | ✅       | ✅       | ✅       |
 
 ---
 
@@ -370,12 +396,14 @@ window.MY_EXTENSION_LOADED === true
 要完整测试所有功能，需要：
 
 1. **在远程 Chrome 中加载一个扩展**
+
    ```bash
    # 在 192.168.0.201 的 Chrome 中:
    chrome://extensions → 开发者模式 → 加载已解压的扩展程序
    ```
 
 2. **重新运行测试脚本**
+
    ```bash
    node test-new-tools.mjs
    ```

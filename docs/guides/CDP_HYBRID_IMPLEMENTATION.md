@@ -4,13 +4,14 @@
 
 ✅ **第一阶段完成**：CDP Target 生命周期管理  
 ✅ **第二阶段完成**：CDP 高频操作（navigate, evaluate）  
-⏸️ **第三阶段待定**：逐步替换其他工具  
+⏸️ **第三阶段待定**：逐步替换其他工具
 
 ## 已实现功能
 
 ### 1. CDP Target Manager (`src/CdpTargetManager.ts`)
 
 **功能**：
+
 - ✅ 使用 CDP 创建 Target (`Target.createTarget`)
 - ✅ 从 Target ID 获取 Puppeteer Page 对象
 - ✅ 使用 CDP 关闭 Target (`Target.closeTarget`)
@@ -18,19 +19,21 @@
 - ✅ 自动清理资源
 
 **核心方法**：
+
 ```typescript
 class CdpTargetManager {
-  async init(): Promise<void>
-  async createTarget(url?: string): Promise<string>
-  async getPageForTarget(targetId: string, timeout?: number): Promise<Page>
-  async closeTarget(targetId: string): Promise<void>
-  async dispose(): Promise<void>
+  async init(): Promise<void>;
+  async createTarget(url?: string): Promise<string>;
+  async getPageForTarget(targetId: string, timeout?: number): Promise<Page>;
+  async closeTarget(targetId: string): Promise<void>;
+  async dispose(): Promise<void>;
 }
 ```
 
 ### 2. CDP Operations (`src/CdpOperations.ts`)
 
 **功能**：
+
 - ✅ CDP 导航 (`Page.navigate`)
   - 支持多种等待条件（load, domcontentloaded, networkidle）
   - 超时控制
@@ -43,18 +46,26 @@ class CdpTargetManager {
 - ✅ 自动清理资源
 
 **核心方法**：
+
 ```typescript
 class CdpOperations {
-  async init(): Promise<void>
-  async navigate(url: string, options?): Promise<{success, loaderId?, errorText?}>
-  async evaluate(expression: string, options?): Promise<{success, result?, exceptionDetails?}>
-  async dispose(): Promise<void>
+  async init(): Promise<void>;
+  async navigate(
+    url: string,
+    options?,
+  ): Promise<{success; loaderId?; errorText?}>;
+  async evaluate(
+    expression: string,
+    options?,
+  ): Promise<{success; result?; exceptionDetails?}>;
+  async dispose(): Promise<void>;
 }
 ```
 
 ### 3. McpContext 集成
 
 **新增配置**：
+
 ```typescript
 static async fromMinimal(
   browser: Browser,
@@ -67,6 +78,7 @@ static async fromMinimal(
 ```
 
 **新增方法**：
+
 ```typescript
 getCdpOperations(): CdpOperations | undefined
 isCdpOperationsEnabled(): boolean
@@ -75,6 +87,7 @@ async dispose(): Promise<void>
 ```
 
 **自动回退**：
+
 - CDP 初始化失败 → 自动回退到 Puppeteer
 - CDP 操作失败 → 自动回退到 Puppeteer
 - 错误日志记录完整
@@ -82,18 +95,21 @@ async dispose(): Promise<void>
 ### 4. 多租户服务器支持
 
 **环境变量配置**：
+
 ```bash
 USE_CDP_HYBRID=true        # 启用 CDP Target 管理
 USE_CDP_OPERATIONS=true    # 启用 CDP 高频操作
 ```
 
 **启动提示**：
+
 ```
 🚀 CDP 混合架构已启用 - Target 管理（实验性）
 ⚡ CDP 高频操作已启用 - navigate/evaluate（实验性）
 ```
 
 **日志增强**：
+
 ```
 [Server] ✓ MCP上下文已创建（CDP-Target+CDP-Ops）: user123
 ```
@@ -105,6 +121,7 @@ USE_CDP_OPERATIONS=true    # 启用 CDP 高频操作
 基础性能测试脚本。
 
 **测试内容**：
+
 - 页面创建性能
 - 页面导航性能
 - 多次测试取平均值
@@ -114,12 +131,14 @@ USE_CDP_OPERATIONS=true    # 启用 CDP 高频操作
 完整功能测试脚本。
 
 **测试内容**：
+
 - CDP Target 管理功能
 - CDP 高频操作功能
 - 与 Puppeteer 基线对比
 - 性能提升百分比
 
 **运行方式**：
+
 ```bash
 npm run build
 node test-hybrid-context.mjs
@@ -171,12 +190,12 @@ CDP 尝试 → 失败? → Puppeteer 回退 → 记录日志
 
 ### 预期改善
 
-| 指标 | 方案A 延迟初始化 | 方案B CDP Target | 方案B CDP Ops |
-|------|-----------------|-----------------|--------------|
-| 连接建立 | +50% | +50% | +50% |
-| 页面创建 | 0% | +30-40% | +30-40% |
-| 页面导航 | 0% | 0% | +20-30% |
-| 脚本执行 | 0% | 0% | +10-20% |
+| 指标     | 方案A 延迟初始化 | 方案B CDP Target | 方案B CDP Ops |
+| -------- | ---------------- | ---------------- | ------------- |
+| 连接建立 | +50%             | +50%             | +50%          |
+| 页面创建 | 0%               | +30-40%          | +30-40%       |
+| 页面导航 | 0%               | 0%               | +20-30%       |
+| 脚本执行 | 0%               | 0%               | +10-20%       |
 
 ### 实际测试
 
@@ -222,12 +241,14 @@ npm run start:multi-tenant
 ```
 
 **监控指标**：
+
 - 连接成功率
 - 页面创建成功率
 - CDP 回退次数（日志中的 "fallback to Puppeteer"）
 - 平均响应时间
 
 **决策点**：
+
 - 成功率 > 95% → 继续
 - 成功率 < 90% → 回退到纯 Puppeteer
 
@@ -241,6 +262,7 @@ npm run start:multi-tenant
 ```
 
 **监控指标**：
+
 - 导航成功率
 - 脚本执行成功率
 - CDP 操作失败率

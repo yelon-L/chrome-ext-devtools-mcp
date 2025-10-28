@@ -20,9 +20,9 @@ import type {
   PredefinedNetworkConditions,
 } from 'puppeteer-core';
 
+import {CDPSessionManager} from './cdp/CDPSessionManager.js';
 import {CdpOperations} from './CdpOperations.js';
 import {CdpTargetManager} from './CdpTargetManager.js';
-import {CDPSessionManager} from './cdp/CDPSessionManager.js';
 import {EnhancedConsoleCollector} from './collectors/EnhancedConsoleCollector.js';
 import {ExtensionHelper} from './extension/ExtensionHelper.js';
 import type {

@@ -12,7 +12,7 @@
 ✅ **远程可访问** - 部署在服务器上，通过 HTTP 访问  
 ✅ **多用户隔离** - 每个用户有独立的会话和浏览器  
 ✅ **用户自带浏览器** - 用户连接自己机器上的 Chrome  
-✅ **SSE 传输** - 使用 Server-Sent Events 协议  
+✅ **SSE 传输** - 使用 Server-Sent Events 协议
 
 ---
 
@@ -32,6 +32,7 @@ PORT=32122 AUTH_ENABLED=true node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **服务器启动后：**
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏢 MULTI-TENANT MODE - Enterprise SaaS
@@ -105,16 +106,17 @@ curl -X POST http://localhost:32122/api/register \
 
 ## 环境变量配置
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `PORT` | 服务器端口 | 32122 |
-| `AUTH_ENABLED` | 启用认证 | false |
+| 变量               | 说明                   | 默认值         |
+| ------------------ | ---------------------- | -------------- |
+| `PORT`             | 服务器端口             | 32122          |
+| `AUTH_ENABLED`     | 启用认证               | false          |
 | `TOKEN_EXPIRATION` | Token 过期时间（毫秒） | 86400000 (24h) |
-| `MAX_SESSIONS` | 最大并发用户 | 100 |
-| `SESSION_TIMEOUT` | 会话超时（毫秒） | 1800000 (30m) |
-| `ALLOWED_ORIGINS` | CORS 允许的来源 | * |
+| `MAX_SESSIONS`     | 最大并发用户           | 100            |
+| `SESSION_TIMEOUT`  | 会话超时（毫秒）       | 1800000 (30m)  |
+| `ALLOWED_ORIGINS`  | CORS 允许的来源        | \*             |
 
 **示例：**
+
 ```bash
 PORT=3000 \
 AUTH_ENABLED=true \
@@ -127,6 +129,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 ## API 端点
 
 ### 健康检查
+
 ```http
 GET /health
 
@@ -139,6 +142,7 @@ GET /health
 ```
 
 ### 注册用户
+
 ```http
 POST /api/register
 Content-Type: application/json
@@ -150,6 +154,7 @@ Content-Type: application/json
 ```
 
 ### 用户列表
+
 ```http
 GET /api/users
 
@@ -162,6 +167,7 @@ GET /api/users
 ```
 
 ### SSE 连接
+
 ```http
 GET /sse?userId=alice
 
@@ -169,6 +175,7 @@ GET /sse?userId=alice
 ```
 
 ### 测试页面
+
 ```http
 GET /test
 
@@ -179,14 +186,15 @@ GET /test
 
 ## 与其他模式的区别
 
-| 模式 | 启动命令 | 远程访问 | 多用户 | 独立浏览器 |
-|------|---------|---------|-------|-----------|
-| **stdio** | `npx chrome-extension-debug-mcp` | ❌ | ❌ | N/A |
-| **SSE** | `npx ... --transport sse --port 3000` | ✅ | ✅ | ❌ (共享) |
-| **Streamable** | `npx ... --transport streamable --port 3000` | ✅ | ✅ | ❌ (共享) |
-| **Multi-tenant** | `node build/src/multi-tenant/server-multi-tenant.js` | ✅ | ✅ | ✅ (独立) |
+| 模式             | 启动命令                                             | 远程访问 | 多用户 | 独立浏览器 |
+| ---------------- | ---------------------------------------------------- | -------- | ------ | ---------- |
+| **stdio**        | `npx chrome-extension-debug-mcp`                     | ❌       | ❌     | N/A        |
+| **SSE**          | `npx ... --transport sse --port 3000`                | ✅       | ✅     | ❌ (共享)  |
+| **Streamable**   | `npx ... --transport streamable --port 3000`         | ✅       | ✅     | ❌ (共享)  |
+| **Multi-tenant** | `node build/src/multi-tenant/server-multi-tenant.js` | ✅       | ✅     | ✅ (独立)  |
 
 **关键区别：**
+
 - **stdio/SSE/Streamable**: 所有用户共享同一个浏览器实例
 - **Multi-tenant**: 每个用户连接自己的浏览器实例，完全隔离
 
@@ -244,7 +252,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        
+
         # SSE 需要禁用缓冲
         proxy_buffering off;
         proxy_cache off;
@@ -259,6 +267,7 @@ server {
 ### Q: 为什么没有 `--mode multi-tenant` 参数？
 
 **A:** Multi-tenant 是一个独立的服务器程序，不是传输模式参数。正确的启动方式是：
+
 ```bash
 node build/src/multi-tenant/server-multi-tenant.js
 ```
@@ -278,6 +287,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 ### Q: 如何保证用户隔离？
 
 **A:** 每个用户有：
+
 - 独立的 `userId`
 - 独立的 SSE 连接（`/sse?userId=xxx`）
 - 独立的 MCP Server 实例

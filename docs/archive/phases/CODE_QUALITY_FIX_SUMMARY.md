@@ -5,12 +5,12 @@
 
 ## 🎯 修复概览
 
-| 优先级 | 问题数 | 已修复 | 进度 |
-|--------|--------|--------|------|
-| **P0** (关键) | 2 | 2 | ✅ 100% |
-| **P1** (重要) | 3 | 3 | ✅ 100% |
-| **P2** (优化) | 5 | 1 | 📋 20% |
-| **总计** | 10 | 6 | **60%** |
+| 优先级        | 问题数 | 已修复 | 进度    |
+| ------------- | ------ | ------ | ------- |
+| **P0** (关键) | 2      | 2      | ✅ 100% |
+| **P1** (重要) | 3      | 3      | ✅ 100% |
+| **P2** (优化) | 5      | 1      | 📋 20%  |
+| **总计**      | 10     | 6      | **60%** |
 
 **质量评分**: 9.0/10 → **9.7/10** ⬆️ **0.7分**
 
@@ -25,6 +25,7 @@
 **修复文件**: `src/multi-tenant/storage/JSONLStorageAdapter.ts`
 
 **修复内容**:
+
 - 为 `updateUsername()` 添加 `await`
 - 为 `deleteUser()` 添加 `await`
 - 为 `bindBrowser()` 添加 `await`
@@ -36,6 +37,7 @@
 **影响**: 🔥 修复了严重的数据丢失风险
 
 **验证方式**:
+
 ```bash
 # 运行存储层单元测试
 npm test -- JSONLStorageAdapter.test.ts
@@ -45,20 +47,22 @@ npm test -- JSONLStorageAdapter.test.ts
 
 #### 2. ✅ SessionManager 内存泄露问题
 
-**修复文件**: 
+**修复文件**:
+
 - `src/multi-tenant/core/SessionManager.ts`
 - `src/multi-tenant/server-multi-tenant.ts`
 
 **修复内容**:
 
 1. **SessionManager.ts** - 添加删除回调机制：
+
    ```typescript
    // 新增回调字段
    #onSessionDeleted?: (sessionId: string) => void;
-   
+
    // 新增设置方法
    setOnSessionDeleted(callback: (sessionId: string) => void): void
-   
+
    // 在 deleteSession() 中触发回调
    if (this.#onSessionDeleted) {
      this.#onSessionDeleted(sessionId);
@@ -67,14 +71,15 @@ npm test -- JSONLStorageAdapter.test.ts
 
 2. **server-multi-tenant.ts** - 在启动时设置回调：
    ```typescript
-   this.sessionManager.setOnSessionDeleted((sessionId) => {
-     this.sessionMutexes.delete(sessionId);  // 清理会话锁
+   this.sessionManager.setOnSessionDeleted(sessionId => {
+     this.sessionMutexes.delete(sessionId); // 清理会话锁
    });
    ```
 
 **影响**: 🔥 修复了长期运行导致的内存泄露
 
 **验证方式**:
+
 ```bash
 # 运行内存测试（创建和删除大量会话）
 node scripts/test-memory-leak.js
@@ -89,6 +94,7 @@ node scripts/test-memory-leak.js
 **修复文件**: `src/multi-tenant/utils/simple-cache.ts`
 
 **优化内容**:
+
 1. 修正 `set()` 方法的 LRU 逻辑：
    - 如果 key 已存在，先删除再插入（更新位置）
    - 删除最早插入的元素（Map 的第一个）
@@ -102,6 +108,7 @@ node scripts/test-memory-leak.js
    - 新增 `resetStats()` 方法
 
 **改进效果**:
+
 - ✅ 正确实现 LRU 淘汰策略
 - ✅ 提供详细的缓存性能指标
 - ✅ 代码更加清晰，注释完善
@@ -113,12 +120,14 @@ node scripts/test-memory-leak.js
 **新增文件**: `src/multi-tenant/utils/circular-buffer.ts`
 
 **功能特性**:
+
 - ✅ O(1) 时间复杂度的 push 操作
 - ✅ 固定内存占用（无动态扩容）
 - ✅ 支持统计函数：average(), sum(), min(), max()
 - ✅ 完整的注释和类型定义
 
 **使用场景**:
+
 ```typescript
 // 在 server-multi-tenant.ts 中使用
 import {CircularBuffer} from './utils/circular-buffer.js';
@@ -136,6 +145,7 @@ private connectionTimes = new CircularBuffer<number>(100);
 ```
 
 **改进效果**:
+
 - ✅ 代码复用性更高
 - ✅ 可测试性更好
 - ✅ 可扩展到其他监控场景
@@ -147,7 +157,9 @@ private connectionTimes = new CircularBuffer<number>(100);
 **修复文件**: `src/multi-tenant/handlers-v2.ts`
 
 **修复内容**:
+
 1. 定义了 `MultiTenantServerContext` 接口：
+
    ```typescript
    export interface MultiTenantServerContext {
      readRequestBody(req: http.IncomingMessage): Promise<string>;
@@ -169,6 +181,7 @@ private connectionTimes = new CircularBuffer<number>(100);
    ```
 
 **改进效果**:
+
 - ✅ 完整的类型检查和智能提示
 - ✅ 重构时的安全保障
 - ✅ 更好的开发体验
@@ -180,25 +193,28 @@ private connectionTimes = new CircularBuffer<number>(100);
 **新增文件**: `src/multi-tenant/config/MultiTenantConfig.ts`
 
 **功能特性**:
+
 - ✅ 统一管理所有配置项（服务器、存储、会话、性能、安全等）
 - ✅ 从环境变量加载配置（`loadConfigFromEnv`）
 - ✅ 配置验证（`validateConfig`）
 - ✅ 配置打印（`printConfig`，隐藏敏感信息）
 
 **配置分类**:
+
 ```typescript
 interface MultiTenantConfig {
-  server: ServerConfig;           // 端口、版本
-  storage: StorageConfig;         // JSONL/PostgreSQL 配置
-  session: SessionConfig;         // 超时、清理间隔
+  server: ServerConfig; // 端口、版本
+  storage: StorageConfig; // JSONL/PostgreSQL 配置
+  session: SessionConfig; // 超时、清理间隔
   browserPool: BrowserPoolConfig; // 健康检查、重连策略
   performance: PerformanceConfig; // 缓存、监控
-  security: SecurityConfig;       // IP 白名单、CORS
+  security: SecurityConfig; // IP 白名单、CORS
   experimental: ExperimentalConfig; // CDP 混合架构
 }
 ```
 
 **改进效果**:
+
 - ✅ 配置集中管理，易于维护
 - ✅ 支持环境变量和默认值
 - ✅ 配置验证，防止错误配置
@@ -215,21 +231,22 @@ interface MultiTenantConfig {
 **问题**: 存储层级过多（4层），存在同步/异步混合接口
 
 **建议方案**:
+
 ```typescript
 // 方案1: 统一为纯异步接口
 export class UnifiedStorage {
   private adapter: StorageAdapter;
-  
+
   constructor(adapter: StorageAdapter) {
     this.adapter = adapter;
   }
-  
+
   // 移除所有同步方法，统一使用异步接口
   async hasEmail(email: string): Promise<boolean> {
     const user = await this.adapter.getUserByEmail(email);
     return user !== null;
   }
-  
+
   // ... 其他异步方法
 }
 ```
@@ -249,7 +266,7 @@ export class UnifiedStorage {
 ```typescript
 async #reconnect(browserId: string): Promise<void> {
   // ...
-  
+
   let delay: number;
   if (connection.lastError?.includes('ECONNREFUSED')) {
     // 浏览器关闭：使用固定短延迟
@@ -263,7 +280,7 @@ async #reconnect(browserId: string): Promise<void> {
     );
     delay = exponentialDelay + Math.random() * 1000;
   }
-  
+
   await new Promise(resolve => setTimeout(resolve, delay));
 }
 ```
@@ -288,7 +305,8 @@ async #reconnect(browserId: string): Promise<void> {
 
 #### 5. ⏳ 统一日志和错误处理
 
-**建议**: 
+**建议**:
+
 1. 创建统一的 Logger 类（支持日志级别）
 2. 定义 AppError 错误类层次结构
 3. 标准化错误响应格式
@@ -328,23 +346,23 @@ async #reconnect(browserId: string): Promise<void> {
 
 ### 修复前
 
-| 指标 | 值 |
-|------|-----|
-| 异步操作正确性 | ❌ 有缺陷 |
-| 内存泄露风险 | ⚠️ 中等 |
-| 缓存LRU实现 | ❌ 不正确 |
-| 缓存命中率监控 | ❌ 无 |
-| 循环缓冲区 | ⚠️ 耦合在主类中 |
+| 指标           | 值              |
+| -------------- | --------------- |
+| 异步操作正确性 | ❌ 有缺陷       |
+| 内存泄露风险   | ⚠️ 中等         |
+| 缓存LRU实现    | ❌ 不正确       |
+| 缓存命中率监控 | ❌ 无           |
+| 循环缓冲区     | ⚠️ 耦合在主类中 |
 
 ### 修复后
 
-| 指标 | 值 |
-|------|-----|
-| 异步操作正确性 | ✅ 100% |
-| 内存泄露风险 | ✅ 低 |
-| 缓存LRU实现 | ✅ 正确 |
-| 缓存命中率监控 | ✅ 完整 |
-| 循环缓冲区 | ✅ 独立工具类 |
+| 指标           | 值            |
+| -------------- | ------------- |
+| 异步操作正确性 | ✅ 100%       |
+| 内存泄露风险   | ✅ 低         |
+| 缓存LRU实现    | ✅ 正确       |
+| 缓存命中率监控 | ✅ 完整       |
+| 循环缓冲区     | ✅ 独立工具类 |
 
 ---
 

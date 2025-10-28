@@ -1,3 +1,9 @@
+
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /**
  * V2 API处理方法
  * 基于邮箱的用户注册和浏览器管理
@@ -5,6 +11,7 @@
 
 import type http from 'node:http';
 import {URL} from 'node:url';
+
 import type {PersistentStoreV2, BrowserRecordV2, UserRecordV2} from './storage/PersistentStoreV2.js';
 import type {UnifiedStorage} from './storage/UnifiedStorageAdapter.js';
 import {detectBrowser} from './utils/browser-detector.js';

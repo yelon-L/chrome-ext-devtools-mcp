@@ -5,6 +5,7 @@
 ### 原有实现的问题
 
 **不合理的设计**：
+
 - ❌ 要求扩展实现 `globalThis.__logs` 存储
 - ❌ 需要扩展开发者手动包装 console 方法
 - ❌ 大多数扩展不会实现此功能
@@ -13,6 +14,7 @@
 ### 根本原因
 
 **缺少对 Chrome 机制的理解**：
+
 1. Chrome DevTools Protocol (CDP) 已经提供了历史日志功能
 2. `Log` domain 设计就是为了获取历史日志
 3. 代码启用了 `Log.enable` 但从未监听 `Log.entryAdded`
@@ -22,9 +24,11 @@
 ### CDP Log Domain 工作原理
 
 **Chrome 官方文档说明**：
+
 > "Enables log domain, **sends the entries collected so far to the client** by means of the `entryAdded` notification."
 
 **关键点**：
+
 1. Chrome 自动收集所有 console 日志
 2. `Log.enable` 会立即发送已收集的历史日志
 3. 通过 `Log.entryAdded` 事件接收
@@ -34,7 +38,7 @@
 
 ```typescript
 // 1. 监听 Log.entryAdded 事件
-session.on('Log.entryAdded', (entry) => {
+session.on('Log.entryAdded', entry => {
   const logEntry = entry.entry;
   historicalLogs.push({
     type: logEntry.level,
@@ -61,12 +65,14 @@ await session.send('Log.disable');
 ### 日志来源
 
 **历史日志 (History)**：
+
 - 来源：`Log.entryAdded` 事件
 - 触发：调用 `Log.enable` 时
 - 内容：Chrome 已收集的所有 console 日志
 - 标记：`source: 'history'`
 
 **实时日志 (Realtime)**：
+
 - 来源：`Runtime.consoleAPICalled` 事件
 - 触发：extension 执行 `console.log/warn/error` 时
 - 内容：捕获期间产生的新日志
@@ -79,22 +85,23 @@ await session.send('Log.disable');
 ```typescript
 // ❌ 要求扩展实现
 globalThis.__logs = [];
-console.log = function(...args) {
+console.log = function (...args) {
   globalThis.__logs.push({
     type: 'log',
     message: args.join(' '),
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
   // ...
 };
 
 // 在工具中读取
 const result = await session.send('Runtime.evaluate', {
-  expression: 'globalThis.__logs'
+  expression: 'globalThis.__logs',
 });
 ```
 
 **问题**：
+
 - 需要修改扩展代码
 - 不是标准功能
 - 大多数扩展不会实现
@@ -109,6 +116,7 @@ await session.send('Log.enable');
 ```
 
 **优势**：
+
 - 零依赖，无需扩展配合
 - Chrome 原生功能，稳定可靠
 - 符合 CDP 协议标准
@@ -117,22 +125,26 @@ await session.send('Log.enable');
 ## 符合第一性原理
 
 ### 1. Chrome 扩展规范
+
 - Chrome 通过 CDP 提供日志访问
 - `Log` domain 是标准协议的一部分
 - 所有扩展的日志都被 Chrome 收集
 
 ### 2. CDP 最佳实践
+
 - `Log.enable` → `Log.entryAdded` 是标准流程
 - `Runtime.consoleAPICalled` 用于实时捕获
 - 两者结合提供完整的日志访问
 
 ### 3. 无副作用
+
 - 不修改扩展代码
 - 不要求扩展实现特定功能
 - 不影响扩展运行
 - 只读操作，安全可靠
 
 ### 4. 简洁高效
+
 - 连接 Chrome → 启用 Log domain → 接收日志
 - 三步完成，直接明了
 - 无复杂前置条件
@@ -152,6 +164,7 @@ get_background_logs({
 ```
 
 **结果**：
+
 - 历史日志：Chrome 已收集的所有日志
 - 实时日志：接下来 5 秒内产生的日志
 - 来源标记：`history` / `realtime`
@@ -167,6 +180,7 @@ get_offscreen_logs({
 ```
 
 **同样适用**：
+
 - 无需扩展配合
 - 直接获取 Chrome 收集的日志
 - 历史 + 实时日志完整覆盖
@@ -208,14 +222,16 @@ get_background_logs(extensionId, {
 ## 代码位置
 
 **主要修改**：
+
 - `/src/extension/ExtensionHelper.ts`
   - `getBackgroundLogs()` - 第 1462-1505 行
   - `getOffscreenLogs()` - 第 1688-1732 行
 
 **关键代码段**：
+
 ```typescript
 // 监听 Log.entryAdded
-session.on('Log.entryAdded', (entry) => {
+session.on('Log.entryAdded', entry => {
   historicalLogs.push(/* ... */);
 });
 
@@ -243,14 +259,17 @@ await session.send('Log.disable');
 ### 核心价值
 
 **从不合理到合理**：
+
 - 之前：要求扩展实现 `globalThis.__logs`
 - 现在：使用 Chrome 原生 Log domain
 
 **从复杂到简单**：
+
 - 之前：扩展包装 console → 存储 → 读取
 - 现在：启用 Log domain → 接收事件
 
 **从不可用到可用**：
+
 - 之前：大多数扩展不支持
 - 现在：所有扩展都支持
 

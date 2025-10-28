@@ -9,6 +9,7 @@
 ## 🎯 Goal
 
 Add complete email + password authentication system:
+
 - User registration with email and password
 - Secure password hashing (bcrypt)
 - User login with JWT token generation
@@ -35,6 +36,7 @@ npm install bcrypt @types/bcrypt jsonwebtoken @types/jsonwebtoken
 ```
 
 **Expected Output**:
+
 ```
 added 2 packages, and audited 500 packages in 5s
 ```
@@ -58,7 +60,7 @@ cat > src/multi-tenant/storage/migrations/002-add-password-auth.sql << 'EOF'
 -- ============================================================================
 
 -- Add password_hash to mcp_users table
-ALTER TABLE mcp_users 
+ALTER TABLE mcp_users
 ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
 
 -- Add index for faster authentication queries
@@ -99,6 +101,7 @@ psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE \
 ```
 
 **Expected Output**:
+
 ```
 ALTER TABLE
 CREATE INDEX
@@ -106,6 +109,7 @@ COMMENT
 ```
 
 **Verify**:
+
 ```bash
 psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE \
   -c "\d mcp_users"
@@ -250,24 +254,24 @@ async registerUserWithPassword(
 ): Promise<UserRecordV2> {
   // Import at top of file
   const { hashPassword, validateEmail, validatePasswordStrength } = await import('../core/AuthHelper.js');
-  
+
   // Validate email
   if (!validateEmail(email)) {
     throw new Error('Invalid email format');
   }
-  
+
   // Validate password strength
   const passwordValidation = validatePasswordStrength(password);
   if (!passwordValidation.valid) {
     throw new Error(passwordValidation.message);
   }
-  
+
   // Hash password
   const passwordHash = await hashPassword(password);
-  
+
   // Generate user ID
   const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   // Insert user with password
   await this.db
     .insertInto('mcp_users')
@@ -280,7 +284,7 @@ async registerUserWithPassword(
       metadata: null,
     })
     .execute();
-  
+
   return {
     userId,
     email,
@@ -298,34 +302,34 @@ async loginWithPassword(
 ): Promise<{ user: UserRecordV2; token: string }> {
   // Import at top of file
   const { verifyPassword, generateToken } = await import('../core/AuthHelper.js');
-  
+
   // Get user from database
   const result = await this.db
     .selectFrom('mcp_users')
     .select(['user_id', 'email', 'username', 'registered_at', 'password_hash'])
     .where('email', '=', email)
     .executeTakeFirst();
-  
+
   if (!result) {
     throw new Error('Invalid email or password');
   }
-  
+
   if (!result.password_hash) {
     throw new Error('This account does not have a password set. Please use email-only login or reset your password.');
   }
-  
+
   // Verify password
   const isValid = await verifyPassword(password, result.password_hash);
   if (!isValid) {
     throw new Error('Invalid email or password');
   }
-  
+
   // Generate JWT token
   const token = generateToken({
     userId: result.user_id,
     email: result.email,
   });
-  
+
   return {
     user: {
       userId: result.user_id,
@@ -359,7 +363,7 @@ async handleRegisterWithPassword(req: IncomingMessage, res: ServerResponse): Pro
     password: string;
     username?: string;
   }>(req);
-  
+
   if (!email || !password) {
     res.writeHead(400, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -367,11 +371,11 @@ async handleRegisterWithPassword(req: IncomingMessage, res: ServerResponse): Pro
     }));
     return;
   }
-  
+
   try {
     const storage = this.getUnifiedStorage() as any; // Type assertion for new method
     const user = await storage.registerUserWithPassword(email, password, username);
-    
+
     res.writeHead(201, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
       success: true,
@@ -398,7 +402,7 @@ async handleLogin(req: IncomingMessage, res: ServerResponse): Promise<void> {
     email: string;
     password: string;
   }>(req);
-  
+
   if (!email || !password) {
     res.writeHead(400, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -406,11 +410,11 @@ async handleLogin(req: IncomingMessage, res: ServerResponse): Promise<void> {
     }));
     return;
   }
-  
+
   try {
     const storage = this.getUnifiedStorage() as any; // Type assertion for new method
     const result = await storage.loginWithPassword(email, password);
-    
+
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
       success: true,
@@ -450,6 +454,7 @@ npm run build
 ```
 
 **Expected Output**:
+
 ```
 ✅ version: 0.8.10
 ✅ Copied public file: index.html
@@ -550,6 +555,7 @@ node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **Expected Output**:
+
 ```
 ================================
 Testing Authentication System
@@ -596,6 +602,7 @@ Tests completed
 ### Production Deployment
 
 1. **Change JWT Secret**:
+
    ```bash
    export JWT_SECRET="your-super-secret-key-minimum-32-characters"
    ```
@@ -603,11 +610,12 @@ Tests completed
 2. **Use HTTPS**: Never send passwords over HTTP
 
 3. **Rate Limiting**: Add rate limiting to prevent brute force:
+
    ```typescript
    // Example with express-rate-limit
    const loginLimiter = rateLimit({
      windowMs: 15 * 60 * 1000, // 15 minutes
-     max: 5 // 5 attempts
+     max: 5, // 5 attempts
    });
    ```
 
@@ -628,6 +636,7 @@ Tests completed
 Register a new user with email and password.
 
 **Request**:
+
 ```json
 {
   "email": "user@example.com",
@@ -637,6 +646,7 @@ Register a new user with email and password.
 ```
 
 **Response (201)**:
+
 ```json
 {
   "success": true,
@@ -649,6 +659,7 @@ Register a new user with email and password.
 ```
 
 **Error (400)**:
+
 ```json
 {
   "error": "Password must contain at least one uppercase letter"
@@ -660,6 +671,7 @@ Register a new user with email and password.
 Login with email and password to receive JWT token.
 
 **Request**:
+
 ```json
 {
   "email": "user@example.com",
@@ -668,6 +680,7 @@ Login with email and password to receive JWT token.
 ```
 
 **Response (200)**:
+
 ```json
 {
   "success": true,
@@ -681,6 +694,7 @@ Login with email and password to receive JWT token.
 ```
 
 **Error (401)**:
+
 ```json
 {
   "error": "Invalid email or password"
@@ -702,11 +716,13 @@ Login with email and password to receive JWT token.
 ## ❓ Troubleshooting
 
 ### Error: "bcrypt not found"
+
 ```bash
 npm install bcrypt @types/bcrypt --save
 ```
 
 ### Error: "Column password_hash does not exist"
+
 ```bash
 # Run migration again
 psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE \
@@ -714,6 +730,7 @@ psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE \
 ```
 
 ### Error: "JWT secret not set"
+
 ```bash
 export JWT_SECRET="your-secret-key"
 ```
@@ -723,6 +740,7 @@ export JWT_SECRET="your-secret-key"
 **Tutorial Complete!** 🎉
 
 You now have a fully functional email + password authentication system with:
+
 - ✅ Secure password hashing (bcrypt)
 - ✅ JWT token generation
 - ✅ Password strength validation

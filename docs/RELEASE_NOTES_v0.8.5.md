@@ -17,6 +17,7 @@
 **Fix:** Reordered session creation to occur BEFORE sending SSE endpoint message.
 
 **Impact:**
+
 - Error rate: **100% → 0%**
 - Tool availability: **0/38 → 38/38**
 - Production readiness: **Not Ready → Production Ready** ✅
@@ -30,18 +31,20 @@
 ### 1. Complete Multi-Tenant Mode Documentation
 
 **Added to `--help` output:**
+
 - `--mode multi-tenant` parameter
 - Environment variables reference
 - Configuration examples
 - Usage patterns
 
 **Example:**
+
 ```bash
 $ ./chrome-extension-debug-linux-x64 --help
 
 Multi-Tenant Mode:
   --mode multi-tenant    Enterprise-grade server for multiple users
-  
+
   Environment Variables for Multi-Tenant:
     PORT=32122                   Server port (default: 32122)
     AUTH_ENABLED=true            Enable token authentication
@@ -58,11 +61,13 @@ Multi-Tenant Mode:
 **Changed:** All server-side logs from Chinese to English
 
 **Benefits:**
+
 - Better international accessibility
 - Easier debugging for global teams
 - Consistent with MCP ecosystem standards
 
 **Examples:**
+
 ```
 Before: [Server] 📡 SSE 连接请求: user-123
 After:  [Server] 📡 SSE connection request: user-123
@@ -79,9 +84,10 @@ After:  [Server] ✅ session established: abc123... (user: user-123, elapsed: 15
 ## 📊 Performance Impact
 
 ### Before v0.8.5
+
 ```json
 {
-  "sessions": { "total": 0, "active": 0 },
+  "sessions": {"total": 0, "active": 0},
   "performance": {
     "totalConnections": 4,
     "totalErrors": 4,
@@ -91,9 +97,10 @@ After:  [Server] ✅ session established: abc123... (user: user-123, elapsed: 15
 ```
 
 ### After v0.8.5
+
 ```json
 {
-  "sessions": { "total": 1, "active": 1 },
+  "sessions": {"total": 1, "active": 1},
   "performance": {
     "totalConnections": 4,
     "totalErrors": 0,
@@ -138,6 +145,7 @@ After:  [Server] ✅ session established: abc123... (user: user-123, elapsed: 15
 ### For Existing Users
 
 1. **Download New Binary:**
+
    ```bash
    # Download from releases page
    wget https://github.com/.../chrome-extension-debug-linux-x64
@@ -145,25 +153,28 @@ After:  [Server] ✅ session established: abc123... (user: user-123, elapsed: 15
    ```
 
 2. **Restart Server:**
+
    ```bash
    # Stop old version
    pkill chrome-extension-debug
-   
+
    # Start new version
    ./chrome-extension-debug-linux-x64 --mode multi-tenant
    ```
 
 3. **Verify Fix:**
+
    ```bash
    # Check health endpoint
    curl http://localhost:32122/health
-   
+
    # Should show errorRate: "0.00%"
    ```
 
 ### For New Users
 
 Follow standard installation:
+
 ```bash
 ./chrome-extension-debug-linux-x64 --mode multi-tenant
 ```
@@ -177,6 +188,7 @@ All features now work out of the box!
 ### Regression Tests
 
 All existing tests pass:
+
 - ✅ Session creation
 - ✅ SSE connection
 - ✅ Tool execution (38/38)

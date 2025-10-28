@@ -1,3 +1,9 @@
+
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /**
  * 简单的内存缓存，带TTL支持和LRU淘汰策略
  * 
@@ -26,7 +32,7 @@ export class SimpleCache<T = any> {
    * @param defaultTTL 默认过期时间（毫秒）
    * @param maxSize 最大缓存条目数
    */
-  constructor(defaultTTL: number = 60000, maxSize: number = 1000) {
+  constructor(defaultTTL = 60000, maxSize = 1000) {
     this.defaultTTL = defaultTTL;
     this.maxSize = maxSize;
   }

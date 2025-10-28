@@ -9,6 +9,7 @@ This document describes how to create and publish releases for Chrome Extension 
 #### Update Version Number
 
 Edit `package.json`:
+
 ```json
 {
   "version": "0.8.2"
@@ -23,12 +24,15 @@ Add new version changelog at the top of `CHANGELOG.md`:
 ## [0.8.2] - 2025-10-13
 
 ### Added
+
 - New feature description
 
 ### Fixed
+
 - Bug fix description
 
 ### Changed
+
 - Change description
 ```
 
@@ -79,11 +83,13 @@ After pushing the tag, GitHub Actions will automatically:
 ### 4. Verify Release
 
 Visit GitHub Releases page:
+
 ```
 https://github.com/ChromeDevTools/chrome-devtools-mcp/releases
 ```
 
 Checklist:
+
 - ✅ Release created
 - ✅ All binary files uploaded
 - ✅ checksums.txt file exists
@@ -96,6 +102,7 @@ Checklist:
 Download and test binary files for each platform:
 
 #### Linux/macOS
+
 ```bash
 # Download
 wget https://github.com/ChromeDevTools/chrome-devtools-mcp/releases/download/v0.8.2/chrome-extension-debug-linux-x64
@@ -112,6 +119,7 @@ chmod +x chrome-extension-debug-linux-x64
 ```
 
 #### Windows
+
 ```powershell
 # Download and run
 Invoke-WebRequest -Uri "https://github.com/ChromeDevTools/chrome-devtools-mcp/releases/download/v0.8.2/chrome-extension-debug-windows-x64.exe" -OutFile "chrome-extension-debug.exe"
@@ -188,11 +196,13 @@ GitHub Actions will automatically mark as **Pre-release**.
 ### Issue 1: GitHub Actions Failure
 
 **Check logs:**
+
 ```
 https://github.com/ChromeDevTools/chrome-devtools-mcp/actions
 ```
 
 **Common causes:**
+
 - Build failure: Check TypeScript compilation errors
 - Bun packaging failure: Check Bun version compatibility
 - Permission issues: Verify `GITHUB_TOKEN` permissions
@@ -200,6 +210,7 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp/actions
 ### Issue 2: Binary File Won't Run
 
 **Linux:**
+
 ```bash
 # Check permissions
 chmod +x chrome-extension-debug-linux-x64
@@ -209,6 +220,7 @@ ldd chrome-extension-debug-linux-x64
 ```
 
 **macOS:**
+
 ```bash
 # Remove quarantine attribute
 xattr -d com.apple.quarantine chrome-extension-debug-macos-x64

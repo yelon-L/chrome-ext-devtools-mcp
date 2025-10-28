@@ -36,6 +36,7 @@
 ```
 
 每个用户：
+
 - ✅ 独立的浏览器实例
 - ✅ 独立的会话和上下文
 - ✅ 完全隔离，互不影响
@@ -43,12 +44,12 @@
 
 ### 为什么需要？
 
-| 场景 | 传统方式 | Multi-Tenant |
-|------|---------|--------------|
-| 团队开发 | 每人一个服务器 | 共享一个服务器 |
-| 资源消耗 | N × 服务器资源 | 1 × 服务器资源 |
-| 管理复杂度 | N × 配置管理 | 1 × 集中管理 |
-| 成本 | 高 | 低 |
+| 场景       | 传统方式       | Multi-Tenant   |
+| ---------- | -------------- | -------------- |
+| 团队开发   | 每人一个服务器 | 共享一个服务器 |
+| 资源消耗   | N × 服务器资源 | 1 × 服务器资源 |
+| 管理复杂度 | N × 配置管理   | 1 × 集中管理   |
+| 成本       | 高             | 低             |
 
 ---
 
@@ -68,6 +69,7 @@ npm run start:multi-tenant
 ```
 
 **启动成功:**
+
 ```
 🚀 Multi-Tenant MCP Server
 📍 Port: 32122
@@ -100,6 +102,7 @@ curl -X POST http://localhost:32122/api/auth/token \
 ### 4. 配置 Claude Desktop
 
 `claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
@@ -184,6 +187,7 @@ DATA_DIR=./multi-tenant-data  # 数据目录
 ### 配置示例
 
 **开发环境:**
+
 ```bash
 PORT=32122 \
 MAX_SESSIONS=100 \
@@ -191,6 +195,7 @@ MAX_SESSIONS=100 \
 ```
 
 **生产环境:**
+
 ```bash
 AUTH_ENABLED=true \
 ALLOWED_IPS=192.168.1.0/24 \
@@ -201,6 +206,7 @@ DATA_DIR=/var/lib/mcp \
 ```
 
 **局域网共享:**
+
 ```bash
 ALLOWED_IPS=192.168.1.0/24 \
 ALLOWED_ORIGINS=* \
@@ -214,6 +220,7 @@ ALLOWED_ORIGINS=* \
 ### 用户管理
 
 #### 注册用户
+
 ```http
 POST /api/register
 Content-Type: application/json
@@ -231,6 +238,7 @@ Response: {"userId": "alice", "registered": true}
 ```
 
 #### 注销用户
+
 ```http
 POST /api/unregister
 Content-Type: application/json
@@ -243,6 +251,7 @@ Response: {"userId": "alice", "unregistered": true}
 ```
 
 #### 查询用户
+
 ```http
 GET /api/users/{userId}
 Authorization: Bearer mcp_YOUR_TOKEN_HERE
@@ -257,6 +266,7 @@ Response: {
 ```
 
 #### 列出所有用户
+
 ```http
 GET /api/users
 Authorization: Bearer mcp_YOUR_TOKEN_HERE
@@ -281,6 +291,7 @@ Response: {
 ### 认证管理
 
 #### 生成 Token
+
 ```http
 POST /api/auth/token
 Content-Type: application/json
@@ -298,6 +309,7 @@ Response: {
 ```
 
 #### 列出 Tokens
+
 ```http
 GET /api/auth/tokens/{userId}
 
@@ -310,6 +322,7 @@ Response: {
 ```
 
 #### 删除 Token
+
 ```http
 DELETE /api/auth/token
 Content-Type: application/json
@@ -324,6 +337,7 @@ Response: {"deleted": true}
 ### MCP 连接
 
 #### SSE 连接
+
 ```http
 GET /sse?userId=alice
 Authorization: Bearer mcp_a1b2c3...
@@ -333,6 +347,7 @@ data: Use this endpoint: POST http://localhost:32122/message?sessionId=xxx
 ```
 
 #### 发送 MCP 消息
+
 ```http
 POST /message?sessionId=xxx
 Content-Type: application/json
@@ -353,6 +368,7 @@ Response: (via SSE stream)
 ### 监控接口
 
 #### 健康检查
+
 ```http
 GET /health
 
@@ -402,30 +418,35 @@ Response: {
 ### 核心组件
 
 **SessionManager** - 会话管理
+
 - 创建/销毁 Session
 - 维护生命周期
 - 定期清理过期会话
 - 提供查询和统计
 
 **RouterManager** - 路由管理
+
 - 用户注册/注销
 - 维护 userId ↔ browserURL 映射
 - 查询用户信息
 - 路由统计
 
 **AuthManager** - 认证管理
+
 - Token 生成（32字节随机）
 - Token 验证
 - Token 管理（列表、删除）
 - 认证统计
 
 **BrowserConnectionPool** - 连接池
+
 - 浏览器连接管理
 - 健康检查（10秒间隔）
 - 自动重连（最多3次）
 - 连接统计
 
 **PersistentStore** - 持久化
+
 - 用户记录 (users.jsonl)
 - Token 记录 (tokens.jsonl)
 - 操作日志 (operations.log)
@@ -452,6 +473,7 @@ Response: {
 **需求:** 3-5人团队，共享服务器，各自调试
 
 **配置:**
+
 ```bash
 # 服务器
 AUTH_ENABLED=true \
@@ -468,6 +490,7 @@ curl -X POST http://server:32122/api/register \
 **需求:** test/staging/prod 环境集中管理
 
 **配置:**
+
 ```bash
 # 注册多环境
 for env in test staging prod; do
@@ -481,6 +504,7 @@ done
 **需求:** 20-30学生同时连接
 
 **配置:**
+
 ```bash
 AUTH_ENABLED=false \
 MAX_SESSIONS=50 \
@@ -493,6 +517,7 @@ SESSION_TIMEOUT=7200000 \
 **需求:** Pipeline 并行运行多个测试
 
 **配置:**
+
 ```bash
 # CI脚本
 for i in {1..10}; do
@@ -585,6 +610,7 @@ server {
 ### 性能优化
 
 1. **合理设置会话数**
+
    ```bash
    # 根据服务器资源调整
    MAX_SESSIONS=50  # 4GB RAM
@@ -593,16 +619,18 @@ server {
    ```
 
 2. **启用 CDP 混合模式**
+
    ```bash
    USE_CDP_HYBRID=true
    USE_CDP_OPERATIONS=true
    ```
 
 3. **调整会话超时**
+
    ```bash
    # 短期任务
    SESSION_TIMEOUT=600000  # 10分钟
-   
+
    # 长期任务
    SESSION_TIMEOUT=7200000 # 2小时
    ```
@@ -610,16 +638,19 @@ server {
 ### 安全配置
 
 1. **启用认证**
+
    ```bash
    AUTH_ENABLED=true
    ```
 
 2. **限制 IP 访问**
+
    ```bash
    ALLOWED_IPS=192.168.1.0/24,10.0.0.0/8
    ```
 
 3. **限制 CORS 来源**
+
    ```bash
    ALLOWED_ORIGINS=https://trusted.com
    ```
@@ -632,12 +663,14 @@ server {
 ### 监控和日志
 
 1. **启用日志文件**
+
    ```bash
    ./chrome-extension-debug --mode multi-tenant \
      --logFile /var/log/mcp/server.log
    ```
 
 2. **监控健康状态**
+
    ```bash
    # 定期检查
    */5 * * * * curl -s http://localhost:32122/health | jq .status
@@ -658,6 +691,7 @@ server {
 **症状:** 客户端无法连接 SSE
 
 **排查:**
+
 ```bash
 # 1. 检查服务器是否运行
 curl http://localhost:32122/health
@@ -673,6 +707,7 @@ journalctl -u mcp-multi-tenant -f
 ```
 
 **解决:**
+
 - 确保服务器已启动
 - 开放防火墙端口: `sudo ufw allow 32122`
 - 检查 ALLOWED_IPS 配置
@@ -682,6 +717,7 @@ journalctl -u mcp-multi-tenant -f
 **症状:** 401 Unauthorized
 
 **排查:**
+
 ```bash
 # 1. 验证 Token
 curl -X POST http://localhost:32122/api/auth/validate \
@@ -692,6 +728,7 @@ curl http://localhost:32122/api/auth/tokens/alice
 ```
 
 **解决:**
+
 - 重新生成 Token
 - 检查 Token 格式（必须以 `mcp_` 开头）
 - 确认 Token 未被删除
@@ -701,12 +738,14 @@ curl http://localhost:32122/api/auth/tokens/alice
 **症状:** Session not found
 
 **排查:**
+
 ```bash
 # 检查 Session 统计
 curl http://localhost:32122/health | jq .sessions
 ```
 
 **解决:**
+
 - 增加超时时间: `SESSION_TIMEOUT=7200000`
 - 保持连接活跃（定期发送请求）
 
@@ -715,6 +754,7 @@ curl http://localhost:32122/health | jq .sessions
 **症状:** Cannot connect to browser
 
 **排查:**
+
 ```bash
 # 1. 检查浏览器是否启动
 curl http://localhost:9222/json/version
@@ -727,6 +767,7 @@ curl http://localhost:32122/health | jq .browsers
 ```
 
 **解决:**
+
 - 启动 Chrome: `chrome --remote-debugging-port=9222`
 - 检查防火墙规则
 - 验证 browserURL 配置
@@ -736,6 +777,7 @@ curl http://localhost:32122/health | jq .browsers
 **症状:** 响应缓慢
 
 **排查:**
+
 ```bash
 # 1. 检查系统资源
 top
@@ -750,6 +792,7 @@ curl http://localhost:32122/health | jq .performance.errorRate
 ```
 
 **解决:**
+
 - 减少 MAX_SESSIONS
 - 启用 CDP_HYBRID
 - 增加服务器资源
@@ -762,6 +805,7 @@ curl http://localhost:32122/health | jq .performance.errorRate
 ### 相关文档
 
 **本文档替代以下文档（不再单独维护）:**
+
 - `docs/guides/MULTI_TENANT_README.md`
 - `docs/guides/MULTI_TENANT_QUICK_START.md`
 - `docs/guides/MULTI_TENANT_USAGE.md`
@@ -770,6 +814,7 @@ curl http://localhost:32122/health | jq .performance.errorRate
 - `docs/guides/MULTI_TENANT_DEV_STANDARDS.md`
 
 **保留的专题文档:**
+
 - `docs/guides/MULTI_TENANT_ARCHITECTURE_ANALYSIS.md` - 深度架构分析
 - `docs/guides/MULTI_TENANT_TEST_PLAN.md` - 测试计划
 - `docs/guides/MULTI_TENANT_COMPLETE_TEST.md` - 完整测试
@@ -778,14 +823,17 @@ curl http://localhost:32122/health | jq .performance.errorRate
 ### 版本历史
 
 **v0.8.7 (2025-10-13)**
+
 - 添加视觉检测回退功能
 - 统一多租户文档
 
 **v0.8.6 (2025-10-13)**
+
 - 修复 Session 管理竞态条件
 - 增强 help 文档
 
 **v0.8.5 及之前**
+
 - 多租户核心功能实现
 
 ### 支持

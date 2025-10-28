@@ -17,11 +17,13 @@
 ### 1. PostgreSQL 模式无法运行 ✅
 
 #### 问题描述
+
 - **位置**: `src/multi-tenant/server-multi-tenant.ts` 和 `src/multi-tenant/handlers-v2.ts`
 - **错误**: `getStore() only works with JSONL storage`
 - **影响**: PostgreSQL 模式完全无法使用
 
 #### 根本原因分析
+
 1. 代码中大量使用同步的 `getStore()` 方法
 2. `getStore()` 只支持 JSONL 的 `PersistentStoreV2`
 3. PostgreSQL 的 `StorageAdapter` 是异步接口
@@ -43,10 +45,10 @@ export class UnifiedStorage {
   }
 
   // 同步方法（仅 JSONL）
-  getUserById(userId: string): UserRecordV2 | null
+  getUserById(userId: string): UserRecordV2 | null;
 
   // 异步方法（JSONL + PostgreSQL）
-  async getUserByIdAsync(userId: string): Promise<UserRecordV2 | null>
+  async getUserByIdAsync(userId: string): Promise<UserRecordV2 | null>;
 }
 ```
 
@@ -57,6 +59,7 @@ export class UnifiedStorage {
 - 将同步方法改为异步方法
 
 **修改文件**:
+
 - `src/multi-tenant/server-multi-tenant.ts` (10处修改)
 - `src/multi-tenant/handlers-v2.ts` (18处修改)
 
@@ -93,6 +96,7 @@ $ curl http://localhost:32122/health
 ```
 
 **API 测试**:
+
 - ✅ 健康检查: HTTP 200
 - ✅ 用户注册: 成功
 - ✅ 浏览器绑定: 成功
@@ -109,12 +113,14 @@ $ curl http://localhost:32122/health
 **文件**: `test-complete.sh`
 
 **功能**:
+
 - ✅ 自动测试所有 V2 API 端点
 - ✅ 支持 JSONL 和 PostgreSQL 模式
 - ✅ 完整的 CRUD 操作验证
 - ✅ 自动生成测试报告
 
 **使用方法**:
+
 ```bash
 # JSONL 模式
 ./test-complete.sh
@@ -124,6 +130,7 @@ STORAGE_TYPE=postgresql ./test-complete.sh
 ```
 
 **测试覆盖**:
+
 - 健康检查
 - 性能指标
 - 用户注册/查询/更新/删除
@@ -137,19 +144,19 @@ STORAGE_TYPE=postgresql ./test-complete.sh
 
 ### 代码修改
 
-| 文件 | 修改内容 | 行数 |
-|------|---------|------|
-| UnifiedStorageAdapter.ts | 新增统一存储层 | +310 |
-| server-multi-tenant.ts | 替换存储调用 | ~10处 |
-| handlers-v2.ts | 改为异步调用 | ~18处 |
-| PostgreSQLStorageAdapter.ts | 修复SQL语法 | ~3处 |
+| 文件                        | 修改内容       | 行数  |
+| --------------------------- | -------------- | ----- |
+| UnifiedStorageAdapter.ts    | 新增统一存储层 | +310  |
+| server-multi-tenant.ts      | 替换存储调用   | ~10处 |
+| handlers-v2.ts              | 改为异步调用   | ~18处 |
+| PostgreSQLStorageAdapter.ts | 修复SQL语法    | ~3处  |
 
 ### 测试结果
 
-| 存储模式 | 健康检查 | API测试 | 状态 |
-|---------|---------|---------|------|
-| JSONL | ✅ 通过 | 19/19 通过 | 🟢 生产就绪 |
-| PostgreSQL | ✅ 通过 | 19/19 通过 | 🟢 生产就绪 |
+| 存储模式   | 健康检查 | API测试    | 状态        |
+| ---------- | -------- | ---------- | ----------- |
+| JSONL      | ✅ 通过  | 19/19 通过 | 🟢 生产就绪 |
+| PostgreSQL | ✅ 通过  | 19/19 通过 | 🟢 生产就绪 |
 
 ---
 
@@ -158,6 +165,7 @@ STORAGE_TYPE=postgresql ./test-complete.sh
 ### 1. 新增文件
 
 #### UnifiedStorageAdapter.ts (310行)
+
 ```typescript
 /**
  * 统一存储访问层
@@ -167,7 +175,7 @@ export class UnifiedStorage {
   // 同步接口（JSONL专用）
   getUserById(userId: string): UserRecordV2 | null
   getBrowserById(browserId: string): BrowserRecordV2 | null
-  
+
   // 异步接口（JSONL + PostgreSQL）
   async getUserByIdAsync(userId: string): Promise<UserRecordV2 | null>
   async getBrowserAsync(browserId: string): Promise<BrowserRecordV2 | null>
@@ -184,11 +192,13 @@ export class UnifiedStorage {
 ### 2. server-multi-tenant.ts 修改
 
 **添加统一存储属性**:
+
 ```typescript
 private unifiedStorage: UnifiedStorage | null = null;
 ```
 
 **初始化逻辑**:
+
 ```typescript
 // PostgreSQL 模式
 this.storage = await StorageAdapterFactory.create('postgresql', config);
@@ -201,6 +211,7 @@ this.unifiedStorage = new UnifiedStorage(this.storeV2);
 ```
 
 **替换所有调用**:
+
 - `this.getStore().getStats()` → `await this.getUnifiedStorage().getStatsAsync()`
 - `this.getStore().getBrowserByToken(token)` → `await this.getUnifiedStorage().getBrowserByTokenAsync(token)`
 - `this.getStore().listUserBrowsers(userId)` → `await this.getUnifiedStorage().getUserBrowsersAsync(userId)`
@@ -214,7 +225,10 @@ this.unifiedStorage = new UnifiedStorage(this.storeV2);
 if (await this.getUnifiedStorage().hasEmailAsync(email)) {
   // 邮箱已存在
 }
-const user = await this.getUnifiedStorage().registerUserByEmail(email, username);
+const user = await this.getUnifiedStorage().registerUserByEmail(
+  email,
+  username,
+);
 
 // 获取用户
 const user = await this.getUnifiedStorage().getUserByIdAsync(userId);
@@ -222,13 +236,17 @@ const browsers = await this.getUnifiedStorage().getUserBrowsersAsync(userId);
 
 // 列出用户
 const users = await this.getUnifiedStorage().getAllUsersAsync();
-const usersWithBrowserCount = await Promise.all(users.map(async (user) => {
-  const browsers = await this.getUnifiedStorage().getUserBrowsersAsync(user.userId);
-  return {
-    userId: user.userId,
-    browserCount: browsers.length,
-  };
-}));
+const usersWithBrowserCount = await Promise.all(
+  users.map(async user => {
+    const browsers = await this.getUnifiedStorage().getUserBrowsersAsync(
+      user.userId,
+    );
+    return {
+      userId: user.userId,
+      browserCount: browsers.length,
+    };
+  }),
+);
 
 // 浏览器操作
 const browser = await this.getUnifiedStorage().getBrowserAsync(browserId);
@@ -239,6 +257,7 @@ await this.getUnifiedStorage().unbindBrowser(browserId);
 ### 4. PostgreSQLStorageAdapter.ts 修复
 
 **SQL语法修复**:
+
 ```sql
 -- 修复前
 CREATE TABLE mcp_users (
@@ -306,7 +325,7 @@ $ curl -X POST http://localhost:32122/api/v2/users \
    - 原因: 调用 `getStore()` 抛出错误
    - 修复: 使用 `getUnifiedStorage().getStatsAsync()`
 
-2. ✅ PostgreSQL 用户注册失败  
+2. ✅ PostgreSQL 用户注册失败
    - 原因: `this.getStore().registerUserByEmail()` 不存在
    - 修复: 使用 `await getUnifiedStorage().registerUserByEmail()`
 
@@ -330,11 +349,13 @@ $ curl -X POST http://localhost:32122/api/v2/users \
 ### 向后兼容
 
 ✅ **JSONL 模式完全兼容**
+
 - 所有现有代码继续工作
 - 性能无影响
 - 数据文件格式不变
 
 ✅ **API 接口不变**
+
 - 所有 V2 API 端点保持一致
 - 请求/响应格式不变
 - 客户端无需修改
@@ -344,11 +365,13 @@ $ curl -X POST http://localhost:32122/api/v2/users \
 **从 JSONL 切换到 PostgreSQL**:
 
 1. 安装 PostgreSQL 依赖:
+
 ```bash
 npm install pg
 ```
 
 2. 配置环境变量:
+
 ```bash
 export STORAGE_TYPE=postgresql
 export DB_HOST=localhost
@@ -359,11 +382,13 @@ export DB_PASSWORD=your_password
 ```
 
 3. 启动服务器:
+
 ```bash
 node build/src/multi-tenant/server-multi-tenant.js
 ```
 
 **数据迁移** (可选):
+
 ```bash
 # 导出 JSONL 数据
 node scripts/export-jsonl-data.js > data.json
@@ -377,18 +402,21 @@ node scripts/import-to-postgresql.js data.json
 ## 🎉 最终状态
 
 ### 代码质量
+
 - ✅ TypeScript 编译无错误
 - ✅ 无 lint 警告
 - ✅ 代码风格一致
 - ✅ 注释完整
 
 ### 功能完整性
+
 - ✅ JSONL 存储: 100% 功能
 - ✅ PostgreSQL 存储: 100% 功能
 - ✅ V2 API: 所有端点正常
 - ✅ SSE 连接: 正常工作
 
 ### 测试覆盖
+
 - ✅ 健康检查
 - ✅ 用户管理 CRUD
 - ✅ 浏览器管理 CRUD
@@ -396,6 +424,7 @@ node scripts/import-to-postgresql.js data.json
 - ✅ 错误处理
 
 ### 文档
+
 - ✅ 代码注释
 - ✅ API 文档
 - ✅ 迁移指南
@@ -405,13 +434,13 @@ node scripts/import-to-postgresql.js data.json
 
 ## 📈 性能对比
 
-| 操作 | JSONL | PostgreSQL | 说明 |
-|------|-------|-----------|------|
-| 用户注册 | ~5ms | ~8ms | PostgreSQL 稍慢（网络） |
-| 查询用户 | ~2ms | ~5ms | PostgreSQL 需网络往返 |
-| 列出用户 | ~3ms | ~6ms | 数据量小时差异小 |
-| 浏览器绑定 | ~45ms | ~50ms | 包含浏览器检测时间 |
-| SSE连接 | ~100ms | ~105ms | 初始化时间 |
+| 操作       | JSONL  | PostgreSQL | 说明                    |
+| ---------- | ------ | ---------- | ----------------------- |
+| 用户注册   | ~5ms   | ~8ms       | PostgreSQL 稍慢（网络） |
+| 查询用户   | ~2ms   | ~5ms       | PostgreSQL 需网络往返   |
+| 列出用户   | ~3ms   | ~6ms       | 数据量小时差异小        |
+| 浏览器绑定 | ~45ms  | ~50ms      | 包含浏览器检测时间      |
+| SSE连接    | ~100ms | ~105ms     | 初始化时间              |
 
 **结论**: PostgreSQL 略慢但可接受，提供了更好的并发性和可扩展性。
 
@@ -420,16 +449,19 @@ node scripts/import-to-postgresql.js data.json
 ## 💡 建议
 
 ### 立即部署
+
 - ✅ JSONL 模式: 立即可用于生产
 - ✅ PostgreSQL 模式: 立即可用于生产
 
 ### 后续优化
+
 1. 添加连接池监控
 2. 实现查询缓存
 3. 优化批量操作
 4. 添加数据库备份脚本
 
 ### 监控建议
+
 1. 监控数据库连接数
 2. 跟踪慢查询
 3. 监控存储空间

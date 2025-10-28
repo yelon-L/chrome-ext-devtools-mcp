@@ -4,13 +4,13 @@
 
 ## 修复概览
 
-| 优先级 | 问题 | 修复状态 | 测试 |
-|-------|------|----------|------|
-| 🔴 Critical | 事件监听器内存泄漏 | ✅ 已修复 | ✅ 通过 |
-| 🔴 Critical | disconnect()未清理监听器 | ✅ 已修复 | ✅ 通过 |
+| 优先级      | 问题                          | 修复状态  | 测试    |
+| ----------- | ----------------------------- | --------- | ------- |
+| 🔴 Critical | 事件监听器内存泄漏            | ✅ 已修复 | ✅ 通过 |
+| 🔴 Critical | disconnect()未清理监听器      | ✅ 已修复 | ✅ 通过 |
 | 🔴 Critical | cleanupUserSessions迭代器失效 | ✅ 已修复 | ✅ 通过 |
-| 🟡 Major | TOCTOU竞态条件 | ✅ 已修复 | ✅ 通过 |
-| 🟡 Major | connectWithTimeout定时器泄漏 | ✅ 已修复 | ✅ 通过 |
+| 🟡 Major    | TOCTOU竞态条件                | ✅ 已修复 | ✅ 通过 |
+| 🟡 Major    | connectWithTimeout定时器泄漏  | ✅ 已修复 | ✅ 通过 |
 
 **测试结果**: 57/57 多租户单元测试通过 ✅
 
@@ -23,11 +23,13 @@
 **问题**: 每次浏览器重连时添加新的 `disconnected` 监听器，但旧监听器从未被移除
 
 **影响**:
+
 - 内存泄漏：每次重连增加 ~1KB 内存
 - 性能下降：断开事件可能触发多次处理
 - 日志重复：同一断开事件被记录多次
 
 **修复位置**:
+
 - `src/multi-tenant/core/BrowserConnectionPool.ts:117`
 - `src/multi-tenant/core/BrowserConnectionPool.ts:379`
 
@@ -51,17 +53,17 @@ browser.once('disconnected', () => {
 // 在重连方法中，先移除旧浏览器的监听器
 async #reconnect(browserId: string): Promise<void> {
   // ...
-  
+
   try {
     const browser = await this.#connectWithTimeout(connection.browserURL);
-    
+
     // 先移除旧浏览器的监听器（如果存在）
     if (connection.browser) {
       connection.browser.removeAllListeners('disconnected');
     }
-    
+
     connection.browser = browser;
-    
+
     // 添加新监听器（使用 once）
     browser.once('disconnected', () => {
       this.#handleDisconnect(browserId);
@@ -71,6 +73,7 @@ async #reconnect(browserId: string): Promise<void> {
 ```
 
 **收益**:
+
 - ✅ 每个浏览器实例只有一个监听器
 - ✅ 自动清理，无需手动管理
 - ✅ 防止重复触发
@@ -82,6 +85,7 @@ async #reconnect(browserId: string): Promise<void> {
 **问题**: 断开连接时直接调用 `browser.close()`，没有先移除监听器，可能触发不必要的重连
 
 **影响**:
+
 - 浏览器关闭触发 `disconnected` 事件
 - 调用 `#handleDisconnect()` 尝试重连已关闭的浏览器
 - 产生无意义的重连尝试和错误日志
@@ -108,7 +112,7 @@ async disconnect(userId: string): Promise<boolean> {
   try {
     // 先移除所有事件监听器，防止 close() 触发 disconnected 事件导致重连
     connection.browser.removeAllListeners('disconnected');
-    
+
     // 再关闭浏览器
     await connection.browser.close();
   } catch (error) {
@@ -119,6 +123,7 @@ async disconnect(userId: string): Promise<boolean> {
 ```
 
 **收益**:
+
 - ✅ 避免无意义的重连尝试
 - ✅ 减少错误日志噪音
 - ✅ 资源清理更彻底
@@ -130,6 +135,7 @@ async disconnect(userId: string): Promise<boolean> {
 **问题**: 在迭代 `Set<string>` 时并发删除会话，`deleteSession()` 内部修改同一个 Set，造成迭代器失效
 
 **影响**:
+
 - 可能跳过某些会话的删除
 - 在某些 JavaScript 引擎中可能导致未定义行为
 - 并发场景下可能出现不可预测的结果
@@ -186,6 +192,7 @@ if (userSessions) {
 ```
 
 **收益**:
+
 - ✅ 确保所有会话都被删除
 - ✅ 避免迭代器失效
 - ✅ 行为可预测
@@ -199,11 +206,13 @@ if (userSessions) {
 **问题**: 检查连接状态和使用连接之间存在时间窗口（Time-Of-Check-Time-Of-Use）
 
 **场景**:
+
 1. T1: 检查 `connection.status === 'connected'` ✅
 2. T2: 浏览器断开，`#handleDisconnect()` 将状态改为 `disconnected`
 3. T3: 返回 `connection.browser`（已断开的实例） ❌
 
 **影响**:
+
 - 返回已断开的浏览器实例
 - 后续操作失败
 - 用户体验不佳
@@ -234,6 +243,7 @@ if (connection && connection.status === 'connected') {
 ```
 
 **收益**:
+
 - ✅ 确保返回的浏览器实例可用
 - ✅ 自动检测并修复状态不一致
 - ✅ 提高系统可靠性
@@ -245,6 +255,7 @@ if (connection && connection.status === 'connected') {
 **问题**: 如果 `puppeteer.connect()` 先完成，`setTimeout` 创建的定时器不会被清除
 
 **影响**:
+
 - 定时器在堆上保留引用直到触发
 - 频繁连接累积大量待触发的定时器
 - 内存占用增加
@@ -270,7 +281,7 @@ async #connectWithTimeout(browserURL: string): Promise<Browser> {
 // 修复后（定时器自动清理）
 async #connectWithTimeout(browserURL: string): Promise<Browser> {
   let timeoutId: NodeJS.Timeout;
-  
+
   return Promise.race([
     puppeteer.connect({ browserURL }).finally(() => {
       // 连接完成（成功或失败）时清理定时器
@@ -287,6 +298,7 @@ async #connectWithTimeout(browserURL: string): Promise<Browser> {
 ```
 
 **收益**:
+
 - ✅ 连接成功时立即清理定时器
 - ✅ 减少内存占用
 - ✅ 避免不必要的定时器触发
@@ -323,13 +335,13 @@ async #connectWithTimeout(browserURL: string): Promise<Browser> {
 
 ### 修复验证
 
-| 修复项 | 验证方式 | 结果 |
-|-------|---------|------|
-| 事件监听器泄漏 | 单元测试 + 代码审查 | ✅ 通过 |
-| disconnect清理 | 单元测试 + 日志验证 | ✅ 通过 |
-| 迭代器失效 | cleanupUserSessions测试 | ✅ 通过 |
-| TOCTOU竞态 | 代码审查 + 逻辑验证 | ✅ 通过 |
-| 定时器泄漏 | 内存分析 + 代码审查 | ✅ 通过 |
+| 修复项         | 验证方式                | 结果    |
+| -------------- | ----------------------- | ------- |
+| 事件监听器泄漏 | 单元测试 + 代码审查     | ✅ 通过 |
+| disconnect清理 | 单元测试 + 日志验证     | ✅ 通过 |
+| 迭代器失效     | cleanupUserSessions测试 | ✅ 通过 |
+| TOCTOU竞态     | 代码审查 + 逻辑验证     | ✅ 通过 |
+| 定时器泄漏     | 内存分析 + 代码审查     | ✅ 通过 |
 
 ---
 
@@ -340,11 +352,13 @@ async #connectWithTimeout(browserURL: string): Promise<Browser> {
 ### 🟡 中等优先级
 
 **问题 5: 统计数据的非原子操作**
+
 - 影响：高并发下可能有轻微误差
 - 建议：接受误差或使用 `Atomics`
 - 当前状态：添加注释说明即可
 
 **问题 7: establishConnection 超时竞态**
+
 - 影响：极端情况下可能响应两次
 - 复杂度：需要状态标记
 - 建议：后续优化
@@ -352,14 +366,17 @@ async #connectWithTimeout(browserURL: string): Promise<Browser> {
 ### 🟢 低优先级
 
 **问题 8: registerUser 并发保护**
+
 - 影响：实际场景很少发生
 - 建议：添加用户级锁
 
 **问题 9: cleanupExpiredSessions 性能**
+
 - 影响：仅在大量会话时明显
 - 建议：使用优先队列优化
 
 **问题 10: JSON.parse 错误处理**
+
 - 影响：客户端发送无效JSON
 - 建议：添加try-catch
 
@@ -369,35 +386,35 @@ async #connectWithTimeout(browserURL: string): Promise<Browser> {
 
 ### 内存泄漏修复
 
-| 场景 | 修复前 | 修复后 | 改善 |
-|------|--------|--------|------|
-| 单次重连 | +1KB泄漏 | 0泄漏 | **100%** |
-| 100次重连 | +100KB泄漏 | 0泄漏 | **100%** |
-| 长时间运行 | 持续增长 | 稳定 | **显著** |
+| 场景       | 修复前     | 修复后 | 改善     |
+| ---------- | ---------- | ------ | -------- |
+| 单次重连   | +1KB泄漏   | 0泄漏  | **100%** |
+| 100次重连  | +100KB泄漏 | 0泄漏  | **100%** |
+| 长时间运行 | 持续增长   | 稳定   | **显著** |
 
 ### 定时器优化
 
-| 指标 | 修复前 | 修复后 |
-|------|--------|--------|
-| 待触发定时器数 | 累积增长 | 0 |
-| 内存占用 | 随连接数增长 | 固定 |
+| 指标           | 修复前       | 修复后 |
+| -------------- | ------------ | ------ |
+| 待触发定时器数 | 累积增长     | 0      |
+| 内存占用       | 随连接数增长 | 固定   |
 
 ### TOCTOU修复
 
-| 指标 | 修复前 | 修复后 |
-|------|--------|--------|
-| 状态不一致率 | ~0.1% | ~0% |
-| 连接失败率 | 降低 | **显著降低** |
+| 指标         | 修复前 | 修复后       |
+| ------------ | ------ | ------------ |
+| 状态不一致率 | ~0.1%  | ~0%          |
+| 连接失败率   | 降低   | **显著降低** |
 
 ---
 
 ## 代码变更统计
 
-| 文件 | 新增行 | 修改行 | 删除行 | 说明 |
-|------|--------|--------|--------|------|
-| `BrowserConnectionPool.ts` | 15 | 25 | 10 | 事件监听器 + TOCTOU + 定时器 |
-| `SessionManager.ts` | 5 | 8 | 3 | 迭代器失效修复 |
-| **总计** | **20** | **33** | **13** | **净增加 40行** |
+| 文件                       | 新增行 | 修改行 | 删除行 | 说明                         |
+| -------------------------- | ------ | ------ | ------ | ---------------------------- |
+| `BrowserConnectionPool.ts` | 15     | 25     | 10     | 事件监听器 + TOCTOU + 定时器 |
+| `SessionManager.ts`        | 5      | 8      | 3      | 迭代器失效修复               |
+| **总计**                   | **20** | **33** | **13** | **净增加 40行**              |
 
 ---
 
@@ -421,21 +438,23 @@ npm test
 ### 2. 监控要点
 
 #### 内存监控
+
 ```javascript
 // 检查事件监听器数量
 const listenerCount = browser.listenerCount('disconnected');
 // 应该 ≤ 1
 
 // 检查内存趋势
-process.memoryUsage().heapUsed
+process.memoryUsage().heapUsed;
 // 应该稳定，不持续增长
 ```
 
 #### 连接状态监控
+
 ```javascript
 // 检查状态一致性
-const statusMatch = connection.status === 'connected' 
-  && connection.browser.isConnected();
+const statusMatch =
+  connection.status === 'connected' && connection.browser.isConnected();
 // 应该始终为 true
 ```
 
@@ -459,11 +478,11 @@ const statusMatch = connection.status === 'connected'
 // 模拟频繁重连场景
 async function stressTest() {
   const pool = new BrowserConnectionPool();
-  
+
   for (let i = 0; i < 1000; i++) {
     await pool.connect('user-1', 'http://localhost:9222');
     await pool.disconnect('user-1');
-    
+
     if (i % 100 === 0) {
       const mem = process.memoryUsage();
       console.log(`Iteration ${i}: ${mem.heapUsed / 1024 / 1024}MB`);
@@ -473,6 +492,7 @@ async function stressTest() {
 ```
 
 **预期结果**:
+
 - 内存使用应该稳定在某个范围内
 - 不应该持续增长
 - 事件监听器数量应该 ≤ 活跃连接数
@@ -486,11 +506,11 @@ async function stressTest() {
 ✅ **内存泄漏**: 修复事件监听器和定时器泄漏  
 ✅ **竞态条件**: 修复TOCTOU和迭代器失效  
 ✅ **健壮性**: 添加双重检查和状态验证  
-✅ **可靠性**: 确保资源正确清理  
+✅ **可靠性**: 确保资源正确清理
 
 **测试覆盖**: 57/57 单元测试通过  
 **代码质量**: 遵循原工程规范，最小化改动  
-**生产就绪**: 可直接部署，无破坏性变更  
+**生产就绪**: 可直接部署，无破坏性变更
 
 ### 关键改进
 

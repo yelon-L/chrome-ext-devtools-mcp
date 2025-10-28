@@ -31,11 +31,13 @@ CDP（Chrome DevTools Protocol）混合架构是一种**实验性性能优化技
 **功能**: 直接使用 CDP 协议管理 Target（页面）生命周期
 
 **优化点**:
+
 - 绕过 `browser.newPage()` 的同步锁
 - 使用 `Target.createTarget` 直接创建页面
 - 减少 Puppeteer 的中间转换开销
 
 **实现**:
+
 ```typescript
 // 传统方式（Puppeteer）
 const page = await browser.newPage(); // 可能被锁阻塞
@@ -45,7 +47,8 @@ const targetId = await cdpTargetManager.createTarget('about:blank');
 const page = await cdpTargetManager.getPageForTarget(targetId);
 ```
 
-**性能提升**: 
+**性能提升**:
+
 - 创建页面速度提升 30-50%
 - 高并发场景下减少锁竞争
 
@@ -54,11 +57,13 @@ const page = await cdpTargetManager.getPageForTarget(targetId);
 **功能**: 使用 CDP 协议执行高频操作
 
 **优化点**:
+
 - 直接调用 `Page.navigate` 而不是 `page.goto()`
 - 直接调用 `Runtime.evaluate` 而不是 `page.evaluate()`
 - 减少 Puppeteer API 的包装开销
 
 **实现**:
+
 ```typescript
 // 传统方式（Puppeteer）
 await page.goto(url, {waitUntil: 'load'}); // 多层封装
@@ -68,6 +73,7 @@ await cdpOperations.navigate(url, {waitUntil: 'load'}); // 直接 CDP
 ```
 
 **性能提升**:
+
 - 导航速度提升 10-20%
 - 脚本执行延迟降低 20-30%
 
@@ -117,12 +123,14 @@ CDP 混合架构是**实验性功能**，可能存在以下问题：
 ### 2. 适用场景
 
 **推荐启用**（生产环境）:
+
 - ✅ 高并发场景（100+ 用户）
 - ✅ 频繁创建/销毁页面
 - ✅ 大量页面导航操作
 - ✅ 需要极致性能
 
 **不推荐启用**（开发环境）:
+
 - ❌ 单用户或低并发场景
 - ❌ 需要完整的 Puppeteer 功能
 - ❌ 开发调试阶段
@@ -145,6 +153,7 @@ try {
 ```
 
 **回退条件**:
+
 - CDP Session 初始化失败
 - Target 创建失败
 - Page 获取超时
@@ -154,18 +163,19 @@ try {
 ## 📊 性能对比
 
 ### 测试环境
+
 - 用户数: 100
 - 操作: 每个用户创建 10 个页面并导航
 - Chrome: v120+
 
 ### 性能数据
 
-| 指标 | Puppeteer | CDP Target | CDP Target + Ops | 提升 |
-|------|-----------|-----------|------------------|------|
-| 页面创建 | 2.5s | 1.5s | 1.5s | **40%↓** |
-| 页面导航 | 3.0s | 3.0s | 2.5s | **17%↓** |
-| 脚本执行 | 100ms | 100ms | 75ms | **25%↓** |
-| 总体延迟 | 5.6s | 4.6s | 4.1s | **27%↓** |
+| 指标     | Puppeteer | CDP Target | CDP Target + Ops | 提升     |
+| -------- | --------- | ---------- | ---------------- | -------- |
+| 页面创建 | 2.5s      | 1.5s       | 1.5s             | **40%↓** |
+| 页面导航 | 3.0s      | 3.0s       | 2.5s             | **17%↓** |
+| 脚本执行 | 100ms     | 100ms      | 75ms             | **25%↓** |
+| 总体延迟 | 5.6s      | 4.6s       | 4.1s             | **27%↓** |
 
 ### 内存占用
 
@@ -180,20 +190,22 @@ try {
 ### 核心文件
 
 1. **CdpTargetManager.ts** - Target 生命周期管理
+
    ```typescript
    export class CdpTargetManager {
-     async createTarget(url: string): Promise<string>
-     async getPageForTarget(targetId: string): Promise<Page>
-     async closeTarget(targetId: string): Promise<void>
+     async createTarget(url: string): Promise<string>;
+     async getPageForTarget(targetId: string): Promise<Page>;
+     async closeTarget(targetId: string): Promise<void>;
    }
    ```
 
 2. **CdpOperations.ts** - 高频操作优化
+
    ```typescript
    export class CdpOperations {
-     async navigate(url: string): Promise<{success: boolean}>
-     async evaluate(script: string): Promise<any>
-     async screenshot(): Promise<Buffer>
+     async navigate(url: string): Promise<{success: boolean}>;
+     async evaluate(script: string): Promise<any>;
+     async screenshot(): Promise<Buffer>;
    }
    ```
 
@@ -257,6 +269,7 @@ async getPageForTarget(targetId: string, timeout = 5000): Promise<Page> {
 **问题**: 部分高级 API 依赖 Puppeteer 内部状态
 
 **影响范围**:
+
 - ✅ 大部分常用 API 正常（goto, evaluate, screenshot）
 - ⚠️ 部分高级功能可能受影响（复杂的事件监听）
 
@@ -340,12 +353,14 @@ STORAGE_TYPE=jsonl
 ### 3. 渐进式启用
 
 **阶段 1**: 先启用 CDP Target 管理
+
 ```bash
 USE_CDP_HYBRID=true
 USE_CDP_OPERATIONS=false
 ```
 
 **阶段 2**: 验证稳定后启用 CDP 操作
+
 ```bash
 USE_CDP_HYBRID=true
 USE_CDP_OPERATIONS=true
@@ -354,6 +369,7 @@ USE_CDP_OPERATIONS=true
 ### 4. 监控回退率
 
 如果 `cdpFallbacks` 过高（>10%），说明：
+
 - Chrome 版本不兼容
 - CDP 协议不稳定
 - 建议禁用 CDP 混合架构
@@ -385,6 +401,7 @@ USE_CDP_OPERATIONS=true
 ### Q4: 性能提升多少？
 
 **A**: 取决于场景：
+
 - 低并发（<10 用户）: 5-10%
 - 中并发（10-50 用户）: 15-25%
 - 高并发（50+ 用户）: 25-40%
@@ -392,6 +409,7 @@ USE_CDP_OPERATIONS=true
 ### Q5: 有风险吗？
 
 **A**: 有一定风险：
+
 - ⚠️ Chrome 更新可能影响 CDP 协议
 - ⚠️ 某些高级功能可能不完全兼容
 - ✅ 实现了自动回退机制降低风险
@@ -400,4 +418,3 @@ USE_CDP_OPERATIONS=true
 
 **文档完成**: 2025-10-16  
 **状态**: 实验性功能，谨慎使用
-

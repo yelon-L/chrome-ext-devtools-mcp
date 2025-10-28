@@ -14,6 +14,7 @@ POST /api/register
 ```
 
 **问题**：
+
 1. 用户注册和浏览器绑定混在一起
 2. 注册时浏览器可能还未启动
 3. userId 不够正式，缺少身份验证基础
@@ -53,9 +54,9 @@ POST /api/users/alice/browsers
 
 ```typescript
 interface User {
-  userId: string;           // 主键，从邮箱提取
-  email: string;            // 唯一索引，必填
-  username?: string;        // 可修改的显示名称
+  userId: string; // 主键，从邮箱提取
+  email: string; // 唯一索引，必填
+  username?: string; // 可修改的显示名称
   metadata?: {
     createdAt: Date;
     updatedAt: Date;
@@ -65,11 +66,13 @@ interface User {
 ```
 
 **规则**：
+
 - `userId` 初始值 = `email.split('@')[0]`
 - `username` 默认 = `userId`，可后续修改
 - `email` 必须唯一
 
 **示例**：
+
 ```json
 {
   "userId": "alice",
@@ -85,16 +88,17 @@ interface User {
 
 ```typescript
 interface Browser {
-  browserId: string;        // UUID，主键
-  userId: string;           // 外键 → User.userId
-  browserURL: string;       // http://host:port
-  tokenName: string;        // 人类可读的名称
-  token: string;            // 访问令牌（唯一）
+  browserId: string; // UUID，主键
+  userId: string; // 外键 → User.userId
+  browserURL: string; // http://host:port
+  tokenName: string; // 人类可读的名称
+  token: string; // 访问令牌（唯一）
   metadata?: {
     description?: string;
     createdAt: Date;
     lastConnectedAt?: Date;
-    browserInfo?: {         // 检测到的浏览器信息
+    browserInfo?: {
+      // 检测到的浏览器信息
       version: string;
       userAgent: string;
     };
@@ -103,12 +107,14 @@ interface Browser {
 ```
 
 **规则**：
+
 - 一个用户可以有多个浏览器
 - `token` 唯一，格式：`mcp_` + 随机字符串
 - `tokenName` 在同一用户下唯一
 - 删除用户时级联删除所有浏览器
 
 **示例**：
+
 ```json
 {
   "browserId": "uuid-123",
@@ -443,6 +449,7 @@ Authorization: Bearer mcp_abc123...
 ```
 
 **关键变化**：
+
 - ✅ 不再需要 `?userId=xxx` 参数
 - ✅ token 直接对应浏览器
 - ✅ 一个 token = 一个浏览器实例
@@ -494,6 +501,7 @@ Authorization: Bearer mcp_abc123...
 ### Phase 3: 迁移支持
 
 **向后兼容**：
+
 ```typescript
 // 保留旧的 POST /api/register 端点
 // 但标记为 deprecated
@@ -525,11 +533,11 @@ POST /api/register (DEPRECATED)
 
 ```typescript
 class PersistentStore {
-  private users: Map<string, User>;                    // userId → User
-  private usersByEmail: Map<string, string>;           // email → userId
-  private browsers: Map<string, Browser>;              // browserId → Browser
-  private browsersByToken: Map<string, string>;        // token → browserId
-  private browsersByUser: Map<string, Set<string>>;    // userId → Set<browserId>
+  private users: Map<string, User>; // userId → User
+  private usersByEmail: Map<string, string>; // email → userId
+  private browsers: Map<string, Browser>; // browserId → Browser
+  private browsersByToken: Map<string, string>; // token → browserId
+  private browsersByUser: Map<string, Set<string>>; // userId → Set<browserId>
 }
 ```
 
@@ -590,14 +598,14 @@ curl -X DELETE http://localhost:32136/api/users/alice
 
 ## 七、优势分析
 
-| 维度 | 旧架构 | 新架构 |
-|------|--------|--------|
-| **用户标识** | userId（随意） | email（正式） |
-| **注册流程** | 必须提供浏览器 | 独立注册，稍后绑定 |
-| **多浏览器** | 不支持 | 一个用户多个浏览器 |
-| **Token 管理** | 与浏览器分离 | Token 直接对应浏览器 |
-| **IDE 配置** | 需要 userId 参数 | 只需 token |
-| **可扩展性** | 受限 | 高度灵活 |
+| 维度           | 旧架构           | 新架构               |
+| -------------- | ---------------- | -------------------- |
+| **用户标识**   | userId（随意）   | email（正式）        |
+| **注册流程**   | 必须提供浏览器   | 独立注册，稍后绑定   |
+| **多浏览器**   | 不支持           | 一个用户多个浏览器   |
+| **Token 管理** | 与浏览器分离     | Token 直接对应浏览器 |
+| **IDE 配置**   | 需要 userId 参数 | 只需 token           |
+| **可扩展性**   | 受限             | 高度灵活             |
 
 ## 八、迁移指南
 
@@ -610,14 +618,14 @@ function migrateOldUsers() {
     // 1. 创建新用户
     const email = `${oldUser.userId}@migrated.local`;
     store.registerUserByEmail(email, oldUser.userId);
-    
+
     // 2. 迁移浏览器绑定
     const browserURL = oldUser.browserURL;
     store.bindBrowser(
       oldUser.userId,
       browserURL,
-      'default',  // tokenName
-      'Migrated from old system'
+      'default', // tokenName
+      'Migrated from old system',
     );
   }
 }
@@ -654,13 +662,13 @@ function migrateOldUsers() {
 
 ## 十、时间估算
 
-| 任务 | 时间 |
-|------|------|
-| Phase 1: 数据模型重构 | 2h |
-| Phase 2: API 实现 | 3h |
-| Phase 3: 测试脚本 | 1h |
-| Phase 4: 文档更新 | 1h |
-| **总计** | **7h** |
+| 任务                  | 时间   |
+| --------------------- | ------ |
+| Phase 1: 数据模型重构 | 2h     |
+| Phase 2: API 实现     | 3h     |
+| Phase 3: 测试脚本     | 1h     |
+| Phase 4: 文档更新     | 1h     |
+| **总计**              | **7h** |
 
 ---
 

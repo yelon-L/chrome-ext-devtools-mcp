@@ -31,6 +31,7 @@ git merge sync-upstream
 ```
 
 脚本会自动：
+
 - ✅ 检查工作区状态
 - ✅ 添加 upstream remote（如果不存在）
 - ✅ 获取上游更新
@@ -153,8 +154,8 @@ git push origin v0.9.0-ext.1
 
 ```json
 {
-  "name": "chrome-extension-debug-mcp",  // 保留本地
-  "version": "0.9.0-ext.1",              // 基于上游版本 + 扩展标记
+  "name": "chrome-extension-debug-mcp", // 保留本地
+  "version": "0.9.0-ext.1", // 基于上游版本 + 扩展标记
   "dependencies": {
     // 合并两边的依赖
     // 上游新增的依赖 + 本地新增的依赖
@@ -168,17 +169,21 @@ git push origin v0.9.0-ext.1
 ## [0.9.0-ext.1] - 2025-10-25
 
 ### Merged from Upstream v0.9.0
+
 - (列出上游的更新)
 
 ### Local Extensions (Preserved)
+
 - Extension debugging tools
 - Multi-Tenant mode
 - Worker/Iframe log capture
 
 ## [0.8.18] - 2025-10-25
+
 (保留本地的更新记录)
 
 ## [0.9.0] - 2025-10-22 (Upstream)
+
 (保留上游的更新记录)
 ```
 
@@ -193,8 +198,8 @@ import * as extensionTools from './tools/extension/index.js';
 
 // 注册工具时合并两边
 const tools = [
-  ...originalTools,      // 上游工具
-  ...extensionTools,     // 本地扩展工具
+  ...originalTools, // 上游工具
+  ...extensionTools, // 本地扩展工具
 ];
 ```
 
@@ -299,6 +304,7 @@ git log HEAD..upstream/main --oneline
 **推荐方式**: 使用 `./scripts/sync-upstream.sh` 进行交互式同步
 
 **关键原则**:
+
 1. ✅ 始终在独立分支进行同步
 2. ✅ 充分测试后再合并到 main
 3. ✅ 保留详细的合并记录

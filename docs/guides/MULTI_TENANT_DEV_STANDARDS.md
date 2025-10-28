@@ -8,12 +8,14 @@
 ### 1.1 命名规范
 
 #### 文件命名
+
 - **类文件**: PascalCase，如 `SessionManager.ts`
 - **工具文件**: kebab-case，如 `auth-utils.ts`
 - **测试文件**: `*.test.ts`
 - **类型定义**: `*.types.ts`
 
 #### 变量命名
+
 ```typescript
 // 常量：全大写下划线分隔
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -40,6 +42,7 @@ class Manager {
 ### 1.2 代码组织
 
 #### 目录结构
+
 ```
 src/
 ├── multi-tenant/
@@ -72,6 +75,7 @@ src/
 ### 1.3 TypeScript 规范
 
 #### 严格类型
+
 ```typescript
 // ✅ 好的实践
 interface Session {
@@ -90,11 +94,12 @@ function createSession(userId: string): Session {
 
 // ❌ 避免
 function createSession(userId: any): any {
-  return { sessionId: generateId(), userId };
+  return {sessionId: generateId(), userId};
 }
 ```
 
 #### 使用类型守卫
+
 ```typescript
 function isValidSession(session: unknown): session is Session {
   return (
@@ -107,13 +112,14 @@ function isValidSession(session: unknown): session is Session {
 ```
 
 #### 错误处理
+
 ```typescript
 // 自定义错误类
 class SessionError extends Error {
   constructor(
     message: string,
     public code: string,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
     this.name = 'SessionError';
@@ -121,16 +127,13 @@ class SessionError extends Error {
 }
 
 // 使用
-throw new SessionError(
-  'Session not found',
-  'SESSION_NOT_FOUND',
-  { sessionId }
-);
+throw new SessionError('Session not found', 'SESSION_NOT_FOUND', {sessionId});
 ```
 
 ## 2. 架构规范
 
 ### 2.1 单一职责原则
+
 每个类只负责一个功能领域：
 
 ```typescript
@@ -157,12 +160,13 @@ class Manager {
 ```
 
 ### 2.2 依赖注入
+
 ```typescript
 // ✅ 好的实践
 class SessionManager {
   constructor(
     private readonly authManager: AuthManager,
-    private readonly logger: Logger
+    private readonly logger: Logger,
   ) {}
 }
 
@@ -175,6 +179,7 @@ class SessionManager {
 ```
 
 ### 2.3 接口优于实现
+
 ```typescript
 // 定义接口
 interface IAuthManager {
@@ -184,23 +189,35 @@ interface IAuthManager {
 
 // 实现可替换
 class TokenAuthManager implements IAuthManager {
-  async authenticate(token: string) { /* ... */ }
-  authorize(user: User, action: string) { /* ... */ }
+  async authenticate(token: string) {
+    /* ... */
+  }
+  authorize(user: User, action: string) {
+    /* ... */
+  }
 }
 
 class OAuth2AuthManager implements IAuthManager {
-  async authenticate(token: string) { /* ... */ }
-  authorize(user: User, action: string) { /* ... */ }
+  async authenticate(token: string) {
+    /* ... */
+  }
+  authorize(user: User, action: string) {
+    /* ... */
+  }
 }
 ```
 
 ## 3. 错误处理规范
 
 ### 3.1 错误分类
+
 ```typescript
 // 业务错误
 class BusinessError extends Error {
-  constructor(message: string, public code: string) {
+  constructor(
+    message: string,
+    public code: string,
+  ) {
     super(message);
     this.name = 'BusinessError';
   }
@@ -208,7 +225,10 @@ class BusinessError extends Error {
 
 // 系统错误
 class SystemError extends Error {
-  constructor(message: string, public originalError?: Error) {
+  constructor(
+    message: string,
+    public originalError?: Error,
+  ) {
     super(message);
     this.name = 'SystemError';
   }
@@ -219,7 +239,7 @@ class ValidationError extends Error {
   constructor(
     message: string,
     public field: string,
-    public value: unknown
+    public value: unknown,
   ) {
     super(message);
     this.name = 'ValidationError';
@@ -228,6 +248,7 @@ class ValidationError extends Error {
 ```
 
 ### 3.2 统一错误处理
+
 ```typescript
 async function handleRequest(req: Request, res: Response) {
   try {
@@ -258,6 +279,7 @@ async function handleRequest(req: Request, res: Response) {
 ## 4. 日志规范
 
 ### 4.1 日志级别
+
 ```typescript
 // ERROR: 错误，需要立即处理
 logger.error('Failed to connect to browser', {
@@ -267,16 +289,17 @@ logger.error('Failed to connect to browser', {
 });
 
 // WARN: 警告，需要注意
-logger.warn('Session inactive for 10 minutes', { sessionId });
+logger.warn('Session inactive for 10 minutes', {sessionId});
 
 // INFO: 重要信息
-logger.info('New session created', { sessionId, userId });
+logger.info('New session created', {sessionId, userId});
 
 // DEBUG: 调试信息
-logger.debug('Processing request', { method, params });
+logger.debug('Processing request', {method, params});
 ```
 
 ### 4.2 日志格式
+
 ```typescript
 interface LogEntry {
   timestamp: string;
@@ -301,12 +324,13 @@ interface LogEntry {
 ```
 
 ### 4.3 敏感数据脱敏
+
 ```typescript
 function sanitizeLog(data: any): any {
   const sensitiveFields = ['password', 'token', 'apiKey'];
-  
+
   if (typeof data === 'object' && data !== null) {
-    const sanitized = { ...data };
+    const sanitized = {...data};
     for (const field of sensitiveFields) {
       if (field in sanitized) {
         sanitized[field] = '***REDACTED***';
@@ -314,7 +338,7 @@ function sanitizeLog(data: any): any {
     }
     return sanitized;
   }
-  
+
   return data;
 }
 ```
@@ -322,17 +346,18 @@ function sanitizeLog(data: any): any {
 ## 5. 测试规范
 
 ### 5.1 测试命名
+
 ```typescript
 describe('SessionManager', () => {
   describe('createSession', () => {
     it('should create a new session with valid userId', async () => {
       // ...
     });
-    
+
     it('should throw error when userId is invalid', async () => {
       // ...
     });
-    
+
     it('should not create duplicate sessions for same user', async () => {
       // ...
     });
@@ -341,15 +366,16 @@ describe('SessionManager', () => {
 ```
 
 ### 5.2 测试结构 (AAA 模式)
+
 ```typescript
 it('should authenticate valid token', async () => {
   // Arrange (准备)
   const authManager = new AuthManager();
   const validToken = 'valid_token_123';
-  
+
   // Act (执行)
   const result = await authManager.authenticate(validToken);
-  
+
   // Assert (断言)
   expect(result).toBeDefined();
   expect(result.userId).toBe('user-a');
@@ -357,15 +383,17 @@ it('should authenticate valid token', async () => {
 ```
 
 ### 5.3 测试覆盖率目标
+
 - **单元测试**: > 80%
 - **集成测试**: 核心流程 100%
 - **E2E 测试**: 主要用户场景
 
 ### 5.4 Mock 规范
+
 ```typescript
 // 使用接口 mock
 const mockAuthManager: IAuthManager = {
-  authenticate: async (token) => ({ userId: 'test-user' }),
+  authenticate: async token => ({userId: 'test-user'}),
   authorize: (user, action) => true,
 };
 
@@ -377,17 +405,24 @@ connectStub.resolves(mockBrowser);
 ## 6. 安全规范
 
 ### 6.1 输入验证
+
 ```typescript
-import { z } from 'zod';
+import {z} from 'zod';
 
 // 定义 schema
 const RegisterSchema = z.object({
-  userId: z.string().min(3).max(50).regex(/^[a-z0-9-]+$/),
+  userId: z
+    .string()
+    .min(3)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/),
   browserURL: z.string().url(),
-  metadata: z.object({
-    name: z.string().optional(),
-    email: z.string().email().optional(),
-  }).optional(),
+  metadata: z
+    .object({
+      name: z.string().optional(),
+      email: z.string().email().optional(),
+    })
+    .optional(),
 });
 
 // 验证
@@ -397,40 +432,36 @@ function validateRegisterRequest(data: unknown) {
 ```
 
 ### 6.2 Token 管理
+
 ```typescript
 // 生成 Token
 function generateToken(userId: string, expiresIn: number): string {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET!,
-    { expiresIn }
-  );
+  return jwt.sign({userId}, process.env.JWT_SECRET!, {expiresIn});
 }
 
 // 验证 Token
-function verifyToken(token: string): { userId: string } {
-  return jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
+function verifyToken(token: string): {userId: string} {
+  return jwt.verify(token, process.env.JWT_SECRET!) as {userId: string};
 }
 ```
 
 ### 6.3 速率限制
+
 ```typescript
 class RateLimiter {
   private requests = new Map<string, number[]>();
-  
+
   checkLimit(userId: string, maxRequests: number, windowMs: number): boolean {
     const now = Date.now();
     const userRequests = this.requests.get(userId) || [];
-    
+
     // 清理过期请求
-    const validRequests = userRequests.filter(
-      time => now - time < windowMs
-    );
-    
+    const validRequests = userRequests.filter(time => now - time < windowMs);
+
     if (validRequests.length >= maxRequests) {
       return false;
     }
-    
+
     validRequests.push(now);
     this.requests.set(userId, validRequests);
     return true;
@@ -441,6 +472,7 @@ class RateLimiter {
 ## 7. 性能规范
 
 ### 7.1 异步操作
+
 ```typescript
 // ✅ 好的实践：并行执行
 async function initializeMultiple(userIds: string[]) {
@@ -457,18 +489,19 @@ async function initializeMultiple(userIds: string[]) {
 ```
 
 ### 7.2 资源清理
+
 ```typescript
 class SessionManager {
   private cleanupInterval?: NodeJS.Timeout;
-  
+
   start() {
     // 定期清理过期会话
     this.cleanupInterval = setInterval(
       () => this.cleanupExpiredSessions(),
-      60000 // 每分钟
+      60000, // 每分钟
     );
   }
-  
+
   stop() {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
@@ -478,15 +511,16 @@ class SessionManager {
 ```
 
 ### 7.3 内存管理
+
 ```typescript
 // 使用 WeakMap 避免内存泄漏
 class Cache {
   private cache = new WeakMap<object, any>();
-  
+
   set(key: object, value: any) {
     this.cache.set(key, value);
   }
-  
+
   get(key: object) {
     return this.cache.get(key);
   }
@@ -496,16 +530,17 @@ class Cache {
 ## 8. 文档规范
 
 ### 8.1 JSDoc 注释
-```typescript
+
+````typescript
 /**
  * 创建新的用户会话
- * 
+ *
  * @param userId - 用户唯一标识
  * @param browserURL - 用户浏览器的调试端口 URL
  * @returns 新创建的会话对象
  * @throws {SessionError} 当用户已有活跃会话时
  * @throws {BrowserConnectionError} 当无法连接到浏览器时
- * 
+ *
  * @example
  * ```typescript
  * const session = await sessionManager.createSession(
@@ -517,10 +552,12 @@ class Cache {
 async createSession(userId: string, browserURL: string): Promise<Session> {
   // ...
 }
-```
+````
 
 ### 8.2 README 规范
+
 每个模块应包含：
+
 - 模块用途
 - 主要 API
 - 使用示例
@@ -530,6 +567,7 @@ async createSession(userId: string, browserURL: string): Promise<Session> {
 ## 9. Git 规范
 
 ### 9.1 提交消息
+
 ```
 <type>(<scope>): <subject>
 
@@ -539,6 +577,7 @@ async createSession(userId: string, browserURL: string): Promise<Session> {
 ```
 
 类型 (type):
+
 - `feat`: 新功能
 - `fix`: 修复 bug
 - `docs`: 文档
@@ -548,6 +587,7 @@ async createSession(userId: string, browserURL: string): Promise<Session> {
 - `chore`: 构建/工具
 
 示例:
+
 ```
 feat(multi-tenant): add session manager
 
@@ -559,6 +599,7 @@ Closes #123
 ```
 
 ### 9.2 分支策略
+
 - `main`: 生产分支
 - `develop`: 开发分支
 - `feature/xxx`: 功能分支
@@ -568,31 +609,37 @@ Closes #123
 ## 10. Code Review 检查清单
 
 ### 功能性
+
 - [ ] 代码实现了需求
 - [ ] 边界条件处理正确
 - [ ] 错误处理完整
 
 ### 可读性
+
 - [ ] 命名清晰有意义
 - [ ] 逻辑易于理解
 - [ ] 注释充分
 
 ### 可维护性
+
 - [ ] 遵循 SOLID 原则
 - [ ] 没有重复代码
 - [ ] 易于扩展
 
 ### 性能
+
 - [ ] 没有明显性能问题
 - [ ] 资源正确释放
 - [ ] 异步操作合理
 
 ### 安全
+
 - [ ] 输入验证完整
 - [ ] 没有安全漏洞
 - [ ] 敏感数据保护
 
 ### 测试
+
 - [ ] 单元测试覆盖
 - [ ] 测试用例充分
 - [ ] 测试通过

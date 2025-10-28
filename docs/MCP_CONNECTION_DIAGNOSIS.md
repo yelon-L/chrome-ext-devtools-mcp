@@ -8,6 +8,7 @@
 ## 🔍 问题 1: 两个异常测试是否需要修复？
 
 ### 异常测试项
+
 - ⚠️ `inspect_extension_manifest` - Manifest 数据暂时不可用
 - ⚠️ `check_content_script_injection` - 依赖 Manifest
 
@@ -16,6 +17,7 @@
 ### 原因分析
 
 #### 1. 代码已正确实现错误处理
+
 ```typescript
 // src/tools/extension/manifest-inspector.ts:95-100
 if (!manifest) {
@@ -23,31 +25,36 @@ if (!manifest) {
     response,
     'Manifest',
     extensionId,
-    'Extension manifest data is being loaded or unavailable'
+    'Extension manifest data is being loaded or unavailable',
   );
   response.setIncludePages(true);
-  return;  // ✅ 返回信息，不抛异常
+  return; // ✅ 返回信息，不抛异常
 }
 ```
 
 **符合最佳实践**:
+
 - ✅ 使用 `reportResourceUnavailable()` 返回友好信息
 - ✅ 不抛出异常（遵循工具设计原则）
 - ✅ 提供清晰的失败原因和建议
 
 #### 2. 这是正常的延迟现象
+
 - Manifest 数据需要从 Chrome DevTools Protocol 加载
 - 首次访问时可能需要几秒初始化时间
 - 等待后重试通常会成功
 - 不是代码缺陷，是数据加载时序问题
 
 #### 3. 不影响核心功能
+
 - 其他 6 个扩展工具全部正常工作
 - 只是高级诊断功能暂时不可用
 - 测试通过率仍达到 75% (6/8)
 
 ### 验证
+
 查看代码实现，完全符合[错误处理最佳实践](../archive/error-handling/TOOL_ERROR_HANDLING_ANALYSIS.md)：
+
 - **第一性原理**: 工具调用应该永远成功，只有结果可以失败
 - **错误处理**: 预期错误返回信息，不抛异常
 - **用户体验**: 提供友好的错误消息和解决建议
@@ -57,26 +64,28 @@ if (!manifest) {
 ## 🔍 问题 2: ext-debug-stream (mcp2) 为什么连不到 Chrome？
 
 ### 发现的问题
+
 **❌ mcp2 连接到了错误的 Chrome 端口**
 
 ### 实际状态
 
 #### Chrome 实例检查
+
 ```bash
 # 9222 端口
 $ curl -s http://localhost:9222/json/list | jq '[.[] | select(.type == "service_worker")] | length'
 0  # ❌ 没有扩展
 
-# 9226 端口  
+# 9226 端口
 $ curl -s http://localhost:9226/json/list | jq '[.[] | select(.type == "service_worker")] | length'
 1  # ✅ 有扩展
 ```
 
 #### MCP 服务器连接状态
+
 - **mcp1 (ext-debug-stdio9225)**
   - ⚠️ 进程已结束
   - ✅ 之前测试时可以访问扩展（推测连接到 9226）
-  
 - **mcp2 (ext-debug-stream)**
   - ✅ 进程运行中
   - ❌ 连接到 `http://localhost:9222`（错误端口）
@@ -106,10 +115,10 @@ $ mcp1_list_extensions (之前的测试)
 
 ### Chrome 实例详情
 
-| 端口 | User Data | 扩展数量 | 扩展信息 |
-|------|-----------|---------|---------|
-| 9222 | `/home/p/chrome-mcp-test` | 0 | ❌ 无扩展 |
-| 9226 | `/home/p/chrome-multi-tenant-9226` | 1 | ✅ Video SRT Ext MVP |
+| 端口 | User Data                          | 扩展数量 | 扩展信息             |
+| ---- | ---------------------------------- | -------- | -------------------- |
+| 9222 | `/home/p/chrome-mcp-test`          | 0        | ❌ 无扩展            |
+| 9226 | `/home/p/chrome-multi-tenant-9226` | 1        | ✅ Video SRT Ext MVP |
 
 ---
 
@@ -118,6 +127,7 @@ $ mcp1_list_extensions (之前的测试)
 ### 修改 MCP 配置文件
 
 **配置文件位置**:
+
 - `~/.codeium/windsurf/mcp_config.json`
 - 或其他 IDE 的 MCP 配置文件
 
@@ -128,11 +138,11 @@ $ mcp1_list_extensions (之前的测试)
   "mcpServers": {
     "ext-debug-stdio9225": {
       "command": "...",
-      "args": ["--browserUrl", "http://localhost:9226"]  // ✅ 正确
+      "args": ["--browserUrl", "http://localhost:9226"] // ✅ 正确
     },
     "ext-debug-stream": {
       "command": "...",
-      "args": ["--browserUrl", "http://localhost:9222"]  // ❌ 错误
+      "args": ["--browserUrl", "http://localhost:9222"] // ❌ 错误
     }
   }
 }
@@ -145,11 +155,11 @@ $ mcp1_list_extensions (之前的测试)
   "mcpServers": {
     "ext-debug-stdio9225": {
       "command": "...",
-      "args": ["--browserUrl", "http://localhost:9226"]  // ✅
+      "args": ["--browserUrl", "http://localhost:9226"] // ✅
     },
     "ext-debug-stream": {
       "command": "...",
-      "args": ["--browserUrl", "http://localhost:9226"]  // ✅ 改为 9226
+      "args": ["--browserUrl", "http://localhost:9226"] // ✅ 改为 9226
     }
   }
 }
@@ -169,11 +179,12 @@ $ mcp1_list_extensions (之前的测试)
    - 只需要 MCP 服务器重新连接
 
 4. **验证修复**
+
    ```bash
    # 测试连接
    $ mcp2_get_connected_browser
    → 应该显示: Browser URL: http://localhost:9226 ✅
-   
+
    # 测试列举扩展
    $ mcp2_list_extensions
    → 应该显示: Video SRT Ext MVP ✅
@@ -184,12 +195,14 @@ $ mcp1_list_extensions (之前的测试)
 ## 📊 诊断总结
 
 ### 问题 1: 异常测试
+
 - **结论**: ❌ **不需要修复**
 - **原因**: 代码设计正确，只是数据加载延迟
 - **影响**: 不影响核心功能
 - **建议**: 保持现状，等待几秒后重试即可
 
 ### 问题 2: MCP 连接
+
 - **结论**: ✅ **需要修改配置**
 - **原因**: mcp2 连接到了错误的 Chrome 端口
 - **解决**: 修改配置文件，将 9222 改为 9226
@@ -197,10 +210,10 @@ $ mcp1_list_extensions (之前的测试)
 
 ### Chrome 端口分配
 
-| 端口 | 状态 | 扩展 | 用途 |
-|------|------|------|------|
-| 9222 | ✅ 运行 | ❌ 无 | 测试用（空实例）|
-| 9226 | ✅ 运行 | ✅ 有 | 开发用（Video SRT Ext MVP）|
+| 端口 | 状态    | 扩展  | 用途                        |
+| ---- | ------- | ----- | --------------------------- |
+| 9222 | ✅ 运行 | ❌ 无 | 测试用（空实例）            |
+| 9226 | ✅ 运行 | ✅ 有 | 开发用（Video SRT Ext MVP） |
 
 ### 推荐操作
 
@@ -214,6 +227,7 @@ $ mcp1_list_extensions (之前的测试)
 ## 附录：验证命令
 
 ### 检查 Chrome 端口
+
 ```bash
 # 查看运行中的 Chrome
 ps aux | grep "chrome.*remote-debugging-port" | grep -v grep
@@ -228,6 +242,7 @@ curl -s http://localhost:9226/json/list | jq '[.[] | select(.type == "service_wo
 ```
 
 ### 测试 MCP 连接
+
 ```bash
 # 检查 mcp2 连接的端口
 mcp2_get_connected_browser
@@ -243,4 +258,3 @@ mcp2_activate_extension_service_worker --extensionId lnidiajhkakibgicoamnbmfedgp
 
 **诊断完成**: 2025-10-16 12:57  
 **状态**: ✅ 问题已识别，解决方案已提供
-

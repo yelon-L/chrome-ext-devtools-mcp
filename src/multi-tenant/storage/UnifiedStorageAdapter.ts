@@ -10,9 +10,10 @@
  * 提供统一的同步接口，内部自动处理 JSONL 和 PostgreSQL 的差异
  */
 
+import {SyncMethodNotSupportedError, StorageNotInitializedError} from '../errors/index.js';
+
 import type {PersistentStoreV2, UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
 import type {StorageAdapter} from './StorageAdapter.js';
-import {SyncMethodNotSupportedError, StorageNotInitializedError} from '../errors/index.js';
 
 /**
  * 统一存储适配器

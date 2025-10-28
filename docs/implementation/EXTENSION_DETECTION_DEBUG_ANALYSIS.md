@@ -5,6 +5,7 @@
 **时间**: 2025-10-25 15:10
 
 **症状**:
+
 - `list_extensions` 返回 "No Extensions Detected"
 - chrome://extensions 页面显示扩展存在且已启用
 - Enhanced MCP Debug Test Extension (ID: `pjeiljkehgiabmjmfjohffbihlopdabn`)
@@ -14,6 +15,7 @@
 ### 1. 验证扩展存在
 
 通过 `chrome.developerPrivate.getExtensionsInfo()` 验证：
+
 ```javascript
 {
   "found": true,
@@ -28,11 +30,12 @@
 ### 2. ExtensionHelper 日志配置
 
 查看 `src/McpContext.ts` 第 127-131 行：
+
 ```typescript
 this.#extensionHelper = new ExtensionHelper(browser, {
   logging: {
-    useConsole: true  // ✅ 已启用详细日志
-  }
+    useConsole: true, // ✅ 已启用详细日志
+  },
 });
 ```
 
@@ -45,21 +48,26 @@ this.#extensionHelper = new ExtensionHelper(browser, {
 **三层回退策略**:
 
 #### 策略 1: chrome.management.getAll() API
+
 ```typescript
 // 第 617 行
-const managementExtensions = await this.getExtensionsViaManagementAPI(allTargets);
+const managementExtensions =
+  await this.getExtensionsViaManagementAPI(allTargets);
 ```
 
 **要求**:
+
 - 需要找到一个活跃的扩展上下文（Service Worker 或页面）
 - 在该上下文中执行 `chrome.management.getAll()`
 
 **可能失败的原因**:
+
 1. 没有活跃的 Service Worker target
 2. 没有活跃的扩展页面 target
 3. MV2 background page 不活跃
 
 #### 策略 2: Target.getTargets 扫描
+
 ```typescript
 // 第 630 行
 for (const target of allTargets) {
@@ -73,14 +81,17 @@ for (const target of allTargets) {
 ```
 
 **要求**:
+
 - CDP `Target.getTargets` 返回的 targets 中包含 `chrome-extension://` URL
 
 **可能失败的原因**:
+
 1. Service Worker 处于 inactive 状态
 2. 没有打开的扩展页面
 3. CDP 连接建立时扩展还未加载
 
 #### 策略 3: 已知扩展 ID
+
 ```typescript
 // 第 651 行
 const knownIds = this.options.knownExtensionIds || [];
@@ -93,11 +104,13 @@ const knownIds = this.options.knownExtensionIds || [];
 #### 问题 1: Service Worker 生命周期
 
 **MV3 Service Worker 特性**:
+
 - 空闲 30 秒后自动休眠
 - 休眠后不会出现在 CDP targets 中
 - 需要事件触发才会唤醒
 
 **验证方法**:
+
 ```javascript
 // 在 chrome://extensions 页面点击 "Service Worker" 链接
 // 这会唤醒 SW 并打开 DevTools
@@ -106,6 +119,7 @@ const knownIds = this.options.knownExtensionIds || [];
 #### 问题 2: MCP 重启时机
 
 **时序问题**:
+
 ```
 1. Chrome 启动 → 加载扩展 → Service Worker 启动
 2. 30秒后 → Service Worker 休眠
@@ -118,6 +132,7 @@ const knownIds = this.options.knownExtensionIds || [];
 #### 问题 3: CDP Target 类型
 
 **CDP Target.getTargets 返回的类型**:
+
 - `service_worker`: MV3 Service Worker（活跃时）
 - `background_page`: MV2 Background Page
 - `page`: 扩展页面（popup, options 等）
@@ -130,11 +145,13 @@ const knownIds = this.options.knownExtensionIds || [];
 #### 核心问题: 扩展发现依赖活跃的 Target
 
 **ExtensionHelper 的设计假设**:
+
 1. 至少有一个活跃的扩展 target（SW 或页面）
 2. 可以在该 target 中执行 `chrome.management.getAll()`
 3. 或者能从 CDP targets 中提取扩展 ID
 
 **MCP 重启后的实际情况**:
+
 1. ❌ Service Worker 已休眠（不在 targets 中）
 2. ❌ 没有打开的扩展页面
 3. ❌ 无法执行 `chrome.management.getAll()`
@@ -143,12 +160,14 @@ const knownIds = this.options.knownExtensionIds || [];
 #### 为什么第一次测试成功？
 
 **第一次测试时**:
+
 - Chrome 刚启动，扩展刚加载
 - Service Worker 是活跃的
 - 在 CDP targets 中可见
 - `getExtensions()` 成功
 
 **MCP 重启后**:
+
 - Chrome 继续运行
 - Service Worker 已休眠（超过 30 秒）
 - 不在 CDP targets 中
@@ -162,8 +181,8 @@ const knownIds = this.options.knownExtensionIds || [];
 
 ```typescript
 // 方案D: 主动激活扩展
-const anyExtensionTarget = allTargets.find(
-  t => t.url?.startsWith('chrome-extension://')
+const anyExtensionTarget = allTargets.find(t =>
+  t.url?.startsWith('chrome-extension://'),
 );
 
 if (anyExtensionTarget) {
@@ -172,7 +191,7 @@ if (anyExtensionTarget) {
   const manifestPage = await this.browser.newPage();
   await manifestPage.goto(`chrome-extension://${extId}/manifest.json`);
   await manifestPage.close();
-  
+
   // 等待 SW 激活
   await new Promise(resolve => setTimeout(resolve, 1500));
 }
@@ -187,10 +206,11 @@ if (anyExtensionTarget) {
 ```typescript
 // 导航到 chrome://extensions/ 并解析 DOM
 const page = await this.browser.newPage();
-await page.goto('chrome://extensions/', { timeout: 5000 });
+await page.goto('chrome://extensions/', {timeout: 5000});
 ```
 
 **优点**:
+
 - 不依赖活跃的 target
 - 可以检测所有扩展（包括禁用的）
 - 最可靠的方法
@@ -198,6 +218,7 @@ await page.goto('chrome://extensions/', { timeout: 5000 });
 **问题**: 为什么没有被调用？
 
 查看代码第 626-628 行：
+
 ```typescript
 if (managementExtensions.length > 0) {
   // 返回结果，不会尝试方案 2
@@ -221,6 +242,7 @@ for (const knownId of knownIds) {
 ```
 
 **优点**:
+
 - 不依赖 CDP targets
 - 可以检测休眠的扩展
 - 适合已知扩展的场景
@@ -230,10 +252,11 @@ for (const knownId of knownIds) {
 ### 7. 为什么方案 1 返回空数组但没有尝试方案 2？
 
 **关键代码** (第 369-372 行):
+
 ```typescript
 if (!activeExtensionTarget) {
   this.log('[Management API] ❌ 无法找到任何可用的扩展上下文');
-  return [];  // ← 这里返回空数组
+  return []; // ← 这里返回空数组
 }
 ```
 
@@ -248,6 +271,7 @@ if (!activeExtensionTarget) {
 **实际**: 没有看到任何日志
 
 **可能原因**:
+
 1. `logger()` 函数没有输出到控制台
 2. 日志被过滤或重定向
 3. 异步日志还未刷新
@@ -259,9 +283,10 @@ if (!activeExtensionTarget) {
 ### 问题 1: 方案 1 的回退逻辑有缺陷
 
 **当前逻辑**:
+
 ```typescript
 if (managementExtensions.length > 0) {
-  return managementExtensions;  // 成功
+  return managementExtensions; // 成功
 }
 // 否则尝试方案 2
 ```
@@ -269,10 +294,11 @@ if (managementExtensions.length > 0) {
 **问题**: `getExtensionsViaManagementAPI` 返回空数组时，被认为是"成功但没有扩展"
 
 **修复**:
+
 ```typescript
 // 方案 1 应该返回 null 表示失败，而不是空数组
 if (!activeExtensionTarget) {
-  return null;  // 表示方案失败
+  return null; // 表示方案失败
 }
 ```
 
@@ -312,14 +338,15 @@ google-chrome --remote-debugging-port=9222
 ```typescript
 if (!activeExtensionTarget) {
   this.log('[Management API] ❌ 无法找到任何可用的扩展上下文');
-  return null;  // 改为 null
+  return null; // 改为 null
 }
 ```
 
 **修改 2**: 主方法检查 null
 
 ```typescript
-const managementExtensions = await this.getExtensionsViaManagementAPI(allTargets);
+const managementExtensions =
+  await this.getExtensionsViaManagementAPI(allTargets);
 
 if (managementExtensions !== null && managementExtensions.length > 0) {
   return managementExtensions;
@@ -327,7 +354,8 @@ if (managementExtensions !== null && managementExtensions.length > 0) {
 
 // 尝试方案 2
 this.log('[ExtensionHelper] 尝试方案 2: 视觉检测');
-const visualExtensions = await this.getExtensionsViaVisualInspection(allTargets);
+const visualExtensions =
+  await this.getExtensionsViaVisualInspection(allTargets);
 ```
 
 ### 方案 C: 添加强制视觉检测选项 ✅

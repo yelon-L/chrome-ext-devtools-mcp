@@ -8,7 +8,7 @@
 
 ```
 warn: Import "cssStreamParser" will always be undefined because there is no matching export
-warn: Import "StringStream" will always be undefined because there is no matching export  
+warn: Import "StringStream" will always be undefined because there is no matching export
 warn: Import "css" will always be undefined because there is no matching export
 ```
 
@@ -17,6 +17,7 @@ warn: Import "css" will always be undefined because there is no matching export
 **来源**: `chrome-devtools-frontend@1.0.1524741` 依赖包
 
 **受影响文件**:
+
 - `build/node_modules/chrome-devtools-frontend/front_end/models/text_utils/CodeMirrorUtils.js`
   - `cssStreamParser` 导入
   - `StringStream` 导入
@@ -24,6 +25,7 @@ warn: Import "css" will always be undefined because there is no matching export
   - `css.cssLanguage.parser` 导入
 
 **根本原因**:
+
 - chrome-devtools-frontend 内部使用的 CodeMirror API 在打包时找不到对应的导出
 - 这是第三方依赖的版本兼容性问题
 - 不是项目代码的问题
@@ -31,11 +33,13 @@ warn: Import "css" will always be undefined because there is no matching export
 ### 影响评估
 
 ✅ **不影响核心功能**:
+
 - 打包仍然成功（所有平台都生成了可执行文件）
 - 只是编译时警告，不是运行时错误
 - 如果不使用 CSS 解析功能，完全不影响使用
 
 ⚠️ **潜在影响**:
+
 - 如果扩展调试工具需要解析 CSS 代码，可能会有问题
 - 但目前主要功能（扩展调试、网络监控等）不受影响
 
@@ -63,12 +67,14 @@ echo "$filtered_output" | grep -E "minify|bundle|compile|error|Error" || true
 ```
 
 **优化内容**:
+
 - ✅ 过滤多行警告块（关键字 + 箭头 + 路径）
 - ✅ 只保留编译进度信息（minify, bundle, compile）
 - ✅ 保留错误信息（如果有）
 - ✅ 输出简洁清晰
 
 **优点**:
+
 - 输出非常清洁
 - 不影响错误检测
 - 保留关键编译信息
@@ -110,6 +116,7 @@ bash scripts/package-bun.sh
 ```
 
 **预期结果**:
+
 - ✅ MCP 服务器正常启动
 - ✅ 可以列出扩展
 - ✅ 可以调试扩展
@@ -129,6 +136,7 @@ bash scripts/package-bun.sh
 - 如发现 CSS 解析问题，可进一步调查
 
 **建议**:
+
 - 继续使用当前方案
 - 定期检查 chrome-devtools-frontend 更新
 - 如遇到相关功能问题，再考虑方案 2 或 3
@@ -137,4 +145,3 @@ bash scripts/package-bun.sh
 
 **最后更新**: 2025-10-16  
 **状态**: 已解决（警告已过滤）
-

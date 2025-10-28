@@ -15,14 +15,17 @@
 **实施方案**：CDP + Puppeteer 混合模式
 
 **技术细节**：
+
 - **CDP**：捕获页面主上下文和 Content Script 日志
 - **Puppeteer**：通过 `page.on('console')` 捕获 Worker 日志
 - **原因**：Puppeteer 的 CDP 封装不会自动转发 Worker 的 CDP 事件
 
 **代码位置**：
+
 - `src/collectors/EnhancedConsoleCollector.ts` (第 148-162 行)
 
 **测试结果**：
+
 - ✅ 页面日志：正确捕获并标记为 `[PAGE]`
 - ✅ Worker 日志：正确捕获并标记为 `[WORKER]`
 - ✅ 心跳日志：定时器日志也被捕获
@@ -34,14 +37,14 @@
 
 **页面上下文（CDP）**：完全成功
 
-| 类型 | 原有 | 增强后 | 状态 |
-|------|------|--------|------|
-| Map | `{}` | `Map(2)` | ✅ |
-| Set | `{}` | `Set(5)` | ✅ |
-| Date | 部分 | 完整日期字符串 | ✅ |
-| Function | `{}` | `[Function: myTestFunc]` | ✅ |
-| Error | `{}` | `[Error: 测试错误消息]` | ✅ |
-| RegExp | `{}` | `/test\d+/gi` | ✅ |
+| 类型     | 原有 | 增强后                   | 状态 |
+| -------- | ---- | ------------------------ | ---- |
+| Map      | `{}` | `Map(2)`                 | ✅   |
+| Set      | `{}` | `Set(5)`                 | ✅   |
+| Date     | 部分 | 完整日期字符串           | ✅   |
+| Function | `{}` | `[Function: myTestFunc]` | ✅   |
+| Error    | `{}` | `[Error: 测试错误消息]`  | ✅   |
+| RegExp   | `{}` | `/test\d+/gi`            | ✅   |
 
 **Worker 上下文（Puppeteer）**：⚠️ 部分成功
 
@@ -51,6 +54,7 @@
 - 优先级：低（可后续优化）
 
 **代码位置**：
+
 - `src/collectors/EnhancedConsoleCollector.ts` (第 312-376 行)
 - `src/formatters/EnhancedObjectSerializer.ts`
 
@@ -61,15 +65,18 @@
 **实施方案**：监听 CDP 执行上下文创建事件
 
 **技术细节**：
+
 - 监听 `Runtime.executionContextCreated` 事件
 - 跟踪 iframe 执行上下文 ID
 - 通过 `executionContextId` 判断日志来源
 - 正确标记为 `[IFRAME]`
 
 **代码位置**：
+
 - `src/collectors/EnhancedConsoleCollector.ts` (第 51-70 行)
 
 **状态**：
+
 - ✅ 代码已实施
 - ⏳ 待实际测试验证
 
@@ -88,33 +95,35 @@
 
 ```typescript
 // 只看错误和警告
-get_page_console_logs({ types: ['error', 'warn'] })
+get_page_console_logs({types: ['error', 'warn']});
 
 // 只看 Worker 日志
-get_page_console_logs({ sources: ['worker'] })
+get_page_console_logs({sources: ['worker']});
 
 // 最近 1 分钟的日志
-get_page_console_logs({ since: Date.now() - 60000 })
+get_page_console_logs({since: Date.now() - 60000});
 
 // 最后 10 条日志
-get_page_console_logs({ limit: 10 })
+get_page_console_logs({limit: 10});
 
 // 组合过滤
 get_page_console_logs({
   types: ['error'],
   sources: ['worker'],
-  limit: 5
-})
+  limit: 5,
+});
 ```
 
 **统计信息**：
 
 工具自动显示：
+
 - 总日志数（过滤前后）
 - 按类型统计：`log(10), error(3), warn(2)`
 - 按来源统计：`page(15), worker(8), iframe(2)`
 
 **代码位置**：
+
 - `src/collectors/EnhancedConsoleCollector.ts` (第 421-495 行)
 - `src/tools/console-history.ts` (第 71-132 行)
 
@@ -122,13 +131,13 @@ get_page_console_logs({
 
 ## 功能覆盖表
 
-| 日志来源 | 捕获方式 | 状态 | 标记 | 复杂对象 |
-|---------|---------|------|------|---------|
-| 页面主上下文 | CDP | ✅ | `[PAGE]` | ✅ |
-| Content Script | CDP | ✅ | `[PAGE]` | ✅ |
-| Web Worker | Puppeteer | ✅ | `[WORKER]` | ⚠️ |
-| Service Worker | Puppeteer | ✅ | `[WORKER]` | ⚠️ |
-| iframe | CDP | ✅ | `[IFRAME]` | ✅ |
+| 日志来源       | 捕获方式  | 状态 | 标记       | 复杂对象 |
+| -------------- | --------- | ---- | ---------- | -------- |
+| 页面主上下文   | CDP       | ✅   | `[PAGE]`   | ✅       |
+| Content Script | CDP       | ✅   | `[PAGE]`   | ✅       |
+| Web Worker     | Puppeteer | ✅   | `[WORKER]` | ⚠️       |
+| Service Worker | Puppeteer | ✅   | `[WORKER]` | ⚠️       |
+| iframe         | CDP       | ✅   | `[IFRAME]` | ✅       |
 
 ---
 
@@ -227,12 +236,14 @@ get_page_console_logs({
 **测试页面**：`http://localhost:8082/worker-test.html`
 
 **测试步骤**：
+
 1. 导航到测试页面
 2. 点击"启动 Web Worker"
 3. 点击"测试复杂对象"
 4. 调用 `get_page_console_logs()`
 
 **测试结果**：
+
 - ✅ 捕获 16 条日志
 - ✅ 5 条页面日志 `[PAGE]`
 - ✅ 11 条 Worker 日志 `[WORKER]`
@@ -241,11 +252,17 @@ get_page_console_logs({
 ### 复杂对象序列化测试
 
 **测试代码**：
+
 ```javascript
-const testMap = new Map([['key1', 'value1'], ['key2', 'value2']]);
+const testMap = new Map([
+  ['key1', 'value1'],
+  ['key2', 'value2'],
+]);
 const testSet = new Set([1, 2, 3, 4, 5]);
 const testDate = new Date();
-const testFunc = function myTestFunc(a, b) { return a + b; };
+const testFunc = function myTestFunc(a, b) {
+  return a + b;
+};
 const testError = new Error('测试错误消息');
 const testRegex = /test\d+/gi;
 
@@ -258,6 +275,7 @@ console.log('正则:', testRegex);
 ```
 
 **测试结果（页面上下文）**：
+
 - ✅ Map: `Map(2)`
 - ✅ Set: `Set(5)`
 - ✅ Date: `Fri Oct 24 2025 15:12:47 GMT+0800`
@@ -272,19 +290,23 @@ console.log('正则:', testRegex);
 ### Worker 复杂对象序列化
 
 **问题描述**：
+
 - Worker 中的 Map/Set/Date/Function 仍显示为 `{}`
 - 页面上下文的复杂对象序列化正常
 
 **原因分析**：
+
 - 可能是 MCP 服务缓存，需要重启加载新代码
 - 或者是 Worker 上下文的特殊性导致 `handle.evaluate()` 失败
 
 **影响评估**：
+
 - 不影响核心功能（Worker 日志已成功捕获）
 - 不影响页面上下文的复杂对象序列化
 - 优先级：低
 
 **解决方案**：
+
 1. 重启 MCP 服务测试
 2. 如果仍然失败，添加更详细的错误日志
 3. 考虑使用其他序列化方法

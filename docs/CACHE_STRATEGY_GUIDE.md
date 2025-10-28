@@ -10,7 +10,7 @@ The `reload_extension` tool now includes smart cache management to prevent brows
 
 ```typescript
 reload_extension({
-  extensionId: "your-extension-id"
+  extensionId: 'your-extension-id',
   // cacheStrategy: "auto" is default
 });
 ```
@@ -22,15 +22,17 @@ reload_extension({
 **Use when:** Most development scenarios
 
 **What it does:**
+
 - Automatically detects if browser is using cached code
 - Selects appropriate strategy based on detection
 - Zero configuration required
 
 **Example:**
+
 ```typescript
 reload_extension({
-  extensionId: "abcd...",
-  cacheStrategy: "auto"
+  extensionId: 'abcd...',
+  cacheStrategy: 'auto',
 });
 ```
 
@@ -39,20 +41,23 @@ reload_extension({
 ### 🧹 force-clear
 
 **Use when:**
+
 - Code changes don't appear after reload
 - You know there are caching issues
 - Starting a fresh debugging session
 
 **What it does:**
+
 - Clears ALL browser caches before reload
 - HTTP cache, Service Worker cache, IndexedDB, localStorage, etc.
 - Most thorough but slower (~1-2 seconds)
 
 **Example:**
+
 ```typescript
 reload_extension({
-  extensionId: "abcd...",
-  cacheStrategy: "force-clear"
+  extensionId: 'abcd...',
+  cacheStrategy: 'force-clear',
 });
 ```
 
@@ -61,20 +66,23 @@ reload_extension({
 ### 💾 preserve
 
 **Use when:**
+
 - Rapid iteration during development
 - Cache is not a concern
 - Speed is priority
 
 **What it does:**
+
 - Keeps all caches intact
 - Fastest reload option (no overhead)
 - May use cached resources
 
 **Example:**
+
 ```typescript
 reload_extension({
-  extensionId: "abcd...",
-  cacheStrategy: "preserve"
+  extensionId: 'abcd...',
+  cacheStrategy: 'preserve',
 });
 ```
 
@@ -83,20 +91,23 @@ reload_extension({
 ### 🚫 disable
 
 **Use when:**
+
 - Final testing before release
 - Ensuring no cache artifacts
 - Verifying production behavior
 
 **What it does:**
+
 - Disables caching during reload
 - HTTP cache bypassed for extension resources
 - Slightly slower but ensures fresh code
 
 **Example:**
+
 ```typescript
 reload_extension({
-  extensionId: "abcd...",
-  cacheStrategy: "disable"
+  extensionId: 'abcd...',
+  cacheStrategy: 'disable',
 });
 ```
 
@@ -121,35 +132,39 @@ Need to reload extension?
 ## Common Scenarios
 
 ### Scenario 1: Normal Development
+
 ```typescript
 // Just use default - auto handles everything
-reload_extension({ extensionId: "abc..." });
+reload_extension({extensionId: 'abc...'});
 ```
 
 ### Scenario 2: "Why isn't my code working?"
+
 ```typescript
 // Force clear all caches
-reload_extension({ 
-  extensionId: "abc...",
-  cacheStrategy: "force-clear"
+reload_extension({
+  extensionId: 'abc...',
+  cacheStrategy: 'force-clear',
 });
 ```
 
 ### Scenario 3: Hot Reload During Active Development
+
 ```typescript
 // Fast reloads without cache clearing
-reload_extension({ 
-  extensionId: "abc...",
-  cacheStrategy: "preserve"
+reload_extension({
+  extensionId: 'abc...',
+  cacheStrategy: 'preserve',
 });
 ```
 
 ### Scenario 4: Pre-Release Testing
+
 ```typescript
 // Ensure no caching issues in production
-reload_extension({ 
-  extensionId: "abc...",
-  cacheStrategy: "disable"
+reload_extension({
+  extensionId: 'abc...',
+  cacheStrategy: 'disable',
 });
 ```
 
@@ -167,6 +182,7 @@ reload_extension({
 ```
 
 This tells you:
+
 1. You requested `auto`
 2. System detected cache issues
 3. Automatically switched to `force-clear`
@@ -203,6 +219,7 @@ Caches kept intact for speed.
 ### Q: How does auto-detection work?
 
 **A:** It checks:
+
 - How recently the extension was reloaded
 - Service Worker status for MV3 extensions
 - If issues found → uses `force-clear`
@@ -214,9 +231,9 @@ Caches kept intact for speed.
 
 ```typescript
 reload_extension({
-  extensionId: "abc...",
-  cacheStrategy: "force-clear",
-  preserveStorage: true  // Keeps chrome.storage data
+  extensionId: 'abc...',
+  cacheStrategy: 'force-clear',
+  preserveStorage: true, // Keeps chrome.storage data
 });
 ```
 
@@ -227,17 +244,18 @@ reload_extension({
 ### Q: Can I combine strategies with other options?
 
 **A:** Yes! All strategies work with:
+
 - `preserveStorage`
 - `waitForReady`
 - `captureErrors`
 
 ```typescript
 reload_extension({
-  extensionId: "abc...",
-  cacheStrategy: "auto",
+  extensionId: 'abc...',
+  cacheStrategy: 'auto',
   preserveStorage: true,
   waitForReady: true,
-  captureErrors: true
+  captureErrors: true,
 });
 ```
 
@@ -258,12 +276,12 @@ reload_extension({
 
 ## Performance Comparison
 
-| Strategy | Speed | Thoroughness | Use Case |
-|----------|-------|--------------|----------|
-| auto | Variable | Smart | General development ⭐ |
-| force-clear | Slow (1-2s) | Highest | Cache issues |
-| preserve | Fastest (0ms) | None | Hot reload |
-| disable | Medium | High | Final testing |
+| Strategy    | Speed         | Thoroughness | Use Case               |
+| ----------- | ------------- | ------------ | ---------------------- |
+| auto        | Variable      | Smart        | General development ⭐ |
+| force-clear | Slow (1-2s)   | Highest      | Cache issues           |
+| preserve    | Fastest (0ms) | None         | Hot reload             |
+| disable     | Medium        | High         | Final testing          |
 
 ## Integration with AI Agents
 
@@ -273,15 +291,15 @@ AI agents can now automatically handle cache issues:
 // AI detects code not updating after reload
 // Automatically retries with force-clear strategy
 try {
-  await reload_extension({ 
-    extensionId: "abc...",
-    cacheStrategy: "auto"  // First attempt
+  await reload_extension({
+    extensionId: 'abc...',
+    cacheStrategy: 'auto', // First attempt
   });
 } catch (error) {
   // If auto doesn't work, AI can try force-clear
-  await reload_extension({ 
-    extensionId: "abc...",
-    cacheStrategy: "force-clear"
+  await reload_extension({
+    extensionId: 'abc...',
+    cacheStrategy: 'force-clear',
   });
 }
 ```

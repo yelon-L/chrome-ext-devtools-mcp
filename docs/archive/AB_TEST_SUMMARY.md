@@ -30,6 +30,7 @@
 **环境**: Chrome 141 + MV3 测试扩展
 
 **结果**:
+
 ```
 Group A (无激活): 100% 成功率, 平均 5.67ms
 Group B (有激活): 100% 成功率, 平均 3.67ms
@@ -42,6 +43,7 @@ Group B (有激活): 100% 成功率, 平均 3.67ms
 **环境**: 模拟冷启动场景
 
 **结果**:
+
 ```
 Group A: Chrome API 66.7%, 上下文 33.3%
 Group B: Chrome API 66.7%, 上下文 33.3%
@@ -54,6 +56,7 @@ Group B: Chrome API 66.7%, 上下文 33.3%
 **这是最关键的验证** ✅
 
 **测试流程**:
+
 1. ✅ 获取扩展 ID
 2. ✅ 激活 Service Worker (624ms)
 3. ✅ 列出扩展上下文（检测到 SW）
@@ -72,35 +75,41 @@ Group B: Chrome API 66.7%, 上下文 33.3%
 ### ✅ 已验证的方面
 
 #### 1. **功能正确性**
+
 - ✅ 能通过 CDP API 激活 Service Worker
 - ✅ 支持三种模式：single/all/inactive
 - ✅ 正确处理已激活的 SW（幂等性）
 - ✅ 返回详细的激活结果
 
 #### 2. **工具集成**
+
 - ✅ 激活后，`evaluate_in_extension` 可访问 Chrome API
 - ✅ 激活后，`list_extension_contexts` 能检测到 SW 上下文
 - ✅ 激活后，`get_extension_logs` 能获取 SW 日志
 - ✅ Chrome APIs（runtime, storage）完全可用
 
 #### 3. **性能表现**
+
 - ✅ 首次激活：624-657ms（包含 CDP 通信）
 - ✅ 已激活状态检查：7-12ms（极快）
 - ✅ 后续工具调用：3-9ms（毫秒级）
 
 #### 4. **格式一致性**
+
 - ✅ Markdown 格式与现有工具一致
 - ✅ 使用相同的 Emoji 图标风格
 - ✅ 错误处理结构一致
 - ✅ 包含工具引导提示
 
 #### 5. **错误处理**
+
 - ✅ 参数验证（single 模式需要 extensionId）
 - ✅ 扩展不存在的提示
 - ✅ CDP 连接错误处理
 - ✅ 提供清晰的错误原因和建议
 
 #### 6. **引导机制**
+
 - ✅ `evaluate_in_extension` 失败时提示使用激活工具
 - ✅ `list_extension_contexts` 空结果时提示激活
 - ✅ `reload_extension` 错误时提示先激活
@@ -143,6 +152,7 @@ Group B: Chrome API 66.7%, 上下文 33.3%
 ### ✅ 已采用的验证方法
 
 #### 方法 1: 集成测试（最有效）
+
 ```
 测试流程：
 1. 激活 SW
@@ -153,6 +163,7 @@ Group B: Chrome API 66.7%, 上下文 33.3%
 ```
 
 #### 方法 2: 功能测试
+
 ```
 测试内容：
 - 三种模式都正常工作 ✅
@@ -162,9 +173,10 @@ Group B: Chrome API 66.7%, 上下文 33.3%
 ```
 
 #### 方法 3: 工具链验证
+
 ```
 工作流：
-list_extensions → activate_extension_service_worker → 
+list_extensions → activate_extension_service_worker →
 list_extension_contexts → evaluate_in_extension → get_extension_logs
 
 每一步都验证通过 ✅
@@ -173,6 +185,7 @@ list_extension_contexts → evaluate_in_extension → get_extension_logs
 ### ⚠️ 未能采用的验证方法
 
 #### 纯 AB 对比测试
+
 **原因**: 测试环境的 DevTools 连接使 SW 保持活跃  
 **替代方案**: 集成测试已充分验证工具有效性
 
@@ -199,14 +212,14 @@ list_extension_contexts → evaluate_in_extension → get_extension_logs
 
 ### 📊 量化指标
 
-| 指标 | 结果 |
-|------|------|
-| 功能测试通过率 | 100% (7/7) |
-| 集成测试通过率 | 100% (8/8) |
-| 激活性能 | 624ms (首次) / 7-12ms (检查) |
-| 依赖工具性能 | 3-9ms (激活后) |
-| 格式一致性 | 95%+ |
-| 工具引导完整性 | 100% (3/3 工具已更新) |
+| 指标           | 结果                         |
+| -------------- | ---------------------------- |
+| 功能测试通过率 | 100% (7/7)                   |
+| 集成测试通过率 | 100% (8/8)                   |
+| 激活性能       | 624ms (首次) / 7-12ms (检查) |
+| 依赖工具性能   | 3-9ms (激活后)               |
+| 格式一致性     | 95%+                         |
+| 工具引导完整性 | 100% (3/3 工具已更新)        |
 
 ### 🚀 建议
 
@@ -240,7 +253,7 @@ list_extension_contexts → evaluate_in_extension → get_extension_logs
 **⭐⭐⭐⭐⭐ 5/5 - 优秀**
 
 - ✅ 功能完整
-- ✅ 性能优异  
+- ✅ 性能优异
 - ✅ 集成完美
 - ✅ 格式一致
 - ✅ 引导清晰

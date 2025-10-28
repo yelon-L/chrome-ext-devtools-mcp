@@ -5,6 +5,7 @@
 ### 问题 1: `--mode multi-tenant` 启动后默认应是 SSE 模式
 
 **原问题：**
+
 ```bash
 $ ./chrome-extension-debug-linux-x64 --mode multi-tenant
 
@@ -14,6 +15,7 @@ Continuing with default stdio mode...  # ❌ 错误：继续以 stdio 模式运�
 ```
 
 **修复后：**
+
 ```bash
 $ ./chrome-extension-debug-linux-x64 --mode multi-tenant
 
@@ -30,8 +32,9 @@ $ ./chrome-extension-debug-linux-x64 --mode multi-tenant
 
 ### 问题 2: 启动异常
 
-**原因：** 
+**原因：**
 之前的代码逻辑有问题，检测到 `--mode multi-tenant` 后只显示警告，然后继续执行 stdio 模式启动，导致：
+
 1. 用户困惑（以为启动了 multi-tenant，实际是 stdio）
 2. 无法真正启动 multi-tenant 服务器
 
@@ -52,7 +55,7 @@ const modeIndex = process.argv.indexOf('--mode');
 if (modeIndex !== -1) {
   const modeValue = process.argv[modeIndex + 1];
   console.error('\n⚠️  WARNING: The --mode parameter is not supported.');
-  
+
   if (modeValue === 'multi-tenant') {
     console.error('For Multi-tenant mode, please use:');
     console.error('  node build/src/multi-tenant/server-multi-tenant.js');
@@ -67,6 +70,7 @@ const transport = (args as any).transport || 'stdio';
 ```
 
 **问题：**
+
 - ❌ 只显示警告，不实际启动 multi-tenant
 - ❌ 显示警告后继续执行其他模式
 - ❌ 可能导致双重启动或逻辑混乱
@@ -80,7 +84,7 @@ const transport = (args as any).transport || 'stdio';
 const modeIndex = process.argv.indexOf('--mode');
 if (modeIndex !== -1) {
   const modeValue = process.argv[modeIndex + 1];
-  
+
   if (modeValue === 'multi-tenant') {
     // ✅ 直接启动 multi-tenant 服务器
     console.log(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
@@ -92,11 +96,11 @@ if (modeIndex !== -1) {
   } else {
     console.error('\n⚠️  WARNING: Unknown --mode value.');
     // ... 显示帮助信息
-    await startStandardMode();  // ✅ 执行标准模式
+    await startStandardMode(); // ✅ 执行标准模式
   }
 } else {
   // 没有 --mode 参数，执行标准启动逻辑
-  await startStandardMode();  // ✅ 执行标准模式
+  await startStandardMode(); // ✅ 执行标准模式
 }
 
 // ✅ 提取标准模式启动逻辑为独立函数
@@ -107,6 +111,7 @@ async function startStandardMode() {
 ```
 
 **优势：**
+
 - ✅ `--mode multi-tenant` 直接启动 multi-tenant 服务器
 - ✅ 启动后不再执行其他模式逻辑（分支控制）
 - ✅ 代码结构清晰，易于维护
@@ -132,6 +137,7 @@ async function startStandardMode() {
 ### 2. 统一标准模式
 
 将 stdio/sse/streamable 的启动逻辑提取为 `startStandardMode()` 函数：
+
 - 代码复用
 - 逻辑清晰
 - 易于维护
@@ -139,6 +145,7 @@ async function startStandardMode() {
 ### 3. Multi-tenant 说明
 
 在启动信息中明确说明使用 SSE 传输：
+
 ```
 [MCP] Mode: multi-tenant (SSE transport)
 ```
@@ -194,6 +201,7 @@ $ ./dist/chrome-extension-debug-linux-x64 --mode multi-tenant
 ### 测试 3: 确认不会双重启动
 
 **验证逻辑：**
+
 - 启动 multi-tenant 后，不再执行 stdio/sse/streamable 的启动代码
 - 通过分支控制确保只执行一个分支
 
@@ -256,6 +264,7 @@ Multi-tenant 服务器**硬编码使用 SSE 传输**，原因：
    - 实时性要求高
 
 3. **代码验证：**
+
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts:21
 import {SSEServerTransport} from '@modelcontextprotocol/sdk/server/sse.js';
@@ -305,13 +314,13 @@ const transport = new SSEServerTransport('/message', res);
 
 ## 模式对比表
 
-| 特性 | stdio | sse | streamable | **multi-tenant** |
-|------|-------|-----|------------|-----------------|
+| 特性         | stdio     | sse               | streamable               | **multi-tenant**          |
+| ------------ | --------- | ----------------- | ------------------------ | ------------------------- |
 | **启动方式** | `npx ...` | `--transport sse` | `--transport streamable` | **`--mode multi-tenant`** |
-| **传输协议** | stdio | SSE | Streamable HTTP | **SSE (硬编码)** |
-| **浏览器** | 1 个 | 1 个共享 | 1 个共享 | **每用户 1 个** |
-| **用户隔离** | N/A | ❌ | ❌ | **✅** |
-| **适用场景** | 本地开发 | 远程调试 | 生产 API | **SaaS 平台** |
+| **传输协议** | stdio     | SSE               | Streamable HTTP          | **SSE (硬编码)**          |
+| **浏览器**   | 1 个      | 1 个共享          | 1 个共享                 | **每用户 1 个**           |
+| **用户隔离** | N/A       | ❌                | ❌                       | **✅**                    |
+| **适用场景** | 本地开发  | 远程调试          | 生产 API                 | **SaaS 平台**             |
 
 ---
 
