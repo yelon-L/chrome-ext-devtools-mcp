@@ -2313,8 +2313,8 @@ if (chromeAPI.developerPrivate?.deleteExtensionErrors) {
 
 **2. debug-offscreen-target.ts** (4个 → 0个):
 
-- target._targetId类型断言
-- browser._connection类型断言
+- target.\_targetId类型断言
+- browser.\_connection类型断言
 - CDP result.targetInfos类型处理
 
 **3. SessionManager.test.ts** (4个 → 0个):
@@ -2362,7 +2362,7 @@ if (chromeAPI.developerPrivate?.deleteExtensionErrors) {
 
 **13. CdpTargetManager.ts** (1个 → 0个):
 
-- target._targetId类型断言
+- target.\_targetId类型断言
 
 **14. migrate-to-postgres.ts** (1个 → 0个):
 
