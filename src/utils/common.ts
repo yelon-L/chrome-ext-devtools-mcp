@@ -13,7 +13,13 @@ import path from 'node:path';
  */
 export function readPackageJson(): {version?: string; name?: string} {
   const currentDir = import.meta.dirname;
-  const packageJsonPath = path.join(currentDir, '..', '..', '..', 'package.json');
+  const packageJsonPath = path.join(
+    currentDir,
+    '..',
+    '..',
+    '..',
+    'package.json',
+  );
   if (!fs.existsSync(packageJsonPath)) {
     return {};
   }

@@ -6,7 +6,7 @@
 
 /**
  * Extension message tracing tool
- * 
+ *
  * Provides two tools:
  * 1. monitor_extension_messages - Monitor message passing
  * 2. trace_extension_api_calls - Trace API calls (simplified version)
@@ -63,11 +63,15 @@ Useful for debugging communication between different parts of an extension (back
       .number()
       .positive()
       .optional()
-      .describe('Monitoring duration in milliseconds. Default is 30000 (30 seconds).'),
+      .describe(
+        'Monitoring duration in milliseconds. Default is 30000 (30 seconds).',
+      ),
     messageTypes: z
       .array(z.enum(['runtime', 'tabs', 'external']))
       .optional()
-      .describe('Types of messages to monitor. Default is ["runtime", "tabs"].'),
+      .describe(
+        'Types of messages to monitor. Default is ["runtime", "tabs"].',
+      ),
   },
   handler: async (request, response, context) => {
     const {
@@ -80,8 +84,12 @@ Useful for debugging communication between different parts of an extension (back
       response.appendResponseLine(`# Extension Message Monitoring\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
       response.appendResponseLine(`**Duration**: ${duration / 1000} seconds`);
-      response.appendResponseLine(`**Message Types**: ${messageTypes.join(', ')}\n`);
-      response.appendResponseLine(`⏳ Monitoring started... Please trigger actions in the extension.\n`);
+      response.appendResponseLine(
+        `**Message Types**: ${messageTypes.join(', ')}\n`,
+      );
+      response.appendResponseLine(
+        `⏳ Monitoring started... Please trigger actions in the extension.\n`,
+      );
 
       const messages = await context.monitorExtensionMessages(
         extensionId,
@@ -89,52 +97,67 @@ Useful for debugging communication between different parts of an extension (back
         messageTypes,
       );
 
-      response.appendResponseLine(`\n## Captured Messages (${messages.length})\n`);
+      response.appendResponseLine(
+        `\n## Captured Messages (${messages.length})\n`,
+      );
 
       if (messages.length === 0) {
-        response.appendResponseLine('*No messages captured during the monitoring period*\n');
+        response.appendResponseLine(
+          '*No messages captured during the monitoring period*\n',
+        );
         response.appendResponseLine('**Suggestions**:');
         response.appendResponseLine('- Increase monitoring duration');
-        response.appendResponseLine('- Ensure the extension is actively sending/receiving messages');
+        response.appendResponseLine(
+          '- Ensure the extension is actively sending/receiving messages',
+        );
         response.appendResponseLine('- Check if Service Worker is active');
       } else {
         messages.forEach((msg: ExtensionMessage, index: number) => {
           const time = new Date(msg.timestamp).toLocaleTimeString();
           const icon = msg.type === 'sent' ? '📤' : '📥';
-          
-          response.appendResponseLine(`### ${icon} Message ${index + 1} - ${msg.method}`);
+
+          response.appendResponseLine(
+            `### ${icon} Message ${index + 1} - ${msg.method}`,
+          );
           response.appendResponseLine(`**Time**: ${time}`);
           response.appendResponseLine(`**Type**: ${msg.type}`);
-          
+
           if (msg.tabId) {
             response.appendResponseLine(`**Tab ID**: ${msg.tabId}`);
           }
-          
+
           if (msg.sender) {
-            response.appendResponseLine(`**Sender**: \`\`\`json\n${JSON.stringify(msg.sender, null, 2)}\n\`\`\``);
+            response.appendResponseLine(
+              `**Sender**: \`\`\`json\n${JSON.stringify(msg.sender, null, 2)}\n\`\`\``,
+            );
           }
-          
-          response.appendResponseLine(`**Message**: \`\`\`json\n${JSON.stringify(msg.message, null, 2)}\n\`\`\``);
+
+          response.appendResponseLine(
+            `**Message**: \`\`\`json\n${JSON.stringify(msg.message, null, 2)}\n\`\`\``,
+          );
           response.appendResponseLine('');
         });
 
         // Statistics
-        const sentCount = messages.filter((m: ExtensionMessage) => m.type === 'sent').length;
-        const receivedCount = messages.filter((m: ExtensionMessage) => m.type === 'received').length;
-        
+        const sentCount = messages.filter(
+          (m: ExtensionMessage) => m.type === 'sent',
+        ).length;
+        const receivedCount = messages.filter(
+          (m: ExtensionMessage) => m.type === 'received',
+        ).length;
+
         response.appendResponseLine(`\n## Statistics\n`);
         response.appendResponseLine(`- **Total Messages**: ${messages.length}`);
         response.appendResponseLine(`- **Sent**: ${sentCount}`);
         response.appendResponseLine(`- **Received**: ${receivedCount}`);
       }
-
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to monitor extension messages. The extension may be inactive or disabled.'
+        'Unable to monitor extension messages. The extension may be inactive or disabled.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });
@@ -172,11 +195,15 @@ For full API tracing, use browser DevTools Performance profiler.
       .number()
       .positive()
       .optional()
-      .describe('Monitoring duration in milliseconds. Default is 30000 (30 seconds).'),
+      .describe(
+        'Monitoring duration in milliseconds. Default is 30000 (30 seconds).',
+      ),
     apiFilter: z
       .array(z.string())
       .optional()
-      .describe('API categories to track. Currently supports ["runtime", "tabs"].'),
+      .describe(
+        'API categories to track. Currently supports ["runtime", "tabs"].',
+      ),
   },
   handler: async (request, response, context) => {
     const {
@@ -192,7 +219,7 @@ For full API tracing, use browser DevTools Performance profiler.
       response.appendResponseLine(`**API Filter**: ${apiFilter.join(', ')}\n`);
 
       const messageTypes = apiFilter.filter(
-        api => api === 'runtime' || api === 'tabs'
+        api => api === 'runtime' || api === 'tabs',
       ) as Array<'runtime' | 'tabs'>;
 
       const messages = await context.monitorExtensionMessages(
@@ -208,39 +235,48 @@ For full API tracing, use browser DevTools Performance profiler.
       });
 
       response.appendResponseLine(`\n## API Call Summary\n`);
-      
+
       if (Object.keys(apiCalls).length === 0) {
-        response.appendResponseLine('*No API calls detected during monitoring*');
+        response.appendResponseLine(
+          '*No API calls detected during monitoring*',
+        );
       } else {
         response.appendResponseLine('| API Method | Call Count |');
         response.appendResponseLine('|------------|------------|');
-        
+
         Object.entries(apiCalls)
           .sort((a, b) => b[1] - a[1])
           .forEach(([method, count]) => {
             response.appendResponseLine(`| ${method} | ${count} |`);
           });
 
-        response.appendResponseLine(`\n**Total API Calls**: ${messages.length}`);
-        
+        response.appendResponseLine(
+          `\n**Total API Calls**: ${messages.length}`,
+        );
+
         // Analyze high frequency calls
-        const highFrequency = Object.entries(apiCalls).filter(([, count]) => count > 10);
+        const highFrequency = Object.entries(apiCalls).filter(
+          ([, count]) => count > 10,
+        );
         if (highFrequency.length > 0) {
-          response.appendResponseLine(`\n⚠️  **High Frequency APIs** (>10 calls):`);
+          response.appendResponseLine(
+            `\n⚠️  **High Frequency APIs** (>10 calls):`,
+          );
           highFrequency.forEach(([method, count]) => {
             response.appendResponseLine(`- ${method}: ${count} calls`);
           });
-          response.appendResponseLine('\n💡 Consider optimizing these API calls to improve performance.');
+          response.appendResponseLine(
+            '\n💡 Consider optimizing these API calls to improve performance.',
+          );
         }
       }
-
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to trace API calls. The extension may be inactive or disabled.'
+        'Unable to trace API calls. The extension may be inactive or disabled.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });

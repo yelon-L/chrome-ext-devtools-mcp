@@ -6,7 +6,7 @@
 
 /**
  * 限流器
- * 
+ *
  * 使用令牌桶算法实现限流功能
  */
 
@@ -56,7 +56,7 @@ export class RateLimiter {
 
   /**
    * 尝试获取令牌
-   * 
+   *
    * @param tokens 需要的令牌数（默认：1）
    * @returns 是否成功获取
    */
@@ -73,7 +73,7 @@ export class RateLimiter {
 
   /**
    * 获取令牌（如果配置了等待，则会等待直到有令牌）
-   * 
+   *
    * @param tokens 需要的令牌数（默认：1）
    */
   async acquire(tokens = 1): Promise<void> {
@@ -88,7 +88,7 @@ export class RateLimiter {
       throw new RateLimitError(
         this.maxTokens,
         Math.round(1000 / this.refillRate),
-        { requested: tokens, available: this.tokens }
+        {requested: tokens, available: this.tokens},
       );
     }
 
@@ -135,7 +135,7 @@ export class RateLimiter {
 
 /**
  * 滑动窗口限流器
- * 
+ *
  * 基于时间窗口的限流，精确控制时间窗口内的请求数
  */
 export class SlidingWindowRateLimiter {
@@ -208,7 +208,7 @@ export class SlidingWindowRateLimiter {
 
 /**
  * 每用户限流器
- * 
+ *
  * 为每个用户维护独立的限流器
  */
 export class PerUserRateLimiter {
@@ -218,7 +218,7 @@ export class PerUserRateLimiter {
 
   constructor(
     limiterFactory: () => RateLimiter | SlidingWindowRateLimiter,
-    cleanupIntervalMs = 60000 // 1分钟
+    cleanupIntervalMs = 60000, // 1分钟
   ) {
     this.createLimiter = limiterFactory;
 
@@ -286,9 +286,9 @@ export class PerUserRateLimiter {
    */
   getStats(): {
     totalUsers: number;
-    limiters: Map<string, any>;
+    limiters: Map<string, unknown>;
   } {
-    const stats = new Map<string, any>();
+    const stats = new Map<string, unknown>();
     for (const [userId, limiter] of this.limiters.entries()) {
       stats.set(userId, limiter.getStats());
     }

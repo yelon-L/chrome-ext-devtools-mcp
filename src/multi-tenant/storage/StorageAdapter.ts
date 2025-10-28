@@ -6,7 +6,7 @@
 
 /**
  * 存储适配器接口
- * 
+ *
  * 定义统一的存储接口，支持多种后端：
  * - JSONL 文件存储（默认）
  * - PostgreSQL 数据库
@@ -100,7 +100,7 @@ export interface StorageAdapter {
     updates: {
       browserURL?: string;
       description?: string;
-    }
+    },
   ): Promise<void>;
 
   /**
@@ -137,22 +137,24 @@ export interface StorageAdapter {
 export class StorageAdapterFactory {
   /**
    * 创建存储适配器
-   * 
+   *
    * @param type 存储类型 ('jsonl' | 'postgresql')
    * @param config 配置
    */
   static async create(
     type: 'jsonl' | 'postgresql',
-    config: any
+    config: unknown,
   ): Promise<StorageAdapter> {
     switch (type) {
       case 'jsonl': {
         const {JSONLStorageAdapter} = await import('./JSONLStorageAdapter.js');
-        return new JSONLStorageAdapter(config);
+        return new JSONLStorageAdapter(config as never);
       }
       case 'postgresql': {
-        const {PostgreSQLStorageAdapter} = await import('./PostgreSQLStorageAdapter.js');
-        return new PostgreSQLStorageAdapter(config);
+        const {PostgreSQLStorageAdapter} = await import(
+          './PostgreSQLStorageAdapter.js'
+        );
+        return new PostgreSQLStorageAdapter(config as never);
       }
       default:
         throw new Error(`Unsupported storage type: ${type}`);

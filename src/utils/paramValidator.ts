@@ -26,7 +26,7 @@ interface ParsedArgs {
   proxyServer?: string;
   chromeArg?: string[];
   acceptInsecureCerts?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const RED = '\x1b[31m';
@@ -71,17 +71,19 @@ export class ParameterValidator {
   /**
    * 检查浏览器来源冲突
    */
-  private static checkBrowserSourceConflicts(args: ParsedArgs, errors: string[]): void {
-    const sources: Array<{name: string; value: any}> = [
+  private static checkBrowserSourceConflicts(
+    args: ParsedArgs,
+    errors: string[],
+  ): void {
+    const sources: Array<{name: string; value: unknown}> = [
       {name: '--browserUrl', value: args.browserUrl},
       {name: '--channel', value: args.channel},
       {name: '--executablePath', value: args.executablePath},
     ];
 
     const activeSources = sources.filter(s => s.value);
-    
+
     if (activeSources.length > 1) {
-      const sourceNames = activeSources.map(s => s.name).join(' 和 ');
       errors.push(this.formatConflictError(activeSources));
     }
   }
@@ -89,9 +91,11 @@ export class ParameterValidator {
   /**
    * 格式化冲突错误消息
    */
-  private static formatConflictError(sources: Array<{name: string; value: any}>): string {
+  private static formatConflictError(
+    sources: Array<{name: string; value: unknown}>,
+  ): string {
     const sourceList = sources.map(s => `  ${s.name}`).join('\n');
-    
+
     return `
 ${RED}${BOLD}❌ 配置冲突${RESET}
 
@@ -122,9 +126,12 @@ ${BOLD}解决方案（选择其一）：${RESET}
   /**
    * 检查 stdio 模式的端口配置
    */
-  private static checkStdioPortConflict(args: ParsedArgs, warnings: string[]): void {
+  private static checkStdioPortConflict(
+    args: ParsedArgs,
+    warnings: string[],
+  ): void {
     const transport = args.transport || 'stdio';
-    
+
     if (transport === 'stdio' && args.port) {
       warnings.push(`
 ${YELLOW}${BOLD}⚠️  配置警告${RESET}
@@ -157,7 +164,10 @@ ${BOLD}建议（选择其一）：${RESET}
   /**
    * 检查 browserUrl 时浏览器控制选项
    */
-  private static checkBrowserControlOptions(args: ParsedArgs, warnings: string[]): void {
+  private static checkBrowserControlOptions(
+    args: ParsedArgs,
+    warnings: string[],
+  ): void {
     if (!args.browserUrl) {
       return;
     }
@@ -210,7 +220,11 @@ ${BOLD}建议：${RESET}
   /**
    * 检查端口范围
    */
-  private static checkPortRange(args: ParsedArgs, errors: string[], warnings?: string[]): void {
+  private static checkPortRange(
+    args: ParsedArgs,
+    errors: string[],
+    warnings?: string[],
+  ): void {
     if (!args.port) {
       return;
     }
@@ -256,7 +270,10 @@ ${BOLD}建议：${RESET}
   /**
    * 检查 headless 模式的 viewport 限制
    */
-  private static checkHeadlessViewport(args: ParsedArgs, warnings: string[]): void {
+  private static checkHeadlessViewport(
+    args: ParsedArgs,
+    warnings: string[],
+  ): void {
     if (!args.headless || !args.viewport) {
       return;
     }
@@ -295,7 +312,9 @@ ${BOLD}建议：${RESET}
       console.error('');
       result.errors.forEach(error => console.error(error));
       console.error('');
-      console.error(`${RED}${BOLD}Startup failed${RESET}: Please fix the configuration errors above\n`);
+      console.error(
+        `${RED}${BOLD}Startup failed${RESET}: Please fix the configuration errors above\n`,
+      );
     }
 
     // 显示警告
@@ -311,16 +330,16 @@ ${BOLD}建议：${RESET}
    */
   static displayConfigSummary(args: ParsedArgs): void {
     const transport = args.transport || 'stdio';
-    
+
     console.log(`${BOLD}📋 Configuration Summary${RESET}`);
     console.log('');
-    
+
     // 传输模式
     console.log(`${BOLD}Transport:${RESET} ${GREEN}${transport}${RESET}`);
     if (transport !== 'stdio' && args.port) {
       console.log(`${BOLD}Port:${RESET} ${GREEN}${args.port}${RESET}`);
     }
-    
+
     // 浏览器配置
     console.log('');
     console.log(`${BOLD}Browser Configuration:${RESET}`);
@@ -331,7 +350,7 @@ ${BOLD}建议：${RESET}
     } else {
       const channel = args.channel || 'stable';
       console.log(`  ${BLUE}Launch:${RESET} Chrome ${channel}`);
-      
+
       if (args.headless) {
         console.log(`  ${BLUE}Mode:${RESET} headless`);
       }
@@ -339,10 +358,12 @@ ${BOLD}建议：${RESET}
         console.log(`  ${BLUE}Profile:${RESET} Temporary (auto-cleanup)`);
       }
       if (args.viewport) {
-        console.log(`  ${BLUE}viewport:${RESET} ${args.viewport.width}x${args.viewport.height}`);
+        console.log(
+          `  ${BLUE}viewport:${RESET} ${args.viewport.width}x${args.viewport.height}`,
+        );
       }
     }
-    
+
     console.log('');
   }
 }

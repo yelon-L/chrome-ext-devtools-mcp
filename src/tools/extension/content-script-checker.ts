@@ -6,7 +6,7 @@
 
 /**
  * Content Script injection status checker tool
- * 
+ *
  * Check if Content Scripts are successfully injected into pages
  */
 
@@ -14,9 +14,10 @@ import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
-import {reportExtensionNotFound, reportResourceUnavailable} from '../utils/ErrorReporting.js';
-
-import {EXTENSION_NOT_FOUND, MANIFEST_NOT_AVAILABLE} from './errors.js';
+import {
+  reportExtensionNotFound,
+  reportResourceUnavailable,
+} from '../utils/ErrorReporting.js';
 
 export const checkContentScriptInjection = defineTool({
   name: 'check_content_script_injection',
@@ -60,18 +61,18 @@ export const checkContentScriptInjection = defineTool({
     testUrl: z
       .string()
       .optional()
-      .describe('URL to test match patterns against. If not provided, shows all patterns.'),
+      .describe(
+        'URL to test match patterns against. If not provided, shows all patterns.',
+      ),
     detailed: z
       .boolean()
       .optional()
-      .describe('Show detailed analysis including all match patterns. Default is true.'),
+      .describe(
+        'Show detailed analysis including all match patterns. Default is true.',
+      ),
   },
   handler: async (request, response, context) => {
-    const {
-      extensionId,
-      testUrl,
-      detailed = true,
-    } = request.params;
+    const {extensionId, testUrl, detailed = true} = request.params;
 
     try {
       // 1. Get extension information
@@ -86,26 +87,28 @@ export const checkContentScriptInjection = defineTool({
       }
 
       const manifest = extension.manifest;
-      
+
       // ✅ Following close_page pattern: return info instead of throwing
       if (!manifest) {
         reportResourceUnavailable(
           response,
           'Manifest',
           extensionId,
-          'Extension manifest data is being loaded or unavailable'
+          'Extension manifest data is being loaded or unavailable',
         );
         response.setIncludePages(true);
         return;
       }
-      
+
       const contentScripts = manifest.content_scripts || [];
 
       if (contentScripts.length === 0) {
         response.appendResponseLine(`# Content Script Check\n`);
         response.appendResponseLine(`**Extension**: ${extension.name}`);
         response.appendResponseLine('\n⚠️ **No content scripts defined**');
-        response.appendResponseLine('\nThis extension has no content_scripts configured in manifest.json.');
+        response.appendResponseLine(
+          '\nThis extension has no content_scripts configured in manifest.json.',
+        );
         response.setIncludePages(true);
         return;
       }
@@ -119,10 +122,12 @@ export const checkContentScriptInjection = defineTool({
       }
 
       // 2. Check each content script rule
-      response.appendResponseLine(`## Content Script Rules (${contentScripts.length})\n`);
+      response.appendResponseLine(
+        `## Content Script Rules (${contentScripts.length})\n`,
+      );
 
       const matchResults: Array<{
-        rule: any;
+        rule: unknown;
         index: number;
         shouldInject: boolean;
         reason: string;
@@ -130,7 +135,13 @@ export const checkContentScriptInjection = defineTool({
       }> = [];
 
       for (let i = 0; i < contentScripts.length; i++) {
-        const rule = contentScripts[i] as any;
+        const rule = contentScripts[i] as {
+          matches?: string[];
+          exclude_matches?: string[];
+          js?: string[];
+          css?: string[];
+          run_at?: string;
+        };
         const matches = rule.matches || [];
         const excludeMatches = rule.exclude_matches || [];
         const js = rule.js || [];
@@ -150,11 +161,18 @@ export const checkContentScriptInjection = defineTool({
         }
 
         // 显示规则
-        const icon = testUrl && matchResult ? (matchResult.shouldInject ? '✅' : '❌') : '📋';
+        const icon =
+          testUrl && matchResult
+            ? matchResult.shouldInject
+              ? '✅'
+              : '❌'
+            : '📋';
         response.appendResponseLine(`### ${icon} Rule ${i + 1}`);
-        
+
         if (detailed || testUrl) {
-          response.appendResponseLine(`**Match Patterns** (${matches.length}):`);
+          response.appendResponseLine(
+            `**Match Patterns** (${matches.length}):`,
+          );
           matches.forEach((pattern: string) => {
             if (testUrl) {
               const matchesUrl = testUrlPattern(testUrl, pattern);
@@ -166,7 +184,9 @@ export const checkContentScriptInjection = defineTool({
           });
 
           if (excludeMatches.length > 0) {
-            response.appendResponseLine(`**Exclude Patterns** (${excludeMatches.length}):`);
+            response.appendResponseLine(
+              `**Exclude Patterns** (${excludeMatches.length}):`,
+            );
             excludeMatches.forEach((pattern: string) => {
               if (testUrl) {
                 const matchesUrl = testUrlPattern(testUrl, pattern);
@@ -179,9 +199,13 @@ export const checkContentScriptInjection = defineTool({
           }
         }
 
-        response.appendResponseLine(`**Files** (${js.length + css.length}): ${[...js, ...css].join(', ') || 'None'}`);
-        response.appendResponseLine(`**Run At**: ${rule.run_at || 'document_idle'}`);
-        
+        response.appendResponseLine(
+          `**Files** (${js.length + css.length}): ${[...js, ...css].join(', ') || 'None'}`,
+        );
+        response.appendResponseLine(
+          `**Run At**: ${rule.run_at || 'document_idle'}`,
+        );
+
         if (testUrl && matchResult) {
           response.appendResponseLine(`**Result**: ${matchResult.reason}`);
         }
@@ -193,29 +217,52 @@ export const checkContentScriptInjection = defineTool({
         response.appendResponseLine(`## 📊 Match Summary\n`);
 
         const shouldInjectAny = matchResults.some(r => r.shouldInject);
-        
+
         if (!shouldInjectAny) {
-          response.appendResponseLine('❌ **No content scripts match this URL**\n');
+          response.appendResponseLine(
+            '❌ **No content scripts match this URL**\n',
+          );
           response.appendResponseLine('**This means**:');
-          response.appendResponseLine('- Content scripts will NOT be injected on this page');
-          response.appendResponseLine('- The extension cannot interact with this page via content scripts\n');
-          
+          response.appendResponseLine(
+            '- Content scripts will NOT be injected on this page',
+          );
+          response.appendResponseLine(
+            '- The extension cannot interact with this page via content scripts\n',
+          );
+
           response.appendResponseLine('**Possible solutions**:');
-          response.appendResponseLine('1. Add a match pattern that covers this URL');
-          response.appendResponseLine('2. Use a broader pattern like `*://*/*` (all sites)');
-          response.appendResponseLine('3. Check if the URL protocol is correct (http/https)');
+          response.appendResponseLine(
+            '1. Add a match pattern that covers this URL',
+          );
+          response.appendResponseLine(
+            '2. Use a broader pattern like `*://*/*` (all sites)',
+          );
+          response.appendResponseLine(
+            '3. Check if the URL protocol is correct (http/https)',
+          );
           if (extension.manifestVersion === 3) {
-            response.appendResponseLine('4. Ensure `host_permissions` includes this domain');
+            response.appendResponseLine(
+              '4. Ensure `host_permissions` includes this domain',
+            );
           }
         } else {
           const matchingRules = matchResults.filter(r => r.shouldInject);
-          response.appendResponseLine(`✅ **${matchingRules.length} rule(s) match this URL**\n`);
+          response.appendResponseLine(
+            `✅ **${matchingRules.length} rule(s) match this URL**\n`,
+          );
           response.appendResponseLine('**This means**:');
-          response.appendResponseLine('- Content scripts SHOULD be injected on this page');
-          response.appendResponseLine('- Scripts will run according to their `run_at` timing\n');
-          
+          response.appendResponseLine(
+            '- Content scripts SHOULD be injected on this page',
+          );
+          response.appendResponseLine(
+            '- Scripts will run according to their `run_at` timing\n',
+          );
+
           matchingRules.forEach(r => {
-            response.appendResponseLine(`- **Rule ${r.index + 1}**: ${r.files.length} file(s) at ${r.rule.run_at || 'document_idle'}`);
+            const typedRule = r.rule as {run_at?: string};
+            response.appendResponseLine(
+              `- **Rule ${r.index + 1}**: ${r.files.length} file(s) at ${typedRule.run_at || 'document_idle'}`,
+            );
           });
           response.appendResponseLine('');
         }
@@ -239,35 +286,48 @@ export const checkContentScriptInjection = defineTool({
         });
       } else {
         response.appendResponseLine('**To test against a specific URL**:');
-        response.appendResponseLine('- Call this tool again with `testUrl` parameter');
-        response.appendResponseLine('- Example: `testUrl: "https://example.com/page"`\n');
-        
+        response.appendResponseLine(
+          '- Call this tool again with `testUrl` parameter',
+        );
+        response.appendResponseLine(
+          '- Example: `testUrl: "https://example.com/page"`\n',
+        );
+
         response.appendResponseLine('**General tips**:');
-        response.appendResponseLine('- Use `*://*/*` to match all HTTP(S) pages');
-        response.appendResponseLine('- Use `*://example.com/*` to match all pages on a domain');
-        response.appendResponseLine('- `<all_urls>` matches all protocols including file://');
-        response.appendResponseLine('- Content scripts won\'t run on chrome:// or chrome-extension:// pages');
+        response.appendResponseLine(
+          '- Use `*://*/*` to match all HTTP(S) pages',
+        );
+        response.appendResponseLine(
+          '- Use `*://example.com/*` to match all pages on a domain',
+        );
+        response.appendResponseLine(
+          '- `<all_urls>` matches all protocols including file://',
+        );
+        response.appendResponseLine(
+          "- Content scripts won't run on chrome:// or chrome-extension:// pages",
+        );
       }
 
       response.appendResponseLine(`\n## 💡 Verification Methods\n`);
       response.appendResponseLine('**Check if content script is running**:');
       response.appendResponseLine('```javascript');
       response.appendResponseLine('// Add to your content script:');
-      response.appendResponseLine(`console.log("✅ Content script loaded:", chrome.runtime.id);`);
+      response.appendResponseLine(
+        `console.log("✅ Content script loaded:", chrome.runtime.id);`,
+      );
       response.appendResponseLine('```');
       response.appendResponseLine('\n**Or check in browser console**:');
       response.appendResponseLine('```javascript');
       response.appendResponseLine('// This only works if your script sets it:');
       response.appendResponseLine(`window.MY_EXTENSION_LOADED === true`);
       response.appendResponseLine('```');
-
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to check content script injection. The extension may be inactive or disabled.'
+        'Unable to check content script injection. The extension may be inactive or disabled.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });
@@ -313,14 +373,20 @@ function testUrlPattern(url: string, pattern: string): boolean {
   try {
     // 解析 URL
     const urlObj = new URL(url);
-    
+
     // <all_urls> 匹配所有
     if (pattern === '<all_urls>') {
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:' || urlObj.protocol === 'file:';
+      return (
+        urlObj.protocol === 'http:' ||
+        urlObj.protocol === 'https:' ||
+        urlObj.protocol === 'file:'
+      );
     }
 
     // 解析 pattern: scheme://host/path
-    const patternParts = pattern.match(/^(\*|https?|file|ftp):\/\/([^\/]+)(\/.*)$/);
+    const patternParts = pattern.match(
+      /^(\*|https?|file|ftp):\/\/([^/]+)(\/.*)$/,
+    );
     if (!patternParts) {
       return false;
     }
@@ -344,7 +410,7 @@ function testUrlPattern(url: string, pattern: string): boolean {
     }
 
     return true;
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 }
@@ -379,26 +445,31 @@ function matchPath(path: string, pattern: string): boolean {
   return regex.test(path);
 }
 
-
 /**
  * 生成调试建议
  */
 function generateRecommendations(
-  manifest: any,
+  manifest: unknown,
   manifestVersion: number,
   pageUrl: string,
-  matchResults: any[],
+  matchResults: Array<{rule: unknown; shouldInject: boolean}>,
   shouldInjectAny: boolean,
 ): string[] {
   const recommendations: string[] = [];
 
   if (!shouldInjectAny) {
     // 没有匹配的规则
-    recommendations.push('Update match patterns in manifest.json to include this URL');
-    recommendations.push('Consider using broader patterns like `*://*/*` for testing');
-    
+    recommendations.push(
+      'Update match patterns in manifest.json to include this URL',
+    );
+    recommendations.push(
+      'Consider using broader patterns like `*://*/*` for testing',
+    );
+
     if (manifestVersion === 3) {
-      recommendations.push('Ensure host_permissions in manifest.json include this domain');
+      recommendations.push(
+        'Ensure host_permissions in manifest.json include this domain',
+      );
     }
   } else {
     // 应该注入但可能有问题
@@ -411,13 +482,19 @@ function generateRecommendations(
     }
 
     // 检查 run_at 时机
-    const hasDocumentStart = matchResults.some(r => r.rule.run_at === 'document_start');
+    const hasDocumentStart = matchResults.some(
+      r => (r.rule as {run_at?: string}).run_at === 'document_start',
+    );
     if (hasDocumentStart) {
-      recommendations.push('document_start scripts run very early - ensure DOM is ready before accessing it');
+      recommendations.push(
+        'document_start scripts run very early - ensure DOM is ready before accessing it',
+      );
     }
   }
 
-  recommendations.push('Use `get_extension_runtime_errors` to check for errors');
+  recommendations.push(
+    'Use `get_extension_runtime_errors` to check for errors',
+  );
 
   return recommendations;
 }

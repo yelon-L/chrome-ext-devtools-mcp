@@ -7,6 +7,7 @@
 格式: `{version}-{description}.sql`
 
 示例:
+
 - `001-initial-schema.sql` - 初始Schema
 - `002-add-phone-number.sql` - 添加phone_number字段
 - `003-add-user-role.sql` - 添加user_role字段
@@ -14,6 +15,7 @@
 ## 迁移文件结构
 
 每个迁移文件应包含：
+
 1. 元数据注释（版本号、日期、描述）
 2. UP迁移（应用变更）
 3. DOWN迁移（回滚变更，可选）
@@ -21,16 +23,19 @@
 ## 如何使用
 
 ### 应用迁移
+
 ```bash
 npm run migrate:up
 ```
 
 ### 回滚迁移
+
 ```bash
 npm run migrate:down
 ```
 
 ### 查看迁移状态
+
 ```bash
 npm run migrate:status
 ```
@@ -45,6 +50,6 @@ npm run migrate:status
 
 ## 迁移历史
 
-| 版本 | 日期 | 描述 | 作者 |
-|------|------|------|------|
-| 001 | 2025-10-14 | 初始Schema（用户表、浏览器表） | Cascade AI |
+| 版本 | 日期       | 描述                           | 作者       |
+| ---- | ---------- | ------------------------------ | ---------- |
+| 001  | 2025-10-14 | 初始Schema（用户表、浏览器表） | Cascade AI |

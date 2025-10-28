@@ -6,7 +6,7 @@
 
 /**
  * 错误详细程度配置
- * 
+ *
  * 开发阶段：显示技术细节，帮助调试
  * 生产部署：隐藏技术细节，用户友好
  */
@@ -32,10 +32,10 @@ class ErrorVerbosityConfig {
   constructor() {
     // 从环境变量读取配置
     const envVerbosity = process.env.ERROR_VERBOSITY?.toLowerCase();
-    
+
     // 默认值：开发环境VERBOSE，生产环境MINIMAL
-    const defaultVerbosity = this.isProduction() 
-      ? ErrorVerbosity.MINIMAL 
+    const defaultVerbosity = this.isProduction()
+      ? ErrorVerbosity.MINIMAL
       : ErrorVerbosity.VERBOSE;
 
     // 解析环境变量
@@ -106,7 +106,7 @@ export const errorVerbosityConfig = new ErrorVerbosityConfig();
 export function formatErrorForUser(
   error: unknown,
   userFriendlyMessage: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>,
 ): string[] {
   const lines: string[] = [];
   const config = errorVerbosityConfig;
@@ -133,7 +133,11 @@ export function formatErrorForUser(
   }
 
   // 5. Stack Trace（仅VERBOSE）
-  if (config.shouldShowTechnicalDetails() && error instanceof Error && error.stack) {
+  if (
+    config.shouldShowTechnicalDetails() &&
+    error instanceof Error &&
+    error.stack
+  ) {
     lines.push(`\n**Stack Trace**:\n\`\`\`\n${error.stack}\n\`\`\``);
   }
 

@@ -8,7 +8,7 @@ import type {Page, CDPSession} from 'puppeteer-core';
 
 /**
  * CDP Session Manager
- * 
+ *
  * 管理 Chrome DevTools Protocol sessions 的生命周期
  * 为每个页面创建和维护 CDP session
  */

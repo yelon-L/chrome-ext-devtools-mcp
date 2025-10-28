@@ -9,10 +9,10 @@ import type {Browser} from 'puppeteer-core';
 /**
  * 浏览器连接状态
  */
-export type BrowserConnectionStatus = 
-  | 'connected' 
-  | 'disconnected' 
-  | 'reconnecting' 
+export type BrowserConnectionStatus =
+  | 'connected'
+  | 'disconnected'
+  | 'reconnecting'
   | 'failed';
 
 /**

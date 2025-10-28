@@ -6,8 +6,17 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
-import tsConfig from '../tsconfig.json' with {type: 'json'};
+// Read tsconfig.json with support for comments (JSONC format)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const tsConfigContent = fs.readFileSync(
+  path.join(__dirname, '../tsconfig.json'),
+  'utf-8',
+);
+// Remove single-line comments (//...)
+const tsConfigWithoutComments = tsConfigContent.replace(/\/\/.*$/gm, '');
+const tsConfig = JSON.parse(tsConfigWithoutComments);
 
 const BUILD_DIR = path.join(process.cwd(), 'build');
 

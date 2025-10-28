@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -15,11 +14,13 @@ import {fileURLToPath} from 'node:url';
 import type {Browser} from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_EXTENSION_PATH = path.join(__dirname, '../../test-extension-enhanced');
+const TEST_EXTENSION_PATH = path.join(
+  __dirname,
+  '../../test-extension-enhanced',
+);
 
 describe('activate_service_worker', () => {
   let browser: Browser;
@@ -45,7 +46,7 @@ describe('activate_service_worker', () => {
     // 获取测试扩展 ID
     const extensions = await helper.getExtensions();
     const testExt = extensions.find(ext =>
-      ext.name.includes('Enhanced MCP Debug Test Extension')
+      ext.name.includes('Enhanced MCP Debug Test Extension'),
     );
 
     if (!testExt) {
@@ -66,11 +67,15 @@ describe('activate_service_worker', () => {
 
     if (details?.manifestVersion === 3) {
       const isActive = await helper.isServiceWorkerActive(testExtensionId);
-      
+
       assert.strictEqual(typeof isActive, 'boolean', '应该返回布尔值');
-      console.log(`✅ Service Worker 状态: ${isActive ? 'Active' : 'Inactive'}`);
+      console.log(
+        `✅ Service Worker 状态: ${isActive ? 'Active' : 'Inactive'}`,
+      );
     } else {
-      console.log(`ℹ️  测试扩展是 MV${details?.manifestVersion}，无 Service Worker`);
+      console.log(
+        `ℹ️  测试扩展是 MV${details?.manifestVersion}，无 Service Worker`,
+      );
     }
   });
 
@@ -82,7 +87,11 @@ describe('activate_service_worker', () => {
         const result = await helper.activateServiceWorker(testExtensionId);
 
         assert.ok(result, '应该返回激活结果');
-        assert.strictEqual(typeof result.success, 'boolean', 'success 应该是布尔值');
+        assert.strictEqual(
+          typeof result.success,
+          'boolean',
+          'success 应该是布尔值',
+        );
 
         if (result.success) {
           console.log(`✅ Service Worker 激活成功`);
@@ -118,11 +127,11 @@ describe('activate_service_worker', () => {
 
         // 验证结构
         assert.ok('success' in result, '结果应该有 success 字段');
-        
+
         if (!result.success) {
           assert.ok(
             result.error || result.suggestion,
-            '失败时应该有 error 或 suggestion'
+            '失败时应该有 error 或 suggestion',
           );
         }
 
@@ -140,7 +149,7 @@ describe('activate_service_worker', () => {
       try {
         // 先激活一次
         await helper.activateServiceWorker(testExtensionId);
-        
+
         // 等待一下
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -149,8 +158,8 @@ describe('activate_service_worker', () => {
 
         if (isActive) {
           // 再次尝试激活
-          const result = await helper.activateServiceWorker(testExtensionId);
-          
+          const _result = await helper.activateServiceWorker(testExtensionId);
+
           // 应该立即返回成功（因为已经是 active）
           console.log(`✅ 检测到已激活的 Service Worker`);
         } else {
@@ -168,11 +177,11 @@ describe('activate_service_worker', () => {
     if (details?.manifestVersion === 2) {
       try {
         const result = await helper.activateServiceWorker(testExtensionId);
-        
+
         // MV2 应该失败或返回 false
         assert.strictEqual(result.success, false, 'MV2 应该激活失败');
         console.log(`✅ MV2 扩展正确处理`);
-      } catch (error) {
+      } catch (_error) {
         // 抛出错误也是可以接受的
         console.log(`✅ MV2 扩展正确抛出错误`);
       }

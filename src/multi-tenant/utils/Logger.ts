@@ -6,7 +6,7 @@
 
 /**
  * 统一日志框架
- * 
+ *
  * 提供分级日志、格式化、可配置输出等功能
  */
 
@@ -37,8 +37,8 @@ const LOG_LEVEL_NAMES: Record<LogLevel, string> = {
  */
 const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
   [LogLevel.DEBUG]: '\x1b[36m', // Cyan
-  [LogLevel.INFO]: '\x1b[32m',  // Green
-  [LogLevel.WARN]: '\x1b[33m',  // Yellow
+  [LogLevel.INFO]: '\x1b[32m', // Green
+  [LogLevel.WARN]: '\x1b[33m', // Yellow
   [LogLevel.ERROR]: '\x1b[31m', // Red
   [LogLevel.NONE]: '',
 };
@@ -100,7 +100,11 @@ export class Logger {
   /**
    * 格式化日志消息
    */
-  private formatMessage(level: LogLevel, message: string, args: any[]): string {
+  private formatMessage(
+    level: LogLevel,
+    message: string,
+    args: unknown[],
+  ): string {
     const parts: string[] = [];
 
     // 时间戳
@@ -150,7 +154,7 @@ export class Logger {
   /**
    * 输出日志
    */
-  private log(level: LogLevel, message: string, args: any[]): void {
+  private log(level: LogLevel, message: string, args: unknown[]): void {
     if (level < this.level) {
       return;
     }
@@ -181,28 +185,28 @@ export class Logger {
   /**
    * DEBUG 级别日志
    */
-  debug(message: string, ...args: any[]): void {
+  debug(message: string, ...args: unknown[]): void {
     this.log(LogLevel.DEBUG, message, args);
   }
 
   /**
    * INFO 级别日志
    */
-  info(message: string, ...args: any[]): void {
+  info(message: string, ...args: unknown[]): void {
     this.log(LogLevel.INFO, message, args);
   }
 
   /**
    * WARN 级别日志
    */
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     this.log(LogLevel.WARN, message, args);
   }
 
   /**
    * ERROR 级别日志
    */
-  error(message: string, error?: Error | any, ...args: any[]): void {
+  error(message: string, error?: Error | unknown, ...args: unknown[]): void {
     if (error instanceof Error) {
       this.log(LogLevel.ERROR, message, [
         `\n  Error: ${error.message}`,
@@ -246,7 +250,7 @@ class LoggerFactory {
    * 设置全局默认选项
    */
   setDefaults(options: Partial<LoggerOptions>): void {
-    this.defaultOptions = { ...this.defaultOptions, ...options };
+    this.defaultOptions = {...this.defaultOptions, ...options};
   }
 
   /**
@@ -290,7 +294,10 @@ export const loggerFactory = new LoggerFactory();
 /**
  * 创建日志器的快捷方法
  */
-export function createLogger(prefix: string, options?: Partial<LoggerOptions>): Logger {
+export function createLogger(
+  prefix: string,
+  options?: Partial<LoggerOptions>,
+): Logger {
   return loggerFactory.create(prefix, options);
 }
 
@@ -298,7 +305,7 @@ export function createLogger(prefix: string, options?: Partial<LoggerOptions>): 
  * 设置全局日志级别
  */
 export function setGlobalLogLevel(level: LogLevel): void {
-  loggerFactory.setDefaults({ level });
+  loggerFactory.setDefaults({level});
 }
 
 /**

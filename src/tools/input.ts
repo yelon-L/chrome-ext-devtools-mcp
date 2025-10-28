@@ -43,7 +43,7 @@ export const click = defineTool({
           : `Successfully clicked on the element`,
       );
       response.setIncludeSnapshot(true);
-      response.setIncludeConsoleData(true);  // Auto-include console logs
+      response.setIncludeConsoleData(true); // Auto-include console logs
     } finally {
       void handle.dispose();
     }
@@ -73,7 +73,7 @@ export const hover = defineTool({
       });
       response.appendResponseLine(`Successfully hovered over the element`);
       response.setIncludeSnapshot(true);
-      response.setIncludeConsoleData(true);  // Auto-include console logs
+      response.setIncludeConsoleData(true); // Auto-include console logs
     } finally {
       void handle.dispose();
     }
@@ -103,7 +103,7 @@ export const fill = defineTool({
       });
       response.appendResponseLine(`Successfully filled in the element`);
       response.setIncludeSnapshot(true);
-      response.setIncludeConsoleData(true);  // Auto-include console logs
+      response.setIncludeConsoleData(true); // Auto-include console logs
     } finally {
       void handle.dispose();
     }
@@ -132,7 +132,7 @@ export const drag = defineTool({
       });
       response.appendResponseLine(`Successfully dragged an element`);
       response.setIncludeSnapshot(true);
-      response.setIncludeConsoleData(true);  // Auto-include console logs
+      response.setIncludeConsoleData(true); // Auto-include console logs
     } finally {
       void fromHandle.dispose();
       void toHandle.dispose();
@@ -170,7 +170,7 @@ export const fillForm = defineTool({
     }
     response.appendResponseLine(`Successfully filled out the form`);
     response.setIncludeSnapshot(true);
-    response.setIncludeConsoleData(true);  // Auto-include console logs
+    response.setIncludeConsoleData(true); // Auto-include console logs
   },
 });
 
@@ -211,19 +211,29 @@ export const uploadFile = defineTool({
         } catch {
           // ✅ Following close_page pattern: return info instead of throwing
           response.appendResponseLine('❌ **Error**: Failed to upload file\n');
-          response.appendResponseLine('**Details**: The element could not accept the file directly, and clicking it did not trigger a file chooser.\n');
+          response.appendResponseLine(
+            '**Details**: The element could not accept the file directly, and clicking it did not trigger a file chooser.\n',
+          );
           response.appendResponseLine('**Suggestions**:');
-          response.appendResponseLine('1. Verify the element is a file input (<input type="file">)');
-          response.appendResponseLine('2. Check if the element is visible and clickable');
-          response.appendResponseLine('3. Try clicking the element manually to see if it triggers a file chooser');
-          response.appendResponseLine('4. Inspect the element\'s onclick handler in DevTools');
+          response.appendResponseLine(
+            '1. Verify the element is a file input (<input type="file">)',
+          );
+          response.appendResponseLine(
+            '2. Check if the element is visible and clickable',
+          );
+          response.appendResponseLine(
+            '3. Try clicking the element manually to see if it triggers a file chooser',
+          );
+          response.appendResponseLine(
+            "4. Inspect the element's onclick handler in DevTools",
+          );
           response.setIncludeSnapshot(true);
-          response.setIncludeConsoleData(true);  // Auto-include console logs even on error
+          response.setIncludeConsoleData(true); // Auto-include console logs even on error
           return;
         }
       }
       response.setIncludeSnapshot(true);
-      response.setIncludeConsoleData(true);  // Auto-include console logs
+      response.setIncludeConsoleData(true); // Auto-include console logs
       response.appendResponseLine(`File uploaded from ${filePath}.`);
     } finally {
       void handle.dispose();

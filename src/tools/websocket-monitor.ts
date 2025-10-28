@@ -86,7 +86,9 @@ which provide access to the actual frame data that HTTPRequest API does not expo
     filterUrl: z
       .string()
       .optional()
-      .describe('Filter frames by WebSocket URL pattern (case-insensitive substring match).'),
+      .describe(
+        'Filter frames by WebSocket URL pattern (case-insensitive substring match).',
+      ),
     maxFrames: z
       .number()
       .positive()
@@ -100,7 +102,8 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       .describe('Include control frames (ping/pong/close). Default is false.'),
   },
   handler: async (request, response, context) => {
-    const {duration, filterUrl, maxFrames, includeControlFrames} = request.params;
+    const {duration, filterUrl, maxFrames, includeControlFrames} =
+      request.params;
 
     const page = context.getSelectedPage();
     let client: CDPSession | null = null;
@@ -108,7 +111,7 @@ which provide access to the actual frame data that HTTPRequest API does not expo
     try {
       // 1. 创建 CDP Session
       client = await page.target().createCDPSession();
-      
+
       // 2. 启用 Network 域
       await client.send('Network.enable');
 
@@ -116,76 +119,109 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       const websocketUrls = new Map<string, string>();
 
       // 3. 监听 WebSocket 创建事件（获取 URL）
-      client.on('Network.webSocketCreated', (event: any) => {
-        websocketUrls.set(event.requestId, event.url);
-      });
+      client.on(
+        'Network.webSocketCreated',
+        (event: {requestId: string; url: string}) => {
+          websocketUrls.set(event.requestId, event.url);
+        },
+      );
 
       // 4. 监听接收帧事件
-      client.on('Network.webSocketFrameReceived', (event: any) => {
-        const url = websocketUrls.get(event.requestId);
-        
-        // URL 过滤
-        if (filterUrl && url && !url.toLowerCase().includes(filterUrl.toLowerCase())) {
-          return;
-        }
+      client.on(
+        'Network.webSocketFrameReceived',
+        (event: {
+          requestId: string;
+          timestamp: number;
+          response: {opcode: number; payloadData: string; mask: boolean};
+        }) => {
+          const url = websocketUrls.get(event.requestId);
 
-        // 控制帧过滤
-        const opcode = event.response.opcode;
-        if (!includeControlFrames && (opcode === 8 || opcode === 9 || opcode === 10)) {
-          return;
-        }
+          // URL 过滤
+          if (
+            filterUrl &&
+            url &&
+            !url.toLowerCase().includes(filterUrl.toLowerCase())
+          ) {
+            return;
+          }
 
-        // 限制数量
-        if (frames.length >= maxFrames) {
-          return;
-        }
+          // 控制帧过滤
+          const opcode = event.response.opcode;
+          if (
+            !includeControlFrames &&
+            (opcode === 8 || opcode === 9 || opcode === 10)
+          ) {
+            return;
+          }
 
-        frames.push({
-          direction: 'received',
-          timestamp: event.timestamp,
-          requestId: event.requestId,
-          payloadData: event.response.payloadData,
-          opcode: event.response.opcode,
-          mask: event.response.mask,
-        });
-      });
+          // 限制数量
+          if (frames.length >= maxFrames) {
+            return;
+          }
+
+          frames.push({
+            direction: 'received',
+            timestamp: event.timestamp,
+            requestId: event.requestId,
+            payloadData: event.response.payloadData,
+            opcode: event.response.opcode,
+            mask: event.response.mask,
+          });
+        },
+      );
 
       // 5. 监听发送帧事件
-      client.on('Network.webSocketFrameSent', (event: any) => {
-        const url = websocketUrls.get(event.requestId);
-        
-        // URL 过滤
-        if (filterUrl && url && !url.toLowerCase().includes(filterUrl.toLowerCase())) {
-          return;
-        }
+      client.on(
+        'Network.webSocketFrameSent',
+        (event: {
+          requestId: string;
+          timestamp: number;
+          response: {opcode: number; payloadData: string; mask: boolean};
+        }) => {
+          const url = websocketUrls.get(event.requestId);
 
-        // 控制帧过滤
-        const opcode = event.response.opcode;
-        if (!includeControlFrames && (opcode === 8 || opcode === 9 || opcode === 10)) {
-          return;
-        }
+          // URL 过滤
+          if (
+            filterUrl &&
+            url &&
+            !url.toLowerCase().includes(filterUrl.toLowerCase())
+          ) {
+            return;
+          }
 
-        // 限制数量
-        if (frames.length >= maxFrames) {
-          return;
-        }
+          // 控制帧过滤
+          const opcode = event.response.opcode;
+          if (
+            !includeControlFrames &&
+            (opcode === 8 || opcode === 9 || opcode === 10)
+          ) {
+            return;
+          }
 
-        frames.push({
-          direction: 'sent',
-          timestamp: event.timestamp,
-          requestId: event.requestId,
-          payloadData: event.response.payloadData,
-          opcode: event.response.opcode,
-          mask: event.response.mask,
-        });
-      });
+          // 限制数量
+          if (frames.length >= maxFrames) {
+            return;
+          }
+
+          frames.push({
+            direction: 'sent',
+            timestamp: event.timestamp,
+            requestId: event.requestId,
+            payloadData: event.response.payloadData,
+            opcode: event.response.opcode,
+            mask: event.response.mask,
+          });
+        },
+      );
 
       response.appendResponseLine(`# WebSocket Traffic Monitor\n`);
       response.appendResponseLine(`**Monitoring Duration**: ${duration}ms`);
       if (filterUrl) {
         response.appendResponseLine(`**URL Filter**: ${filterUrl}`);
       }
-      response.appendResponseLine(`**Started**: ${new Date().toLocaleString()}\n`);
+      response.appendResponseLine(
+        `**Started**: ${new Date().toLocaleString()}\n`,
+      );
       response.appendResponseLine('⏳ Capturing frames...\n');
 
       // 6. 等待指定时间
@@ -194,33 +230,52 @@ which provide access to the actual frame data that HTTPRequest API does not expo
       // 7. 格式化输出
       response.appendResponseLine(`\n## Capture Summary\n`);
       response.appendResponseLine(`**Total Frames**: ${frames.length}`);
-      
+
       const sentCount = frames.filter(f => f.direction === 'sent').length;
-      const receivedCount = frames.filter(f => f.direction === 'received').length;
-      
+      const receivedCount = frames.filter(
+        f => f.direction === 'received',
+      ).length;
+
       response.appendResponseLine(`- 📤 **Sent**: ${sentCount}`);
       response.appendResponseLine(`- 📥 **Received**: ${receivedCount}\n`);
 
       if (frames.length === 0) {
-        response.appendResponseLine('*No WebSocket frames captured during monitoring period.*\n');
+        response.appendResponseLine(
+          '*No WebSocket frames captured during monitoring period.*\n',
+        );
         response.appendResponseLine('**Possible reasons**:');
-        response.appendResponseLine('- No WebSocket connections are active on this page');
-        response.appendResponseLine('- WebSocket traffic did not occur during the monitoring window');
-        response.appendResponseLine('- URL filter did not match any WebSocket connections');
+        response.appendResponseLine(
+          '- No WebSocket connections are active on this page',
+        );
+        response.appendResponseLine(
+          '- WebSocket traffic did not occur during the monitoring window',
+        );
+        response.appendResponseLine(
+          '- URL filter did not match any WebSocket connections',
+        );
         response.appendResponseLine('\n**Tips**:');
-        response.appendResponseLine('- Ensure WebSocket connection is established before monitoring');
-        response.appendResponseLine('- Use `list_network_requests` with `resourceTypes: ["websocket"]` to check connections');
-        response.appendResponseLine('- Try increasing the `duration` parameter');
+        response.appendResponseLine(
+          '- Ensure WebSocket connection is established before monitoring',
+        );
+        response.appendResponseLine(
+          '- Use `list_network_requests` with `resourceTypes: ["websocket"]` to check connections',
+        );
+        response.appendResponseLine(
+          '- Try increasing the `duration` parameter',
+        );
         response.setIncludePages(true);
         return;
       }
 
       // 按类型分组统计
-      const byType = frames.reduce((acc, f) => {
-        const typeName = OPCODE_NAMES[f.opcode] || `unknown(${f.opcode})`;
-        acc[typeName] = (acc[typeName] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      const byType = frames.reduce(
+        (acc, f) => {
+          const typeName = OPCODE_NAMES[f.opcode] || `unknown(${f.opcode})`;
+          acc[typeName] = (acc[typeName] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
       response.appendResponseLine('**Frame Types**:');
       for (const [type, count] of Object.entries(byType)) {
@@ -236,18 +291,20 @@ which provide access to the actual frame data that HTTPRequest API does not expo
         const icon = frame.direction === 'sent' ? '📤' : '📥';
         const time = new Date(frame.timestamp * 1000).toLocaleTimeString();
         const typeName = OPCODE_NAMES[frame.opcode] || `opcode ${frame.opcode}`;
-        
-        response.appendResponseLine(`### ${icon} ${frame.direction.toUpperCase()} - ${time}`);
+
+        response.appendResponseLine(
+          `### ${icon} ${frame.direction.toUpperCase()} - ${time}`,
+        );
         response.appendResponseLine(`**Type**: ${typeName}`);
         response.appendResponseLine(`**Masked**: ${frame.mask ? 'Yes' : 'No'}`);
-        
+
         // 限制 payload 显示长度
         let payload = frame.payloadData;
         const isLarge = payload.length > 200;
         if (isLarge) {
           payload = payload.substring(0, 200) + '... (truncated)';
         }
-        
+
         // 尝试解析 JSON (text frame)
         if (frame.opcode === 1) {
           try {
@@ -261,27 +318,36 @@ which provide access to the actual frame data that HTTPRequest API does not expo
           }
         } else if (frame.opcode === 2) {
           // Binary frame
-          response.appendResponseLine(`**Payload** (binary, ${frame.payloadData.length} bytes): ${payload.substring(0, 50)}...`);
+          response.appendResponseLine(
+            `**Payload** (binary, ${frame.payloadData.length} bytes): ${payload.substring(0, 50)}...`,
+          );
         } else {
           response.appendResponseLine(`**Payload**: ${payload}`);
         }
-        
+
         response.appendResponseLine('');
       }
 
       if (frames.length > 50) {
-        response.appendResponseLine(`\n*Showing first 50 of ${frames.length} frames*`);
+        response.appendResponseLine(
+          `\n*Showing first 50 of ${frames.length} frames*`,
+        );
       }
 
       response.appendResponseLine('\n**Tips**:');
-      response.appendResponseLine('- Use `filterUrl` to focus on specific WebSocket connections');
-      response.appendResponseLine('- Adjust `duration` based on expected traffic frequency');
-      response.appendResponseLine('- Set `includeControlFrames: true` to see ping/pong activity');
-
+      response.appendResponseLine(
+        '- Use `filterUrl` to focus on specific WebSocket connections',
+      );
+      response.appendResponseLine(
+        '- Adjust `duration` based on expected traffic frequency',
+      );
+      response.appendResponseLine(
+        '- Set `includeControlFrames: true` to see ping/pong activity',
+      );
     } catch (error) {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        `Unable to monitor WebSocket traffic. ${error instanceof Error ? error.message : String(error)}`
+        `Unable to monitor WebSocket traffic. ${error instanceof Error ? error.message : String(error)}`,
       );
     } finally {
       // 9. 清理 CDP Session

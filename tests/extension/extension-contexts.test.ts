@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -15,11 +14,13 @@ import {fileURLToPath} from 'node:url';
 import type {Browser} from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_EXTENSION_PATH = path.join(__dirname, '../../test-extension-enhanced');
+const TEST_EXTENSION_PATH = path.join(
+  __dirname,
+  '../../test-extension-enhanced',
+);
 
 describe('extension_contexts', () => {
   let browser: Browser;
@@ -45,7 +46,7 @@ describe('extension_contexts', () => {
     // 获取测试扩展 ID
     const extensions = await helper.getExtensions();
     const testExt = extensions.find(ext =>
-      ext.name.includes('Enhanced MCP Debug Test Extension')
+      ext.name.includes('Enhanced MCP Debug Test Extension'),
     );
 
     if (!testExt) {
@@ -90,7 +91,9 @@ describe('extension_contexts', () => {
         console.log(`ℹ️  MV3 扩展但无活跃的 Service Worker`);
       }
     } else {
-      console.log(`ℹ️  测试扩展是 MV${details?.manifestVersion}，跳过 MV3 测试`);
+      console.log(
+        `ℹ️  测试扩展是 MV${details?.manifestVersion}，跳过 MV3 测试`,
+      );
     }
   });
 
@@ -103,14 +106,21 @@ describe('extension_contexts', () => {
       assert.ok(ctx.url, `上下文应该有 URL`);
       assert.ok(
         ctx.url.startsWith('chrome-extension://'),
-        'URL 应该是扩展 URL'
+        'URL 应该是扩展 URL',
       );
-      
+
       // type 应该是有效值
-      const validTypes = ['background', 'popup', 'options', 'devtools', 'content_script', 'other'];
+      const validTypes = [
+        'background',
+        'popup',
+        'options',
+        'devtools',
+        'content_script',
+        'other',
+      ];
       assert.ok(
         validTypes.includes(ctx.type),
-        `上下文类型 ${ctx.type} 应该是有效值`
+        `上下文类型 ${ctx.type} 应该是有效值`,
       );
     }
 
@@ -122,12 +132,9 @@ describe('extension_contexts', () => {
 
     if (contexts.length > 0) {
       const primaryContexts = contexts.filter(ctx => ctx.isPrimary);
-      
+
       // 应该最多有一个主要上下文
-      assert.ok(
-        primaryContexts.length <= 1,
-        '应该最多有一个主要上下文'
-      );
+      assert.ok(primaryContexts.length <= 1, '应该最多有一个主要上下文');
 
       if (primaryContexts.length === 1) {
         console.log(`✅ 主要上下文: ${primaryContexts[0].type}`);
@@ -150,10 +157,13 @@ describe('extension_contexts', () => {
     const contexts = await helper.getExtensionContexts(testExtensionId);
 
     if (contexts.length > 0) {
-      const grouped = contexts.reduce((acc, ctx) => {
-        acc[ctx.type] = (acc[ctx.type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      const grouped = contexts.reduce(
+        (acc, ctx) => {
+          acc[ctx.type] = (acc[ctx.type] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
       console.log(`✅ 上下文分组:`);
       for (const [type, count] of Object.entries(grouped)) {

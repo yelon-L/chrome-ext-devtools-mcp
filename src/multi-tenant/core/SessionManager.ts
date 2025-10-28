@@ -10,27 +10,31 @@ import type {Browser} from 'puppeteer-core';
 
 import type {McpContext} from '../../McpContext.js';
 import {MaxSessionsReachedError} from '../errors/index.js';
-import type {Session, SessionConfig, SessionStats} from '../types/session.types.js';
+import type {
+  Session,
+  SessionConfig,
+  SessionStats,
+} from '../types/session.types.js';
 import {createLogger} from '../utils/Logger.js';
 
 /**
  * 会话管理器
- * 
+ *
  * 负责管理所有客户端 SSE 会话的生命周期
  */
 export class SessionManager {
   /** 会话存储 */
   #sessions = new Map<string, Session>();
-  
+
   /** 用户会话索引 */
   #userSessions = new Map<string, Set<string>>();
-  
+
   /** 清理定时器 */
   #cleanupInterval?: NodeJS.Timeout;
-  
+
   /** 配置 */
   #config: SessionConfig;
-  
+
   /** 会话删除回调 */
   #onSessionDeleted?: (sessionId: string) => void;
 
@@ -61,11 +65,11 @@ export class SessionManager {
       cleanupInterval: this.#config.cleanupInterval,
       maxSessions: this.#config.maxSessions,
     });
-    
+
     // 定期清理过期会话
     this.#cleanupInterval = setInterval(
       () => this.cleanupExpiredSessions(),
-      this.#config.cleanupInterval
+      this.#config.cleanupInterval,
     );
   }
 
@@ -74,7 +78,7 @@ export class SessionManager {
    */
   stop(): void {
     this.#logger.info('停止会话管理器');
-    
+
     if (this.#cleanupInterval) {
       clearInterval(this.#cleanupInterval);
       this.#cleanupInterval = undefined;
@@ -83,7 +87,7 @@ export class SessionManager {
 
   /**
    * 创建新会话
-   * 
+   *
    * @param sessionId - 会话 ID
    * @param userId - 用户 ID
    * @param transport - SSE 传输层
@@ -99,10 +103,13 @@ export class SessionManager {
     transport: SSEServerTransport,
     server: McpServer,
     context: McpContext,
-    browser: Browser
+    browser: Browser,
   ): Session {
     // 检查会话数限制
-    if (this.#config.maxSessions && this.#sessions.size >= this.#config.maxSessions) {
+    if (
+      this.#config.maxSessions &&
+      this.#sessions.size >= this.#config.maxSessions
+    ) {
       throw new MaxSessionsReachedError(this.#config.maxSessions);
     }
 
@@ -129,9 +136,9 @@ export class SessionManager {
     this.#userSessions.get(userId)!.add(sessionId);
 
     this.#logger.info('会话已创建', {
-      sessionId, 
-      userId, 
-      persistent: session.persistent
+      sessionId,
+      userId,
+      persistent: session.persistent,
     });
 
     return session;
@@ -139,7 +146,7 @@ export class SessionManager {
 
   /**
    * 获取会话
-   * 
+   *
    * @param sessionId - 会话 ID
    * @returns 会话对象，如果不存在则返回 undefined
    */
@@ -149,7 +156,7 @@ export class SessionManager {
 
   /**
    * 更新会话活跃时间
-   * 
+   *
    * @param sessionId - 会话 ID
    */
   updateActivity(sessionId: string): void {
@@ -161,10 +168,10 @@ export class SessionManager {
 
   /**
    * 删除会话
-   * 
+   *
    * 采用先关闭资源再删除索引的顺序，确保资源正确清理
    * 即使关闭失败也会删除索引，避免资源泄露
-   * 
+   *
    * @param sessionId - 会话 ID
    * @returns 是否删除成功
    */
@@ -197,7 +204,7 @@ export class SessionManager {
       }
 
       this.#logger.info('会话已删除', {sessionId});
-      
+
       // 触发删除回调，允许外部清理资源
       if (this.#onSessionDeleted) {
         try {
@@ -213,7 +220,7 @@ export class SessionManager {
 
   /**
    * 获取用户的所有会话
-   * 
+   *
    * @param userId - 用户 ID
    * @returns 会话列表
    */
@@ -236,9 +243,9 @@ export class SessionManager {
 
   /**
    * 清理用户的所有会话
-   * 
+   *
    * 先复制Set避免迭代时修改导致迭代器失效
-   * 
+   *
    * @param userId - 用户 ID
    */
   async cleanupUserSessions(userId: string): Promise<void> {
@@ -262,7 +269,7 @@ export class SessionManager {
 
   /**
    * 清理过期会话
-   * 
+   *
    * 持久连接会话永不超时，跳过清理
    */
   async cleanupExpiredSessions(): Promise<void> {
@@ -286,7 +293,7 @@ export class SessionManager {
     if (expiredSessions.length === 0) {
       if (skippedPersistent > 0) {
         this.#logger.debug('跳过持久连接会话清理', {
-          persistent: skippedPersistent
+          persistent: skippedPersistent,
         });
       }
       return;
@@ -294,7 +301,7 @@ export class SessionManager {
 
     this.#logger.info('清理过期会话', {
       count: expiredSessions.length,
-      persistent: skippedPersistent
+      persistent: skippedPersistent,
     });
 
     const deletePromises = expiredSessions.map(id => this.deleteSession(id));
@@ -317,7 +324,7 @@ export class SessionManager {
 
   /**
    * 获取会话统计信息
-   * 
+   *
    * @returns 统计信息
    */
   getStats(): SessionStats {
@@ -346,7 +353,7 @@ export class SessionManager {
 
   /**
    * 检查会话是否存在
-   * 
+   *
    * @param sessionId - 会话 ID
    * @returns 是否存在
    */
@@ -356,11 +363,10 @@ export class SessionManager {
 
   /**
    * 获取所有会话 ID
-   * 
+   *
    * @returns 会话 ID 列表
    */
   getAllSessionIds(): string[] {
     return Array.from(this.#sessions.keys());
   }
 }
-

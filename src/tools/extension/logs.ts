@@ -47,12 +47,16 @@ export const getBackgroundLogs = defineTool({
     extensionId: z
       .string()
       .regex(/^[a-z]{32}$/)
-      .describe('Extension ID to get logs from. Get this from list_extensions.'),
+      .describe(
+        'Extension ID to get logs from. Get this from list_extensions.',
+      ),
     includeHistory: z
       .boolean()
       .optional()
       .default(false)
-      .describe('Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.'),
+      .describe(
+        'Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.',
+      ),
     level: z
       .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
       .optional()
@@ -65,21 +69,25 @@ export const getBackgroundLogs = defineTool({
     since: z
       .number()
       .optional()
-      .describe('Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.'),
+      .describe(
+        'Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.',
+      ),
     duration: z
       .number()
       .positive()
       .optional()
       .default(5000)
-      .describe('Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).'),
+      .describe(
+        'Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).',
+      ),
   },
   handler: async (request, response, context) => {
     const {
       extensionId,
       includeHistory = false,
-      level,
-      limit = 50,
-      since,
+      level: _level,
+      limit: _limit = 50,
+      since: _since,
       duration = 5000,
     } = request.params;
 
@@ -89,7 +97,7 @@ export const getBackgroundLogs = defineTool({
         duration,
         includeStored: includeHistory,
       });
-      
+
       const logs = result.logs;
 
       response.appendResponseLine(`# Background Logs\n`);
@@ -101,20 +109,25 @@ export const getBackgroundLogs = defineTool({
         response.appendResponseLine('**Possible reasons**:');
         response.appendResponseLine('- Extension has not logged anything yet');
         response.appendResponseLine('- Logs have been cleared');
-        response.appendResponseLine('- Time filter (since parameter) is too recent');
+        response.appendResponseLine(
+          '- Time filter (since parameter) is too recent',
+        );
         response.setIncludePages(true);
         return;
       }
 
       // Group logs by level
-      const grouped = logs.reduce((acc, log) => {
-        const level = log.level || 'log';
-        if (!acc[level]) {
-          acc[level] = [];
-        }
-        acc[level].push(log);
-        return acc;
-      }, {} as Record<string, typeof logs>);
+      const grouped = logs.reduce(
+        (acc, log) => {
+          const level = log.level || 'log';
+          if (!acc[level]) {
+            acc[level] = [];
+          }
+          acc[level].push(log);
+          return acc;
+        },
+        {} as Record<string, typeof logs>,
+      );
 
       // Display summary
       response.appendResponseLine('## Summary\n');
@@ -128,41 +141,48 @@ export const getBackgroundLogs = defineTool({
 
       for (const [lvl, entries] of Object.entries(grouped)) {
         const emoji = levelEmojis[lvl] || '📋';
-        response.appendResponseLine(`- ${emoji} **${lvl}**: ${entries.length} entries`);
+        response.appendResponseLine(
+          `- ${emoji} **${lvl}**: ${entries.length} entries`,
+        );
       }
 
       response.appendResponseLine('\n## Log Entries\n');
 
       // Display each log entry
-      logs.forEach((log) => {
+      logs.forEach(log => {
         const time = new Date(log.timestamp).toLocaleTimeString();
         const logLevel = log.level || 'log';
         const emoji = levelEmojis[logLevel] || '📋';
-        
-        response.appendResponseLine(`### ${emoji} ${logLevel.toUpperCase()} - ${time}`);
-        
+
+        response.appendResponseLine(
+          `### ${emoji} ${logLevel.toUpperCase()} - ${time}`,
+        );
+
         if (log.source) {
           response.appendResponseLine(`**Source**: ${log.source}`);
         }
-        
+
         response.appendResponseLine(`**Message**: ${log.text}`);
-        
+
         if (log.stackTrace) {
-          response.appendResponseLine(`**Stack Trace**:\n\`\`\`\n${log.stackTrace}\n\`\`\``);
+          response.appendResponseLine(
+            `**Stack Trace**:\n\`\`\`\n${log.stackTrace}\n\`\`\``,
+          );
         }
-        
+
         response.appendResponseLine('');
       });
 
-      response.appendResponseLine('\n**Tip**: Use the `since` parameter to get only new logs since your last check.');
-
+      response.appendResponseLine(
+        '\n**Tip**: Use the `since` parameter to get only new logs since your last check.',
+      );
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to get background logs. The Service Worker may be inactive or disabled.'
+        'Unable to get background logs. The Service Worker may be inactive or disabled.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });
@@ -210,12 +230,16 @@ export const getOffscreenLogs = defineTool({
     extensionId: z
       .string()
       .regex(/^[a-z]{32}$/)
-      .describe('Extension ID to get logs from. Get this from list_extensions.'),
+      .describe(
+        'Extension ID to get logs from. Get this from list_extensions.',
+      ),
     includeHistory: z
       .boolean()
       .optional()
       .default(false)
-      .describe('Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.'),
+      .describe(
+        'Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.',
+      ),
     level: z
       .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
       .optional()
@@ -228,21 +252,25 @@ export const getOffscreenLogs = defineTool({
     since: z
       .number()
       .optional()
-      .describe('Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.'),
+      .describe(
+        'Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.',
+      ),
     duration: z
       .number()
       .positive()
       .optional()
       .default(5000)
-      .describe('Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).'),
+      .describe(
+        'Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).',
+      ),
   },
   handler: async (request, response, context) => {
     const {
       extensionId,
       includeHistory = false,
-      level,
-      limit = 50,
-      since,
+      level: _level,
+      limit: _limit = 50,
+      since: _since,
       duration = 5000,
     } = request.params;
 
@@ -252,7 +280,7 @@ export const getOffscreenLogs = defineTool({
         duration,
         includeStored: includeHistory,
       });
-      
+
       const logs = result.logs;
 
       response.appendResponseLine(`# Offscreen Document Logs\n`);
@@ -262,15 +290,21 @@ export const getOffscreenLogs = defineTool({
       if (logs.length === 0) {
         response.appendResponseLine('*No logs found*\n');
         response.appendResponseLine('**Possible reasons**:');
-        response.appendResponseLine('- Offscreen Document has not been created yet');
-        response.appendResponseLine('- Offscreen Document has not logged anything');
+        response.appendResponseLine(
+          '- Offscreen Document has not been created yet',
+        );
+        response.appendResponseLine(
+          '- Offscreen Document has not logged anything',
+        );
         response.appendResponseLine('- Offscreen Document was closed');
         response.appendResponseLine('\n**How to create Offscreen Document**:');
         response.appendResponseLine('```javascript');
         response.appendResponseLine('await chrome.offscreen.createDocument({');
         response.appendResponseLine('  url: "offscreen.html",');
         response.appendResponseLine('  reasons: ["TESTING"],');
-        response.appendResponseLine('  justification: "Testing offscreen logging"');
+        response.appendResponseLine(
+          '  justification: "Testing offscreen logging"',
+        );
         response.appendResponseLine('});');
         response.appendResponseLine('```');
         response.setIncludePages(true);
@@ -278,14 +312,17 @@ export const getOffscreenLogs = defineTool({
       }
 
       // Group logs by level
-      const grouped = logs.reduce((acc, log) => {
-        const level = log.level || 'log';
-        if (!acc[level]) {
-          acc[level] = [];
-        }
-        acc[level].push(log);
-        return acc;
-      }, {} as Record<string, typeof logs>);
+      const grouped = logs.reduce(
+        (acc, log) => {
+          const level = log.level || 'log';
+          if (!acc[level]) {
+            acc[level] = [];
+          }
+          acc[level].push(log);
+          return acc;
+        },
+        {} as Record<string, typeof logs>,
+      );
 
       // Display summary
       response.appendResponseLine('## Summary\n');
@@ -299,45 +336,58 @@ export const getOffscreenLogs = defineTool({
 
       for (const [lvl, entries] of Object.entries(grouped)) {
         const emoji = levelEmojis[lvl] || '📋';
-        response.appendResponseLine(`- ${emoji} **${lvl}**: ${entries.length} entries`);
+        response.appendResponseLine(
+          `- ${emoji} **${lvl}**: ${entries.length} entries`,
+        );
       }
 
       response.appendResponseLine('\n## Log Entries\n');
 
       // Display each log entry
-      logs.forEach((log) => {
+      logs.forEach(log => {
         const time = new Date(log.timestamp).toLocaleTimeString();
         const logLevel = log.level || 'log';
         const emoji = levelEmojis[logLevel] || '📋';
-        
-        response.appendResponseLine(`### ${emoji} ${logLevel.toUpperCase()} - ${time}`);
-        
+
+        response.appendResponseLine(
+          `### ${emoji} ${logLevel.toUpperCase()} - ${time}`,
+        );
+
         if (log.source) {
           response.appendResponseLine(`**Source**: ${log.source}`);
         }
-        
+
         response.appendResponseLine(`**Message**: ${log.text}`);
-        
+
         if (log.stackTrace) {
-          response.appendResponseLine(`**Stack Trace**:\n\`\`\`\n${log.stackTrace}\n\`\`\``);
+          response.appendResponseLine(
+            `**Stack Trace**:\n\`\`\`\n${log.stackTrace}\n\`\`\``,
+          );
         }
-        
+
         response.appendResponseLine('');
       });
 
-      response.appendResponseLine('\n**Tip**: Use the `since` parameter to get only new logs since your last check.');
-      response.appendResponseLine('\n**Note**: Offscreen Document has independent console, separate from Service Worker and page console.');
-
+      response.appendResponseLine(
+        '\n**Tip**: Use the `since` parameter to get only new logs since your last check.',
+      );
+      response.appendResponseLine(
+        '\n**Note**: Offscreen Document has independent console, separate from Service Worker and page console.',
+      );
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to get offscreen logs. The Offscreen Document may not exist or has been closed.'
+        'Unable to get offscreen logs. The Offscreen Document may not exist or has been closed.',
       );
       response.appendResponseLine('\n**How to check**:');
-      response.appendResponseLine('1. Use `list_extension_contexts` to see if offscreen context exists');
-      response.appendResponseLine('2. Create Offscreen Document if needed using `chrome.offscreen.createDocument()`');
+      response.appendResponseLine(
+        '1. Use `list_extension_contexts` to see if offscreen context exists',
+      );
+      response.appendResponseLine(
+        '2. Create Offscreen Document if needed using `chrome.offscreen.createDocument()`',
+      );
     }
-    
+
     response.setIncludePages(true);
   },
 });

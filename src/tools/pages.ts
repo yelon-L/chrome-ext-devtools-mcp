@@ -136,10 +136,16 @@ Note: This operation depends on network conditions and page complexity. If navig
       });
     } catch (error) {
       // 友好的错误提示
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      if (errorMessage.includes('Timeout') || errorMessage.includes('timeout')) {
-        response.appendResponseLine(`⚠️ Navigation timeout: The page took too long to load.`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (
+        errorMessage.includes('Timeout') ||
+        errorMessage.includes('timeout')
+      ) {
+        response.appendResponseLine(
+          `⚠️ Navigation timeout: The page took too long to load.`,
+        );
         response.appendResponseLine(``);
         response.appendResponseLine(`**URL**: ${request.params.url}`);
         response.appendResponseLine(``);
@@ -149,17 +155,21 @@ Note: This operation depends on network conditions and page complexity. If navig
         response.appendResponseLine(`- URL may be incorrect or inaccessible`);
         response.appendResponseLine(``);
         response.appendResponseLine(`**Suggestions**:`);
-        response.appendResponseLine(`- Try a simpler website (e.g., https://example.com)`);
+        response.appendResponseLine(
+          `- Try a simpler website (e.g., https://example.com)`,
+        );
         response.appendResponseLine(`- Check your network connection`);
         response.appendResponseLine(`- Verify the URL is correct`);
-        response.appendResponseLine(`- The page may still be partially loaded - check with take_snapshot`);
-        
+        response.appendResponseLine(
+          `- The page may still be partially loaded - check with take_snapshot`,
+        );
+
         logger(`[navigate_page] Timeout navigating to ${request.params.url}`);
       } else {
         response.appendResponseLine(`⚠️ Navigation failed: ${errorMessage}`);
         response.appendResponseLine(``);
         response.appendResponseLine(`**URL**: ${request.params.url}`);
-        
+
         logger(`[navigate_page] Error: ${error}`);
       }
     }

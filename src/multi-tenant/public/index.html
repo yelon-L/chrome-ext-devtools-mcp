@@ -1,566 +1,661 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
     <title>Chrome DevTools MCP - 多租户管理</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
 
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-        }
+      .header {
+        text-align: center;
+        color: white;
+        margin-bottom: 40px;
+      }
 
+      .header h1 {
+        font-size: 2.5em;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        font-size: 1.1em;
+        opacity: 0.9;
+      }
+
+      .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        margin-bottom: 30px;
+      }
+
+      .card-title {
+        font-size: 1.5em;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
+
+      .badge-primary {
+        background: #667eea;
+        color: white;
+      }
+
+      .badge-success {
+        background: #48bb78;
+        color: white;
+      }
+
+      .badge-warning {
+        background: #ed8936;
+        color: white;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #4a5568;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1em;
+        transition: all 0.3s;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1em;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-primary {
+        background: #667eea;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn-success {
+        background: #48bb78;
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #38a169;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+      }
+
+      .btn-danger {
+        background: #f56565;
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #e53e3e;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 101, 101, 0.4);
+      }
+
+      .btn-secondary {
+        background: #edf2f7;
+        color: #4a5568;
+      }
+
+      .btn-secondary:hover {
+        background: #e2e8f0;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      .table th {
+        background: #f7fafc;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #4a5568;
+        border-bottom: 2px solid #e2e8f0;
+      }
+
+      .table td {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .table tr:hover {
+        background: #f7fafc;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #a0aec0;
+      }
+
+      .empty-state-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+      }
+
+      .alert {
+        padding: 16px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .alert-success {
+        background: #c6f6d5;
+        color: #22543d;
+        border-left: 4px solid #38a169;
+      }
+
+      .alert-error {
+        background: #fed7d7;
+        color: #742a2a;
+        border-left: 4px solid #e53e3e;
+      }
+
+      .alert-info {
+        background: #bee3f8;
+        color: #2c5282;
+        border-left: 4px solid #3182ce;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+
+      .modal-header {
+        margin-bottom: 20px;
+      }
+
+      .modal-title {
+        font-size: 1.5em;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .modal-footer {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .token-display {
+        background: #f7fafc;
+        padding: 12px;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        word-break: break-all;
+        margin: 10px 0;
+      }
+
+      .copy-btn {
+        padding: 8px 16px;
+        font-size: 0.9em;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 24px;
+        border-bottom: 2px solid #e2e8f0;
+      }
+
+      .tab {
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        font-size: 1em;
+        font-weight: 500;
+        color: #718096;
+        transition: all 0.3s;
+        margin-bottom: -2px;
+      }
+
+      .tab:hover {
+        color: #4a5568;
+      }
+
+      .tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      @media (max-width: 768px) {
         .header h1 {
-            font-size: 2.5em;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
+          font-size: 2em;
         }
 
         .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            margin-bottom: 30px;
-        }
-
-        .card-title {
-            font-size: 1.5em;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 500;
-        }
-
-        .badge-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .badge-success {
-            background: #48bb78;
-            color: white;
-        }
-
-        .badge-warning {
-            background: #ed8936;
-            color: white;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #4a5568;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: all 0.3s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-success {
-            background: #48bb78;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #38a169;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
-        }
-
-        .btn-danger {
-            background: #f56565;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #e53e3e;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.4);
-        }
-
-        .btn-secondary {
-            background: #edf2f7;
-            color: #4a5568;
-        }
-
-        .btn-secondary:hover {
-            background: #e2e8f0;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
+          padding: 20px;
         }
 
         .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .table th {
-            background: #f7fafc;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            color: #4a5568;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .table td {
-            padding: 12px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .table tr:hover {
-            background: #f7fafc;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #a0aec0;
-        }
-
-        .empty-state-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-
-        .alert {
-            padding: 16px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .alert-success {
-            background: #c6f6d5;
-            color: #22543d;
-            border-left: 4px solid #38a169;
-        }
-
-        .alert-error {
-            background: #fed7d7;
-            color: #742a2a;
-            border-left: 4px solid #e53e3e;
-        }
-
-        .alert-info {
-            background: #bee3f8;
-            color: #2c5282;
-            border-left: 4px solid #3182ce;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            margin-bottom: 20px;
-        }
-
-        .modal-title {
-            font-size: 1.5em;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .modal-footer {
-            margin-top: 24px;
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .token-display {
-            background: #f7fafc;
-            padding: 12px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            word-break: break-all;
-            margin: 10px 0;
-        }
-
-        .copy-btn {
-            padding: 8px 16px;
-            font-size: 0.9em;
+          font-size: 0.9em;
         }
 
         .tabs {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 24px;
-            border-bottom: 2px solid #e2e8f0;
+          overflow-x: auto;
         }
-
-        .tab {
-            padding: 12px 24px;
-            background: none;
-            border: none;
-            border-bottom: 2px solid transparent;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: 500;
-            color: #718096;
-            transition: all 0.3s;
-            margin-bottom: -2px;
-        }
-
-        .tab:hover {
-            color: #4a5568;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2em;
-            }
-
-            .card {
-                padding: 20px;
-            }
-
-            .table {
-                font-size: 0.9em;
-            }
-
-            .tabs {
-                overflow-x: auto;
-            }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <h1>🚀 Chrome DevTools MCP</h1>
-            <p>多租户浏览器调试管理平台</p>
+      <div class="header">
+        <h1>🚀 Chrome DevTools MCP</h1>
+        <p>多租户浏览器调试管理平台</p>
+      </div>
+
+      <div id="alertContainer"></div>
+
+      <!-- 选项卡 -->
+      <div class="card">
+        <div class="tabs">
+          <button
+            class="tab active"
+            onclick="switchTab('users')"
+            >👥 用户管理</button
+          >
+          <button
+            class="tab"
+            onclick="switchTab('register')"
+            >➕ 注册用户</button
+          >
+          <button
+            class="tab"
+            onclick="switchTab('about')"
+            >ℹ️ 关于</button
+          >
         </div>
 
-        <div id="alertContainer"></div>
+        <!-- 用户管理选项卡 -->
+        <div
+          id="users-tab"
+          class="tab-content active"
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            "
+          >
+            <h2 class="card-title">
+              用户列表
+              <span
+                class="badge badge-primary"
+                id="userCount"
+                >0</span
+              >
+            </h2>
+            <button
+              class="btn btn-secondary"
+              onclick="loadUsers()"
+            >
+              🔄 刷新
+            </button>
+          </div>
 
-        <!-- 选项卡 -->
-        <div class="card">
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('users')">👥 用户管理</button>
-                <button class="tab" onclick="switchTab('register')">➕ 注册用户</button>
-                <button class="tab" onclick="switchTab('about')">ℹ️ 关于</button>
+          <div id="usersContainer">
+            <div class="empty-state">
+              <div class="empty-state-icon">📦</div>
+              <p>正在加载用户数据...</p>
             </div>
-
-            <!-- 用户管理选项卡 -->
-            <div id="users-tab" class="tab-content active">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 class="card-title">
-                        用户列表
-                        <span class="badge badge-primary" id="userCount">0</span>
-                    </h2>
-                    <button class="btn btn-secondary" onclick="loadUsers()">
-                        🔄 刷新
-                    </button>
-                </div>
-
-                <div id="usersContainer">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📦</div>
-                        <p>正在加载用户数据...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 注册用户选项卡 -->
-            <div id="register-tab" class="tab-content">
-                <h2 class="card-title">注册新用户</h2>
-
-                <form onsubmit="handleRegister(event)">
-                    <div class="form-group">
-                        <label class="form-label">📧 邮箱地址 *</label>
-                        <input type="email" id="email" class="form-input" required
-                               placeholder="user@example.com">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">👤 用户名</label>
-                        <input type="text" id="username" class="form-input"
-                               placeholder="可选，默认使用邮箱前缀">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary" id="registerBtn">
-                        ✅ 注册用户
-                    </button>
-                </form>
-
-                <div style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #e2e8f0;">
-                    <p style="color: #718096; margin-bottom: 15px;">
-                        💡 <strong>提示</strong>：注册完成后，请到用户列表中选择该用户，然后绑定浏览器获取 Token。
-                    </p>
-                </div>
-            </div>
-
-            <!-- 关于选项卡 -->
-            <div id="about-tab" class="tab-content">
-                <h2 class="card-title">关于 V2 API</h2>
-
-                <div style="line-height: 1.8; color: #4a5568;">
-                    <h3 style="margin: 20px 0 10px; color: #2d3748;">✨ 核心特性</h3>
-                    <ul style="margin-left: 20px;">
-                        <li>📧 基于邮箱的用户注册</li>
-                        <li>🌐 每个用户可绑定多个浏览器</li>
-                        <li>🔑 每个浏览器独立 token</li>
-                        <li>⚡ Token 自动识别浏览器</li>
-                        <li>🔐 安全的 SSE V2 连接</li>
-                    </ul>
-
-                    <h3 style="margin: 20px 0 10px; color: #2d3748;">🚀 API 端点</h3>
-                    <div class="token-display" style="margin: 10px 0;">
-POST   /api/v2/users                      - 注册用户<br>
-GET    /api/v2/users                      - 列出所有用户<br>
-POST   /api/v2/users/:id/browsers         - 绑定浏览器<br>
-GET    /api/v2/users/:id/browsers         - 列出浏览器<br>
-GET    /api/v2/sse                        - SSE V2 连接<br>
-GET    /metrics                           - 性能指标
-                    </div>
-
-                    <h3 style="margin: 20px 0 10px; color: #2d3748;">📚 文档</h3>
-                    <p>详细文档请查看项目的 <code>docs/</code> 目录</p>
-                </div>
-            </div>
+          </div>
         </div>
+
+        <!-- 注册用户选项卡 -->
+        <div
+          id="register-tab"
+          class="tab-content"
+        >
+          <h2 class="card-title">注册新用户</h2>
+
+          <form onsubmit="handleRegister(event)">
+            <div class="form-group">
+              <label class="form-label">📧 邮箱地址 *</label>
+              <input
+                type="email"
+                id="email"
+                class="form-input"
+                required
+                placeholder="user@example.com"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">👤 用户名</label>
+              <input
+                type="text"
+                id="username"
+                class="form-input"
+                placeholder="可选，默认使用邮箱前缀"
+              />
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary"
+              id="registerBtn"
+            >
+              ✅ 注册用户
+            </button>
+          </form>
+
+          <div
+            style="
+              margin-top: 30px;
+              padding-top: 30px;
+              border-top: 2px solid #e2e8f0;
+            "
+          >
+            <p style="color: #718096; margin-bottom: 15px">
+              💡
+              <strong>提示</strong
+              >：注册完成后，请到用户列表中选择该用户，然后绑定浏览器获取
+              Token。
+            </p>
+          </div>
+        </div>
+
+        <!-- 关于选项卡 -->
+        <div
+          id="about-tab"
+          class="tab-content"
+        >
+          <h2 class="card-title">关于 V2 API</h2>
+
+          <div style="line-height: 1.8; color: #4a5568">
+            <h3 style="margin: 20px 0 10px; color: #2d3748">✨ 核心特性</h3>
+            <ul style="margin-left: 20px">
+              <li>📧 基于邮箱的用户注册</li>
+              <li>🌐 每个用户可绑定多个浏览器</li>
+              <li>🔑 每个浏览器独立 token</li>
+              <li>⚡ Token 自动识别浏览器</li>
+              <li>🔐 安全的 SSE V2 连接</li>
+            </ul>
+
+            <h3 style="margin: 20px 0 10px; color: #2d3748">🚀 API 端点</h3>
+            <div
+              class="token-display"
+              style="margin: 10px 0"
+            >
+              POST /api/v2/users - 注册用户<br />
+              GET /api/v2/users - 列出所有用户<br />
+              POST /api/v2/users/:id/browsers - 绑定浏览器<br />
+              GET /api/v2/users/:id/browsers - 列出浏览器<br />
+              GET /api/v2/sse - SSE V2 连接<br />
+              GET /metrics - 性能指标
+            </div>
+
+            <h3 style="margin: 20px 0 10px; color: #2d3748">📚 文档</h3>
+            <p>详细文档请查看项目的 <code>docs/</code> 目录</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Token 显示模态框 -->
-    <div id="tokenModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">🎉 注册成功！</h3>
-            </div>
-
-            <div class="alert alert-success">
-                ✅ 用户已注册并成功绑定浏览器
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">用户 ID</label>
-                <div class="token-display" id="modalUserId"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">访问 Token（请妥善保存）</label>
-                <div class="token-display" id="modalToken"></div>
-                <button class="btn btn-secondary copy-btn" onclick="copyToken()">
-                    📋 复制 Token
-                </button>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">浏览器名称</label>
-                <div class="token-display" id="modalTokenName"></div>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-primary" onclick="closeTokenModal()">
-                    ✅ 我已保存
-                </button>
-            </div>
+    <div
+      id="tokenModal"
+      class="modal"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">🎉 注册成功！</h3>
         </div>
+
+        <div class="alert alert-success"> ✅ 用户已注册并成功绑定浏览器 </div>
+
+        <div class="form-group">
+          <label class="form-label">用户 ID</label>
+          <div
+            class="token-display"
+            id="modalUserId"
+          ></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">访问 Token（请妥善保存）</label>
+          <div
+            class="token-display"
+            id="modalToken"
+          ></div>
+          <button
+            class="btn btn-secondary copy-btn"
+            onclick="copyToken()"
+          >
+            📋 复制 Token
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">浏览器名称</label>
+          <div
+            class="token-display"
+            id="modalTokenName"
+          ></div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            class="btn btn-primary"
+            onclick="closeTokenModal()"
+          >
+            ✅ 我已保存
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 浏览器列表模态框 -->
-    <div id="browsersModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header">
-                <h3 class="modal-title" id="browsersModalTitle"></h3>
-            </div>
-
-            <div id="browsersContainer"></div>
-
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeBrowsersModal()">
-                    关闭
-                </button>
-            </div>
+    <div
+      id="browsersModal"
+      class="modal"
+    >
+      <div
+        class="modal-content"
+        style="max-width: 700px"
+      >
+        <div class="modal-header">
+          <h3
+            class="modal-title"
+            id="browsersModalTitle"
+          ></h3>
         </div>
+
+        <div id="browsersContainer"></div>
+
+        <div class="modal-footer">
+          <button
+            class="btn btn-secondary"
+            onclick="closeBrowsersModal()"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
     </div>
 
     <script>
-        const API_BASE = '/api/v2';
-        let currentUserId = null;
-        let registeredToken = null;
+      const API_BASE = '/api/v2';
+      let currentUserId = null;
+      let registeredToken = null;
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            loadUsers();
+      // 初始化
+      document.addEventListener('DOMContentLoaded', () => {
+        loadUsers();
+      });
+
+      // 切换选项卡
+      function switchTab(tabName) {
+        // 更新选项卡状态
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.classList.remove('active');
         });
+        event.target.classList.add('active');
 
-        // 切换选项卡
-        function switchTab(tabName) {
-            // 更新选项卡状态
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
+        // 更新内容
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.remove('active');
+        });
+        document.getElementById(tabName + '-tab').classList.add('active');
+      }
 
-            // 更新内容
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(tabName + '-tab').classList.add('active');
-        }
+      // 显示提示
+      function showAlert(message, type = 'success') {
+        const container = document.getElementById('alertContainer');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
 
-        // 显示提示
-        function showAlert(message, type = 'success') {
-            const container = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
+        container.appendChild(alert);
 
-            container.appendChild(alert);
+        setTimeout(() => {
+          alert.remove();
+        }, 5000);
+      }
 
-            setTimeout(() => {
-                alert.remove();
-            }, 5000);
-        }
+      // 加载用户列表
+      async function loadUsers() {
+        try {
+          const response = await fetch(`${API_BASE}/users`);
+          const data = await response.json();
 
-        // 加载用户列表
-        async function loadUsers() {
-            try {
-                const response = await fetch(`${API_BASE}/users`);
-                const data = await response.json();
+          const container = document.getElementById('usersContainer');
+          document.getElementById('userCount').textContent = data.total;
 
-                const container = document.getElementById('usersContainer');
-                document.getElementById('userCount').textContent = data.total;
-
-                if (data.users.length === 0) {
-                    container.innerHTML = `
+          if (data.users.length === 0) {
+            container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
                             <p>还没有注册用户</p>
@@ -569,10 +664,10 @@ GET    /metrics                           - 性能指标
                             </button>
                         </div>
                     `;
-                    return;
-                }
+            return;
+          }
 
-                container.innerHTML = `
+          container.innerHTML = `
                     <table class="table">
                         <thead>
                             <tr>
@@ -585,7 +680,9 @@ GET    /metrics                           - 性能指标
                             </tr>
                         </thead>
                         <tbody>
-                            ${data.users.map(user => `
+                            ${data.users
+                              .map(
+                                user => `
                                 <tr>
                                     <td><code>${user.userId}</code></td>
                                     <td>${user.email}</td>
@@ -605,86 +702,89 @@ GET    /metrics                           - 性能指标
                                         </button>
                                     </td>
                                 </tr>
-                            `).join('')}
+                            `,
+                              )
+                              .join('')}
                         </tbody>
                     </table>
                 `;
-            } catch (error) {
-                showAlert('加载用户列表失败: ' + error.message, 'error');
-            }
+        } catch (error) {
+          showAlert('加载用户列表失败: ' + error.message, 'error');
         }
+      }
 
-        // 注册用户（只注册，不绑定浏览器）
-        async function handleRegister(event) {
-            event.preventDefault();
+      // 注册用户（只注册，不绑定浏览器）
+      async function handleRegister(event) {
+        event.preventDefault();
 
-            const btn = document.getElementById('registerBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> 注册中...';
+        const btn = document.getElementById('registerBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> 注册中...';
 
-            try {
-                const email = document.getElementById('email').value;
-                const username = document.getElementById('username').value;
+        try {
+          const email = document.getElementById('email').value;
+          const username = document.getElementById('username').value;
 
-                // 只注册用户
-                const registerResponse = await fetch(`${API_BASE}/users`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, username: username || undefined })
-                });
+          // 只注册用户
+          const registerResponse = await fetch(`${API_BASE}/users`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, username: username || undefined}),
+          });
 
-                if (!registerResponse.ok) {
-                    const error = await registerResponse.json();
-                    throw new Error(error.message || error.error);
-                }
+          if (!registerResponse.ok) {
+            const error = await registerResponse.json();
+            throw new Error(error.message || error.error);
+          }
 
-                const userData = await registerResponse.json();
+          const userData = await registerResponse.json();
 
-                // 重置表单
-                event.target.reset();
+          // 重置表单
+          event.target.reset();
 
-                showAlert(`用户注册成功！用户 ID: ${userData.userId}`, 'success');
-                
-                // 切换到用户列表并刷新
-                setTimeout(() => {
-                    switchTab('users');
-                    document.querySelector('.tab[onclick*=users]').click();
-                    loadUsers();
-                }, 1500);
-            } catch (error) {
-                showAlert('注册失败: ' + error.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '✅ 注册用户';
-            }
-        }
+          showAlert(`用户注册成功！用户 ID: ${userData.userId}`, 'success');
 
-        // 复制 Token
-        function copyToken() {
-            navigator.clipboard.writeText(registeredToken).then(() => {
-                showAlert('Token 已复制到剪贴板', 'success');
-            });
-        }
-
-        // 关闭 Token 模态框
-        function closeTokenModal() {
-            document.getElementById('tokenModal').classList.remove('active');
-            loadUsers();
+          // 切换到用户列表并刷新
+          setTimeout(() => {
             switchTab('users');
             document.querySelector('.tab[onclick*=users]').click();
+            loadUsers();
+          }, 1500);
+        } catch (error) {
+          showAlert('注册失败: ' + error.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '✅ 注册用户';
         }
+      }
 
-        // 查看浏览器列表
-        async function viewBrowsers(userId) {
-            try {
-                const response = await fetch(`${API_BASE}/users/${userId}/browsers`);
-                const data = await response.json();
+      // 复制 Token
+      function copyToken() {
+        navigator.clipboard.writeText(registeredToken).then(() => {
+          showAlert('Token 已复制到剪贴板', 'success');
+        });
+      }
 
-                document.getElementById('browsersModalTitle').textContent = `🌐 ${userId} 的浏览器`;
+      // 关闭 Token 模态框
+      function closeTokenModal() {
+        document.getElementById('tokenModal').classList.remove('active');
+        loadUsers();
+        switchTab('users');
+        document.querySelector('.tab[onclick*=users]').click();
+      }
 
-                const container = document.getElementById('browsersContainer');
+      // 查看浏览器列表
+      async function viewBrowsers(userId) {
+        try {
+          const response = await fetch(`${API_BASE}/users/${userId}/browsers`);
+          const data = await response.json();
 
-                container.innerHTML = `
+          document.getElementById('browsersModalTitle').textContent =
+            `🌐 ${userId} 的浏览器`;
+
+          const container = document.getElementById('browsersContainer');
+
+          container.innerHTML = `
                     <div style="margin-bottom: 20px;">
                         <button class="btn btn-success" onclick="showBindBrowserForm('${userId}')">
                             ➕ 绑定新浏览器
@@ -712,16 +812,16 @@ GET    /metrics                           - 性能指标
                         </button>
                     </div>
                 `;
-                
-                if (data.browsers.length === 0) {
-                    container.innerHTML += `
+
+          if (data.browsers.length === 0) {
+            container.innerHTML += `
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
                             <p>还没有绑定浏览器，点击上方按钮绑定第一个浏览器</p>
                         </div>
                     `;
-                } else {
-                    container.innerHTML += `
+          } else {
+            container.innerHTML += `
                         <table class="table">
                             <thead>
                                 <tr>
@@ -733,7 +833,9 @@ GET    /metrics                           - 性能指标
                                 </tr>
                             </thead>
                             <tbody>
-                                ${data.browsers.map(browser => `
+                                ${data.browsers
+                                  .map(
+                                    browser => `
                                     <tr>
                                         <td>${browser.tokenName}</td>
                                         <td><code style="font-size: 0.85em;">${browser.browserURL}</code></td>
@@ -752,132 +854,150 @@ GET    /metrics                           - 性能指标
                                             </button>
                                         </td>
                                     </tr>
-                                `).join('')}
+                                `,
+                                  )
+                                  .join('')}
                             </tbody>
                         </table>
                     `;
-                }
+          }
 
-                document.getElementById('browsersModal').classList.add('active');
-            } catch (error) {
-                showAlert('加载浏览器列表失败: ' + error.message, 'error');
-            }
+          document.getElementById('browsersModal').classList.add('active');
+        } catch (error) {
+          showAlert('加载浏览器列表失败: ' + error.message, 'error');
+        }
+      }
+
+      // 显示绑定浏览器表单
+      function showBindBrowserForm(userId) {
+        document.getElementById(`bindBrowserForm-${userId}`).style.display =
+          'block';
+      }
+
+      // 隐藏绑定浏览器表单
+      function hideBindBrowserForm(userId) {
+        document.getElementById(`bindBrowserForm-${userId}`).style.display =
+          'none';
+      }
+
+      // 绑定浏览器
+      async function bindBrowser(userId) {
+        const browserURL = document.getElementById(
+          `bindBrowserURL-${userId}`,
+        ).value;
+        const tokenName = document.getElementById(
+          `bindTokenName-${userId}`,
+        ).value;
+
+        if (!browserURL) {
+          showAlert('请输入浏览器地址', 'error');
+          return;
         }
 
-        // 显示绑定浏览器表单
-        function showBindBrowserForm(userId) {
-            document.getElementById(`bindBrowserForm-${userId}`).style.display = 'block';
+        try {
+          const response = await fetch(`${API_BASE}/users/${userId}/browsers`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              browserURL,
+              tokenName: tokenName || undefined,
+              description: 'Bound via Web UI',
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || error.error);
+          }
+
+          const data = await response.json();
+          showAlert(
+            `浏览器绑定成功！Token: ${data.token.substring(0, 20)}...`,
+            'success',
+          );
+
+          // 刷新浏览器列表
+          viewBrowsers(userId);
+          loadUsers();
+        } catch (error) {
+          showAlert('绑定失败: ' + error.message, 'error');
         }
+      }
 
-        // 隐藏绑定浏览器表单
-        function hideBindBrowserForm(userId) {
-            document.getElementById(`bindBrowserForm-${userId}`).style.display = 'none';
-        }
-
-        // 绑定浏览器
-        async function bindBrowser(userId) {
-            const browserURL = document.getElementById(`bindBrowserURL-${userId}`).value;
-            const tokenName = document.getElementById(`bindTokenName-${userId}`).value;
-
-            if (!browserURL) {
-                showAlert('请输入浏览器地址', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/users/${userId}/browsers`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        browserURL,
-                        tokenName: tokenName || undefined,
-                        description: 'Bound via Web UI'
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || error.error);
-                }
-
-                const data = await response.json();
-                showAlert(`浏览器绑定成功！Token: ${data.token.substring(0, 20)}...`, 'success');
-                
-                // 刷新浏览器列表
-                viewBrowsers(userId);
-                loadUsers();
-            } catch (error) {
-                showAlert('绑定失败: ' + error.message, 'error');
-            }
-        }
-
-        // 复制 Token 值
-        function copyTokenValue(token) {
-            navigator.clipboard.writeText(token).then(() => {
-                showAlert('Token 已复制到剪贴板', 'success');
-            });
-        }
-
-        // 关闭浏览器模态框
-        function closeBrowsersModal() {
-            document.getElementById('browsersModal').classList.remove('active');
-        }
-
-        // 解绑浏览器
-        async function unbindBrowser(userId, browserId) {
-            if (!confirm(`确定要解绑该浏览器吗？`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/users/${userId}/browsers/${browserId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || error.error);
-                }
-
-                showAlert('浏览器已解绑', 'success');
-                viewBrowsers(userId); // 刷新浏览器列表
-                loadUsers(); // 刷新用户列表
-            } catch (error) {
-                showAlert('解绑失败: ' + error.message, 'error');
-            }
-        }
-
-        // 删除用户
-        async function deleteUser(userId) {
-            if (!confirm(`确定要删除用户 "${userId}" 及其所有浏览器吗？此操作不可恢复！`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/users/${userId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || error.error);
-                }
-
-                showAlert('用户已删除', 'success');
-                loadUsers();
-            } catch (error) {
-                showAlert('删除失败: ' + error.message, 'error');
-            }
-        }
-
-        // 点击模态框背景关闭
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
+      // 复制 Token 值
+      function copyTokenValue(token) {
+        navigator.clipboard.writeText(token).then(() => {
+          showAlert('Token 已复制到剪贴板', 'success');
         });
+      }
+
+      // 关闭浏览器模态框
+      function closeBrowsersModal() {
+        document.getElementById('browsersModal').classList.remove('active');
+      }
+
+      // 解绑浏览器
+      async function unbindBrowser(userId, browserId) {
+        if (!confirm(`确定要解绑该浏览器吗？`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/users/${userId}/browsers/${browserId}`,
+            {
+              method: 'DELETE',
+            },
+          );
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || error.error);
+          }
+
+          showAlert('浏览器已解绑', 'success');
+          viewBrowsers(userId); // 刷新浏览器列表
+          loadUsers(); // 刷新用户列表
+        } catch (error) {
+          showAlert('解绑失败: ' + error.message, 'error');
+        }
+      }
+
+      // 删除用户
+      async function deleteUser(userId) {
+        if (
+          !confirm(
+            `确定要删除用户 "${userId}" 及其所有浏览器吗？此操作不可恢复！`,
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/users/${userId}`, {
+            method: 'DELETE',
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || error.error);
+          }
+
+          showAlert('用户已删除', 'success');
+          loadUsers();
+        } catch (error) {
+          showAlert('删除失败: ' + error.message, 'error');
+        }
+      }
+
+      // 点击模态框背景关闭
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', e => {
+          if (e.target === modal) {
+            modal.classList.remove('active');
+          }
+        });
+      });
     </script>
-</body>
+  </body>
 </html>

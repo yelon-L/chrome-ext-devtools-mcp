@@ -6,7 +6,7 @@
 
 /**
  * Extension tool error constants
- * 
+ *
  * Following the pattern from pages.ts (CLOSE_PAGE_ERROR)
  * These are expected errors that should be caught and converted to user messages
  */
@@ -22,7 +22,8 @@ export const CONTEXT_SWITCH_FAILED = 'CONTEXT_SWITCH_FAILED';
 
 // Service Worker errors
 export const SERVICE_WORKER_INACTIVE = 'SERVICE_WORKER_INACTIVE';
-export const SERVICE_WORKER_ACTIVATION_FAILED = 'SERVICE_WORKER_ACTIVATION_FAILED';
+export const SERVICE_WORKER_ACTIVATION_FAILED =
+  'SERVICE_WORKER_ACTIVATION_FAILED';
 
 // Operation errors
 export const RELOAD_TIMEOUT = 'RELOAD_TIMEOUT';
@@ -40,11 +41,14 @@ export const MANIFEST_NOT_AVAILABLE = 'MANIFEST_NOT_AVAILABLE';
 export function createExtensionError(
   type: string,
   message: string,
-  data?: Record<string, any>
+  data?: Record<string, unknown>,
 ): Error {
-  const error = new Error(type);
-  (error as any).userMessage = message;
-  (error as any).data = data;
+  const error = new Error(type) as Error & {
+    userMessage?: string;
+    data?: Record<string, unknown>;
+  };
+  error.userMessage = message;
+  error.data = data;
   return error;
 }
 

@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -37,7 +36,12 @@ export class PerformanceMonitor {
   /**
    * 记录 API 调用
    */
-  record(endpoint: string, method: string, duration: number, isError = false): void {
+  record(
+    endpoint: string,
+    method: string,
+    duration: number,
+    isError = false,
+  ): void {
     const key = `${method} ${endpoint}`;
     const existing = this.stats.get(key);
 
@@ -57,14 +61,14 @@ export class PerformanceMonitor {
         // 删除最久未使用的条目
         let oldestKey: string | null = null;
         let oldestTime = Date.now();
-        
+
         for (const [k, v] of this.stats.entries()) {
           if (v.lastCalled < oldestTime) {
             oldestTime = v.lastCalled;
             oldestKey = k;
           }
         }
-        
+
         if (oldestKey) {
           this.stats.delete(oldestKey);
         }
@@ -143,7 +147,7 @@ export class PerformanceMonitor {
     const totalRequests = stats.reduce((sum, s) => sum + s.count, 0);
     const totalErrors = stats.reduce((sum, s) => sum + s.errors, 0);
     const totalTime = stats.reduce((sum, s) => sum + s.totalTime, 0);
-    
+
     return {
       totalRequests,
       totalErrors,

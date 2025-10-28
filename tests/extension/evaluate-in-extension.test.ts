@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -15,11 +14,13 @@ import {fileURLToPath} from 'node:url';
 import type {Browser} from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_EXTENSION_PATH = path.join(__dirname, '../../test-extension-enhanced');
+const TEST_EXTENSION_PATH = path.join(
+  __dirname,
+  '../../test-extension-enhanced',
+);
 
 describe('evaluate_in_extension', () => {
   let browser: Browser;
@@ -46,7 +47,7 @@ describe('evaluate_in_extension', () => {
     // 获取测试扩展 ID
     const extensions = await helper.getExtensions();
     const testExt = extensions.find(ext =>
-      ext.name.includes('Enhanced MCP Debug Test Extension')
+      ext.name.includes('Enhanced MCP Debug Test Extension'),
     );
 
     if (!testExt) {
@@ -82,7 +83,7 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         '1 + 1',
-        true
+        true,
       );
 
       assert.strictEqual(result, 2, '1 + 1 应该等于 2');
@@ -102,7 +103,7 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         '"Hello " + "World"',
-        true
+        true,
       );
 
       assert.strictEqual(result, 'Hello World', '字符串拼接应该正确');
@@ -122,11 +123,15 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         '({foo: "bar", num: 42})',
-        true
+        true,
       );
 
       assert.ok(typeof result === 'object', '应该返回对象');
-      assert.strictEqual((result as {foo: string}).foo, 'bar', 'foo 应该是 bar');
+      assert.strictEqual(
+        (result as {foo: string}).foo,
+        'bar',
+        'foo 应该是 bar',
+      );
       assert.strictEqual((result as {num: number}).num, 42, 'num 应该是 42');
       console.log(`✅ 对象求值:`, result);
     } catch (error) {
@@ -144,7 +149,7 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         '[1, 2, 3].map(x => x * 2)',
-        true
+        true,
       );
 
       assert.ok(Array.isArray(result), '应该返回数组');
@@ -165,7 +170,7 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         'Promise.resolve(42)',
-        true
+        true,
       );
 
       assert.strictEqual(result, 42, 'Promise 应该正确 resolve');
@@ -185,7 +190,7 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         'typeof globalThis',
-        true
+        true,
       );
 
       assert.strictEqual(result, 'object', 'globalThis 应该存在');
@@ -205,11 +210,11 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         'typeof chrome',
-        true
+        true,
       );
 
       console.log(`✅ chrome API: typeof chrome = ${result}`);
-      
+
       if (result === 'object') {
         console.log(`   chrome API 可用`);
       } else {
@@ -230,14 +235,20 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         'chrome?.runtime?.id',
-        true
+        true,
       );
 
       if (result) {
         console.log(`✅ chrome.runtime.id = ${result}`);
-        assert.strictEqual(result, testExtensionId, 'runtime.id 应该匹配扩展 ID');
+        assert.strictEqual(
+          result,
+          testExtensionId,
+          'runtime.id 应该匹配扩展 ID',
+        );
       } else {
-        console.log(`ℹ️  chrome.runtime.id 不可用（Service Worker 可能未激活）`);
+        console.log(
+          `ℹ️  chrome.runtime.id 不可用（Service Worker 可能未激活）`,
+        );
       }
     } catch (error) {
       console.log(`⚠️  runtime.id 测试跳过: ${(error as Error).message}`);
@@ -254,7 +265,7 @@ describe('evaluate_in_extension', () => {
       await helper.evaluateInContext(
         backgroundTargetId,
         'throw new Error("Test error")',
-        true
+        true,
       );
 
       assert.fail('应该抛出错误');
@@ -274,7 +285,7 @@ describe('evaluate_in_extension', () => {
       const result = await helper.evaluateInContext(
         backgroundTargetId,
         'Promise.resolve(42)',
-        false  // 不等待 Promise
+        false, // 不等待 Promise
       );
 
       console.log(`✅ 不等待 Promise:`, result);

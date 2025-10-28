@@ -6,7 +6,7 @@
 
 /**
  * Extension Storage monitoring tool
- * 
+ *
  * Monitor extension Storage changes in real-time
  */
 
@@ -64,7 +64,9 @@ Useful for debugging data persistence, state management, and synchronization iss
       .number()
       .positive()
       .optional()
-      .describe('Monitoring duration in milliseconds. Default is 30000 (30 seconds).'),
+      .describe(
+        'Monitoring duration in milliseconds. Default is 30000 (30 seconds).',
+      ),
     storageTypes: z
       .array(z.enum(['local', 'sync', 'session', 'managed']))
       .optional()
@@ -81,8 +83,12 @@ Useful for debugging data persistence, state management, and synchronization iss
       response.appendResponseLine(`# Extension Storage Monitoring\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
       response.appendResponseLine(`**Duration**: ${duration / 1000} seconds`);
-      response.appendResponseLine(`**Storage Types**: ${storageTypes.join(', ')}\n`);
-      response.appendResponseLine(`⏳ Monitoring started... Make storage changes in the extension.\n`);
+      response.appendResponseLine(
+        `**Storage Types**: ${storageTypes.join(', ')}\n`,
+      );
+      response.appendResponseLine(
+        `⏳ Monitoring started... Make storage changes in the extension.\n`,
+      );
 
       const changes = await context.watchExtensionStorage(
         extensionId,
@@ -90,48 +96,62 @@ Useful for debugging data persistence, state management, and synchronization iss
         duration,
       );
 
-      response.appendResponseLine(`\n## Captured Changes (${changes.length})\n`);
+      response.appendResponseLine(
+        `\n## Captured Changes (${changes.length})\n`,
+      );
 
       if (changes.length === 0) {
-        response.appendResponseLine('*No storage changes detected during the monitoring period*\n');
+        response.appendResponseLine(
+          '*No storage changes detected during the monitoring period*\n',
+        );
         response.appendResponseLine('**Suggestions**:');
         response.appendResponseLine('- Increase monitoring duration');
         response.appendResponseLine('- Trigger actions that modify storage');
-        response.appendResponseLine('- Ensure the extension has write permissions for the storage type');
+        response.appendResponseLine(
+          '- Ensure the extension has write permissions for the storage type',
+        );
         response.appendResponseLine('- Check if Service Worker is active');
       } else {
         changes.forEach((change: ExtensionStorageChange, index: number) => {
           const time = new Date(change.timestamp).toLocaleTimeString();
           const changedKeys = Object.keys(change.changes);
-          
-          response.appendResponseLine(`### 🔄 Change ${index + 1} - ${change.storageArea} storage`);
+
+          response.appendResponseLine(
+            `### 🔄 Change ${index + 1} - ${change.storageArea} storage`,
+          );
           response.appendResponseLine(`**Time**: ${time}`);
-          response.appendResponseLine(`**Keys Changed**: ${changedKeys.join(', ')}\n`);
+          response.appendResponseLine(
+            `**Keys Changed**: ${changedKeys.join(', ')}\n`,
+          );
 
           // Show detailed changes for each key
           changedKeys.forEach(key => {
             const {oldValue, newValue} = change.changes[key];
-            
+
             response.appendResponseLine(`#### Key: \`${key}\``);
-            
+
             if (oldValue !== undefined) {
               response.appendResponseLine(`**Old Value**:`);
               response.appendResponseLine('```json');
               response.appendResponseLine(JSON.stringify(oldValue, null, 2));
               response.appendResponseLine('```');
             } else {
-              response.appendResponseLine(`**Old Value**: *undefined (new key)*`);
+              response.appendResponseLine(
+                `**Old Value**: *undefined (new key)*`,
+              );
             }
-            
+
             if (newValue !== undefined) {
               response.appendResponseLine(`**New Value**:`);
               response.appendResponseLine('```json');
               response.appendResponseLine(JSON.stringify(newValue, null, 2));
               response.appendResponseLine('```');
             } else {
-              response.appendResponseLine(`**New Value**: *undefined (key removed)*`);
+              response.appendResponseLine(
+                `**New Value**: *undefined (key removed)*`,
+              );
             }
-            
+
             response.appendResponseLine('');
           });
         });
@@ -139,7 +159,8 @@ Useful for debugging data persistence, state management, and synchronization iss
         // Statistics
         const byStorageType: Record<string, number> = {};
         changes.forEach((change: ExtensionStorageChange) => {
-          byStorageType[change.storageArea] = (byStorageType[change.storageArea] || 0) + 1;
+          byStorageType[change.storageArea] =
+            (byStorageType[change.storageArea] || 0) + 1;
         });
 
         response.appendResponseLine(`\n## Statistics\n`);
@@ -168,14 +189,13 @@ Useful for debugging data persistence, state management, and synchronization iss
           });
         }
       }
-
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to watch storage changes. The extension may be inactive or disabled.'
+        'Unable to watch storage changes. The extension may be inactive or disabled.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });

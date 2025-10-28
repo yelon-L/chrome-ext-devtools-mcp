@@ -12,7 +12,11 @@ import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import {SetLevelRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 
 import type {Channel} from './browser.js';
-import {ensureBrowserConnected, ensureBrowserLaunched, validateBrowserURL} from './browser.js';
+import {
+  ensureBrowserConnected,
+  ensureBrowserLaunched,
+  validateBrowserURL,
+} from './browser.js';
 import {parseArguments} from './cli.js';
 import {logger, saveLogsToFile} from './logger.js';
 import {McpContext} from './McpContext.js';
@@ -71,7 +75,6 @@ async function getContext(): Promise<McpContext> {
   }
   return context;
 }
-
 
 const toolMutex = new Mutex();
 
@@ -141,7 +144,9 @@ if (args.browserUrl) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('\n❌ Browser Connection Validation Failed');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error(
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    );
     console.error(`Error: ${errorMessage}`);
     console.error('');
     console.error('📝 Please check:');
@@ -150,7 +155,9 @@ if (args.browserUrl) {
     console.error('  2. The browser URL is correct and accessible:');
     console.error(`     ${args.browserUrl}`);
     console.error('  3. No firewall is blocking the connection');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error(
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    );
     console.error('');
     process.exit(1);
   }
@@ -169,7 +176,7 @@ const lastRequestTime = Date.now();
 // 空闲超时配置（毫秒）
 // 0 = 永不超时，适合开发环境
 // 默认 30 分钟，给用户足够思考时间
-const IDLE_TIMEOUT = process.env.STDIO_IDLE_TIMEOUT 
+const IDLE_TIMEOUT = process.env.STDIO_IDLE_TIMEOUT
   ? parseInt(process.env.STDIO_IDLE_TIMEOUT, 10)
   : 1800000; // 默认 30 分钟（从 5 分钟提升）
 let cleanupInProgress = false;
@@ -182,7 +189,7 @@ if (IDLE_TIMEOUT === 0) {
 
 // Update last request time on each tool call
 const originalRegisterTool = registerTool;
-function registerToolWithTracking(tool: ToolDefinition): void {
+function _registerToolWithTracking(tool: ToolDefinition): void {
   originalRegisterTool(tool);
   // Track activity (already handled by mutex)
 }
@@ -193,26 +200,26 @@ async function cleanup(reason: string): Promise<void> {
     return;
   }
   cleanupInProgress = true;
-  
+
   console.log(`\n[stdio] Cleanup initiated: ${reason}`);
-  
+
   try {
     // Stop idle timeout check
     if (idleCheckInterval) {
       clearInterval(idleCheckInterval);
     }
-    
+
     // Pause and cleanup stdin
     process.stdin.pause();
     process.stdin.removeAllListeners();
     process.stdin.unref();
-    
+
     // Close browser if managed by us
     if (context?.browser && !args.browserUrl) {
       console.log('[stdio] Closing managed browser...');
       await context.browser.close();
     }
-    
+
     console.log('[stdio] Cleanup complete');
   } catch (error) {
     console.error('[stdio] Cleanup error:', error);
@@ -224,15 +231,19 @@ let idleCheckInterval: NodeJS.Timeout | undefined;
 if (IDLE_TIMEOUT > 0) {
   idleCheckInterval = setInterval(() => {
     const idle = Date.now() - lastRequestTime;
-    
+
     // 警告：接近超时（剩余 10%）
     if (idle > IDLE_TIMEOUT * 0.9 && idle < IDLE_TIMEOUT) {
       const remaining = Math.round((IDLE_TIMEOUT - idle) / 1000);
-      console.warn(`[stdio] ⚠️  Approaching idle timeout, will exit in ${remaining}s`);
+      console.warn(
+        `[stdio] ⚠️  Approaching idle timeout, will exit in ${remaining}s`,
+      );
     }
-    
+
     if (idle > IDLE_TIMEOUT) {
-      console.log(`[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`);
+      console.log(
+        `[stdio] Idle timeout (${Math.round(idle / 1000)}s), exiting...`,
+      );
       void cleanup('idle timeout').then(() => process.exit(0));
     }
   }, 30000);
@@ -267,13 +278,13 @@ function forceExit(timeout = 10000): void {
 }
 
 // Unhandled errors
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('[stdio] Uncaught exception:', error);
   forceExit(5000);
   void cleanup('uncaught exception').then(() => process.exit(1));
 });
 
-process.on('unhandledRejection', (reason) => {
+process.on('unhandledRejection', reason => {
   console.error('[stdio] Unhandled rejection:', reason);
   forceExit(5000);
   void cleanup('unhandled rejection').then(() => process.exit(1));

@@ -80,7 +80,9 @@ get_page_console_logs({ limit: 10 })  → Last 10 logs
     since: z
       .number()
       .optional()
-      .describe('Only return logs after this timestamp (milliseconds since epoch)'),
+      .describe(
+        'Only return logs after this timestamp (milliseconds since epoch)',
+      ),
     limit: z
       .number()
       .min(1)
@@ -89,58 +91,79 @@ get_page_console_logs({ limit: 10 })  → Last 10 logs
   },
   handler: async (request, response, context) => {
     const page = context.getSelectedPage();
-    
+
     // 尝试使用持久化的增强收集器
     const collector = context.getEnhancedConsoleCollector(page);
-    
+
     if (collector) {
       // 使用增强收集器
-      const { types, sources, since, limit } = request.params;
-      
+      const {types, sources, since, limit} = request.params;
+
       // 应用过滤
-      const logs = types || sources || since || limit
-        ? collector.getFilteredLogs({ types, sources, since, limit })
-        : collector.getLogs();
-      
+      const logs =
+        types || sources || since || limit
+          ? collector.getFilteredLogs({types, sources, since, limit})
+          : collector.getLogs();
+
       // 获取统计信息
       const stats = collector.getLogStats();
-      
+
       response.appendResponseLine('# Console Logs (Enhanced Mode)\n');
       response.appendResponseLine(`**Total**: ${logs.length} messages`);
       if (logs.length !== stats.total) {
         response.appendResponseLine(` (filtered from ${stats.total})`);
       }
       response.appendResponseLine('\n');
-      response.appendResponseLine(`**Source**: CDP Runtime.consoleAPICalled (all contexts)\n`);
-      response.appendResponseLine(`**Features**: ✅ Content Scripts ✅ Complex Objects ✅ Workers ✅ Service Workers ✅ iframes\n\n`);
-      
+      response.appendResponseLine(
+        `**Source**: CDP Runtime.consoleAPICalled (all contexts)\n`,
+      );
+      response.appendResponseLine(
+        `**Features**: ✅ Content Scripts ✅ Complex Objects ✅ Workers ✅ Service Workers ✅ iframes\n\n`,
+      );
+
       // 显示统计信息
       if (stats.total > 0) {
         response.appendResponseLine('**Statistics**:\n');
-        response.appendResponseLine(`- By Type: ${Object.entries(stats.byType).map(([k, v]) => `${k}(${v})`).join(', ')}\n`);
-        response.appendResponseLine(`- By Source: ${Object.entries(stats.bySource).map(([k, v]) => `${k}(${v})`).join(', ')}\n\n`);
+        response.appendResponseLine(
+          `- By Type: ${Object.entries(stats.byType)
+            .map(([k, v]) => `${k}(${v})`)
+            .join(', ')}\n`,
+        );
+        response.appendResponseLine(
+          `- By Source: ${Object.entries(stats.bySource)
+            .map(([k, v]) => `${k}(${v})`)
+            .join(', ')}\n\n`,
+        );
       }
-      
+
       if (logs.length === 0) {
         response.appendResponseLine('No console messages found.\n');
-        response.appendResponseLine('\n**Tip**: Execute scripts or interact with the page to generate logs.\n');
+        response.appendResponseLine(
+          '\n**Tip**: Execute scripts or interact with the page to generate logs.\n',
+        );
       } else {
         response.appendResponseLine('## Messages\n\n');
         logs.forEach((log, index) => {
-          const location = log.url ? `${log.url}:${log.lineNumber}` : '<unknown>';
+          const location = log.url
+            ? `${log.url}:${log.lineNumber}`
+            : '<unknown>';
           const sourceTag = log.source ? ` [${log.source.toUpperCase()}]` : '';
-          response.appendResponseLine(`### ${index + 1}. [${log.type.toUpperCase()}]${sourceTag} ${location}\n`);
+          response.appendResponseLine(
+            `### ${index + 1}. [${log.type.toUpperCase()}]${sourceTag} ${location}\n`,
+          );
           response.appendResponseLine(`${log.text}\n\n`);
         });
       }
-      
+
       response.setIncludePages(true);
       return;
     }
-    
+
     // 降级：使用原有的 Puppeteer 机制
     response.appendResponseLine('# Console Logs (Legacy Mode)\n');
-    response.appendResponseLine('⚠️  Enhanced console collector not available, using legacy mode\n\n');
+    response.appendResponseLine(
+      '⚠️  Enhanced console collector not available, using legacy mode\n\n',
+    );
     response.setIncludeConsoleData(true);
     response.setIncludePages(true);
   },

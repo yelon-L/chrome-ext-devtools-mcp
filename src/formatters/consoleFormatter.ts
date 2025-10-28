@@ -26,7 +26,7 @@ const logLevels: Record<string, string> = {
 
 export async function formatConsoleEvent(
   event: ConsoleMessage | Error,
-  cdpSession?: CDPSession
+  cdpSession?: CDPSession,
 ): Promise<string> {
   // Check if the event object has the .type() method, which is unique to ConsoleMessage
   if ('type' in event) {
@@ -110,24 +110,24 @@ function formatStackFrame(stackFrame: ConsoleMessageLocation): string {
  */
 async function formatConsoleMessageEnhanced(
   msg: ConsoleMessage,
-  session: CDPSession
+  session: CDPSession,
 ): Promise<string> {
   const logLevel = logLevels[msg.type()];
   const args = msg.args();
 
   // 使用增强序列化器序列化所有参数
   const serializedArgs = await Promise.all(
-    args.map(async (arg) => {
+    args.map(async arg => {
       try {
         // 获取 RemoteObject
         const remoteObject = arg.remoteObject();
         // 使用增强序列化
         return await serializer.serialize(remoteObject, session);
-      } catch (error) {
+      } catch (_error) {
         // 降级到原有逻辑
         return arg.jsonValue().catch(() => String(arg));
       }
-    })
+    }),
   );
 
   // 格式化参数
@@ -141,24 +141,34 @@ async function formatConsoleMessageEnhanced(
 /**
  * 格式化序列化后的值
  */
-function formatSerializedValue(value: any): string {
-  if (value && typeof value === 'object' && value.__type) {
-    // 特殊类型的友好显示
-    switch (value.__type) {
-      case 'Function':
-        return `[Function: ${value.name}]`;
-      case 'Error':
-        return `[${value.name}: ${value.message}]`;
-      case 'Map':
-        return `Map(${value.size})`;
-      case 'Set':
-        return `Set(${value.size})`;
-      case 'Date':
-        return value.iso;
-      case 'RegExp':
-        return value.source;
-      default:
-        return JSON.stringify(value);
+function formatSerializedValue(value: unknown): string {
+  if (value && typeof value === 'object') {
+    const typedValue = value as {
+      __type?: string;
+      name?: string;
+      message?: string;
+      size?: number;
+      iso?: string;
+      source?: string;
+    };
+    if (typedValue.__type) {
+      // 特殊类型的友好显示
+      switch (typedValue.__type) {
+        case 'Function':
+          return `[Function: ${typedValue.name}]`;
+        case 'Error':
+          return `[${typedValue.name}: ${typedValue.message}]`;
+        case 'Map':
+          return `Map(${typedValue.size})`;
+        case 'Set':
+          return `Set(${typedValue.size})`;
+        case 'Date':
+          return typedValue.iso || '';
+        case 'RegExp':
+          return typedValue.source || '';
+        default:
+          return JSON.stringify(value);
+      }
     }
   }
   return typeof value === 'object' ? JSON.stringify(value) : String(value);

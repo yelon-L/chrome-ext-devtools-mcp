@@ -43,28 +43,34 @@ async function main() {
 
     console.log(`  Type: ${type}`);
     console.log(`  URL:  ${url}`);
-    console.log(`  ID:   ${(target as any)._targetId}`);
+    console.log(`  ID:   ${(target as {_targetId?: string})._targetId}`);
     console.log('');
   }
 
   // 使用 CDP 直接查询
   console.log('📡 使用 CDP Target.getTargets 查询:\n');
 
-  const client = await (browser as any)._connection.createSession(
-    (browser as any)._targetId,
-  );
+  const browserWithConnection = browser as unknown as {
+    _connection: {createSession: (targetId: string) => Promise<unknown>};
+    _targetId: string;
+  };
+  const client = (await browserWithConnection._connection.createSession(
+    browserWithConnection._targetId,
+  )) as {send: (method: string) => Promise<{targetInfos: unknown[]}>};
   const result = await client.send('Target.getTargets');
 
-  const cdpExtensionTargets = result.targetInfos.filter((t: any) =>
-    t.url?.includes(EXTENSION_ID),
-  );
+  const cdpExtensionTargets = result.targetInfos.filter((t: unknown) => {
+    const typedTarget = t as {url?: string};
+    return typedTarget.url?.includes(EXTENSION_ID);
+  });
 
   console.log(`🎯 CDP 扩展相关 targets (${cdpExtensionTargets.length}):\n`);
 
   for (const target of cdpExtensionTargets) {
-    console.log(`  Type: ${target.type}`);
-    console.log(`  URL:  ${target.url}`);
-    console.log(`  ID:   ${target.targetId}`);
+    const typedTarget = target as {type: string; url: string; targetId: string};
+    console.log(`  Type: ${typedTarget.type}`);
+    console.log(`  URL:  ${typedTarget.url}`);
+    console.log(`  ID:   ${typedTarget.targetId}`);
     console.log('');
   }
 

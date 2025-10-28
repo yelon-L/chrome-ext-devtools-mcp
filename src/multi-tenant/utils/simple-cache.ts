@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -6,7 +5,7 @@
  */
 /**
  * 简单的内存缓存，带TTL支持和LRU淘汰策略
- * 
+ *
  * 特性：
  * - TTL（生存时间）支持
  * - LRU（最近最少使用）淘汰
@@ -19,11 +18,11 @@ export interface CacheEntry<T> {
   expires: number;
 }
 
-export class SimpleCache<T = any> {
+export class SimpleCache<T = unknown> {
   private cache = new Map<string, CacheEntry<T>>();
   private defaultTTL: number;
   private maxSize: number;
-  
+
   // 命中率统计
   private hits = 0;
   private misses = 0;
@@ -39,7 +38,7 @@ export class SimpleCache<T = any> {
 
   /**
    * 设置缓存
-   * 
+   *
    * 如果key已存在，会先删除再插入（更新LRU顺序）
    * 如果缓存已满，删除最早插入的条目（Map的第一个元素）
    */
@@ -59,12 +58,12 @@ export class SimpleCache<T = any> {
       }
     }
 
-    this.cache.set(key, { value, expires });
+    this.cache.set(key, {value, expires});
   }
 
   /**
    * 获取缓存
-   * 
+   *
    * 如果命中且未过期，会更新访问顺序（LRU）
    */
   get(key: string): T | null {
@@ -73,28 +72,32 @@ export class SimpleCache<T = any> {
       this.misses++;
       return null;
     }
-    
+
     // 检查是否过期
     if (Date.now() > entry.expires) {
       this.cache.delete(key);
       this.misses++;
       return null;
     }
-    
+
     this.hits++;
-    
+
     // 删除后重新插入，维护LRU访问顺序
     // Map保证插入顺序，删除后重新插入会移到末尾
     this.cache.delete(key);
     this.cache.set(key, entry);
-    
+
     return entry.value;
   }
 
   /**
    * 获取或设置缓存（如果缓存不存在，调用 factory 函数）
    */
-  async getOrSet(key: string, factory: () => Promise<T>, ttl?: number): Promise<T> {
+  async getOrSet(
+    key: string,
+    factory: () => Promise<T>,
+    ttl?: number,
+  ): Promise<T> {
     const cached = this.get(key);
     if (cached !== null) {
       return cached;
@@ -166,7 +169,7 @@ export class SimpleCache<T = any> {
       total,
     };
   }
-  
+
   /**
    * 重置统计信息
    */

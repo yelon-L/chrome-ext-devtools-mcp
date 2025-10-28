@@ -8,7 +8,7 @@
 
 /**
  * Unified entry point for all transport modes
- * 
+ *
  * Supports:
  * - stdio (default): Standard MCP transport
  * - sse: Server-Sent Events HTTP transport
@@ -21,13 +21,17 @@ import {VERSION} from './version.js';
 
 checkNodeVersion();
 
-const args = parseArguments(VERSION);
+const args = parseArguments(VERSION) as {
+  transport?: string;
+  port?: number;
+  [key: string]: unknown;
+};
 
 // 检测 --mode 参数
 const modeIndex = process.argv.indexOf('--mode');
 if (modeIndex !== -1) {
   const modeValue = process.argv[modeIndex + 1];
-  
+
   if (modeValue === 'multi-tenant') {
     console.log(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
     console.log('[MCP] Mode: multi-tenant (SSE transport)');
@@ -36,7 +40,9 @@ if (modeIndex !== -1) {
     await import('./multi-tenant/server-multi-tenant.js');
     // Multi-tenant 服务器已启动，不再执行后续启动逻辑
   } else {
-    console.error('\n⚠️  WARNING: Unknown --mode value. Please use --transport instead.');
+    console.error(
+      '\n⚠️  WARNING: Unknown --mode value. Please use --transport instead.',
+    );
     console.error('');
     console.error('Available transports:');
     console.error('  --transport stdio       (default, standard I/O)');
@@ -47,7 +53,7 @@ if (modeIndex !== -1) {
     console.error('  --mode multi-tenant');
     console.error('');
     console.error('Continuing with default stdio mode...\n');
-    
+
     // 继续执行标准启动逻辑
     await startStandardMode();
   }
@@ -57,7 +63,7 @@ if (modeIndex !== -1) {
 }
 
 async function startStandardMode() {
-  const transport = (args as any).transport || 'stdio';
+  const transport = args.transport || 'stdio';
 
   console.log(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
   console.log(`[MCP] Transport: ${transport}`);
@@ -65,9 +71,10 @@ async function startStandardMode() {
   if (transport === 'sse') {
     console.log('[MCP] Starting SSE server...');
     const defaultPort = 32122;
-    const port = (args as any).port || parseInt(process.env.PORT || String(defaultPort), 10);
-    if ((args as any).port) {
-      process.env.PORT = String((args as any).port);
+    const port =
+      args.port || parseInt(process.env.PORT || String(defaultPort), 10);
+    if (args.port) {
+      process.env.PORT = String(args.port);
     } else if (!process.env.PORT) {
       process.env.PORT = String(defaultPort);
     }
@@ -77,9 +84,10 @@ async function startStandardMode() {
   } else if (transport === 'streamable') {
     console.log('[MCP] Starting Streamable HTTP server...');
     const defaultPort = 32123;
-    const port = (args as any).port || parseInt(process.env.PORT || String(defaultPort), 10);
-    if ((args as any).port) {
-      process.env.PORT = String((args as any).port);
+    const port =
+      args.port || parseInt(process.env.PORT || String(defaultPort), 10);
+    if (args.port) {
+      process.env.PORT = String(args.port);
     } else if (!process.env.PORT) {
       process.env.PORT = String(defaultPort);
     }

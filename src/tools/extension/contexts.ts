@@ -6,7 +6,7 @@
 
 /**
  * Extension context management tool
- * 
+ *
  * Provides context listing and switching functionality
  */
 
@@ -84,9 +84,7 @@ export const listExtensionContexts = defineTool({
       return;
     }
 
-    response.appendResponseLine(
-      `# Extension Contexts (${contexts.length})\n`,
-    );
+    response.appendResponseLine(`# Extension Contexts (${contexts.length})\n`);
 
     // Group by context type
     const grouped = contexts.reduce(
@@ -145,7 +143,9 @@ Use list_extension_contexts first to get available Target IDs.`,
       .describe('Extension ID. Get this from list_extensions.'),
     targetId: z
       .string()
-      .describe('Target ID of the context to switch to. Get this from list_extension_contexts.'),
+      .describe(
+        'Target ID of the context to switch to. Get this from list_extension_contexts.',
+      ),
   },
   handler: async (request, response, context) => {
     const {targetId} = request.params;
@@ -154,19 +154,26 @@ Use list_extension_contexts first to get available Target IDs.`,
       await context.switchToExtensionContext(targetId);
 
       response.appendResponseLine(`# Context Switched\n`);
-      response.appendResponseLine(`✅ Successfully switched to context: \`${targetId}\``);
+      response.appendResponseLine(
+        `✅ Successfully switched to context: \`${targetId}\``,
+      );
       response.appendResponseLine(`\n**Next Steps**:`);
-      response.appendResponseLine('- Use evaluate_in_extension to run code in this context');
-      response.appendResponseLine('- Use inspect_extension_storage to check storage');
-      response.appendResponseLine('- Use get_extension_logs to view logs from this context');
-
+      response.appendResponseLine(
+        '- Use evaluate_in_extension to run code in this context',
+      );
+      response.appendResponseLine(
+        '- Use inspect_extension_storage to check storage',
+      );
+      response.appendResponseLine(
+        '- Use get_extension_logs to view logs from this context',
+      );
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to switch extension context. The context may no longer exist or the extension was reloaded.'
+        'Unable to switch extension context. The context may no longer exist or the extension was reloaded.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });

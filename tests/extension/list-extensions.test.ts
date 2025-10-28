@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -15,11 +14,13 @@ import {fileURLToPath} from 'node:url';
 import type {Browser} from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_EXTENSION_PATH = path.join(__dirname, '../../test-extension-enhanced');
+const TEST_EXTENSION_PATH = path.join(
+  __dirname,
+  '../../test-extension-enhanced',
+);
 
 describe('list_extensions', () => {
   let browser: Browser;
@@ -50,18 +51,18 @@ describe('list_extensions', () => {
 
   it('should find at least one extension', async () => {
     const extensions = await helper.getExtensions();
-    
+
     assert.ok(extensions.length > 0, '应该至少找到 1 个扩展');
     console.log(`✅ 找到 ${extensions.length} 个扩展`);
   });
 
   it('should find the test extension', async () => {
     const extensions = await helper.getExtensions();
-    
-    const testExt = extensions.find(ext => 
-      ext.name.includes('Enhanced MCP Debug Test Extension')
+
+    const testExt = extensions.find(ext =>
+      ext.name.includes('Enhanced MCP Debug Test Extension'),
     );
-    
+
     assert.ok(testExt, '应该找到测试扩展');
     assert.strictEqual(testExt?.manifestVersion, 3, '应该是 MV3 扩展');
     console.log(`✅ 找到测试扩展: ${testExt?.name}`);
@@ -69,19 +70,18 @@ describe('list_extensions', () => {
 
   it('should detect Service Worker status', async () => {
     const extensions = await helper.getExtensions();
-    
+
     for (const ext of extensions) {
       if (ext.manifestVersion === 3) {
+        assert.ok(ext.serviceWorkerStatus, `扩展 ${ext.name} 应该有 SW 状态`);
+
         assert.ok(
-          ext.serviceWorkerStatus,
-          `扩展 ${ext.name} 应该有 SW 状态`
+          ['active', 'inactive', 'not_found'].includes(
+            ext.serviceWorkerStatus!,
+          ),
+          'SW 状态应该是有效值',
         );
-        
-        assert.ok(
-          ['active', 'inactive', 'not_found'].includes(ext.serviceWorkerStatus!),
-          'SW 状态应该是有效值'
-        );
-        
+
         console.log(`✅ ${ext.name}: SW = ${ext.serviceWorkerStatus}`);
       }
     }
@@ -89,13 +89,13 @@ describe('list_extensions', () => {
 
   it('should include extension details', async () => {
     const extensions = await helper.getExtensions();
-    
+
     for (const ext of extensions) {
       assert.ok(ext.id, '应该有扩展 ID');
       assert.ok(ext.name, '应该有扩展名称');
       assert.ok(ext.version, '应该有版本号');
       assert.ok(ext.manifestVersion, '应该有 manifest 版本');
-      
+
       console.log(`✅ ${ext.name} 包含完整信息`);
     }
   });

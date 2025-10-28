@@ -6,7 +6,7 @@
 
 /**
  * 统一的工具注册中心
- * 
+ *
  * 所有 MCP 工具在此处统一导出，避免在不同服务器实现中重复导入
  * 这确保了所有传输模式（stdio、SSE、Streamable HTTP）都使用相同的工具集
  */
@@ -28,7 +28,7 @@ import type {ToolDefinition} from './ToolDefinition.js';
 
 /**
  * 所有可用工具的统一列表
- * 
+ *
  * 工具模块分类：
  * - browserInfo: 浏览器信息工具
  * - console: 控制台日志工具
@@ -73,7 +73,9 @@ export function getToolCount(): number {
  * 获取工具名称列表
  */
 export function getToolNames(): string[] {
-  return getAllTools().map(tool => tool.name).sort();
+  return getAllTools()
+    .map(tool => tool.name)
+    .sort();
 }
 
 /**

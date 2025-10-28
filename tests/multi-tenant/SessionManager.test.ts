@@ -10,13 +10,16 @@ import {describe, it, beforeEach, afterEach} from 'node:test';
 import sinon from 'sinon';
 
 import {SessionManager} from '../../src/multi-tenant/core/SessionManager.js';
-import type {Session} from '../../src/multi-tenant/types/session.types.js';
 
 describe('SessionManager', () => {
   let sessionManager: SessionManager;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockTransport: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockServer: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockContext: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockBrowser: any;
 
   beforeEach(() => {
@@ -51,7 +54,7 @@ describe('SessionManager', () => {
         mockTransport,
         mockServer,
         mockContext,
-        mockBrowser
+        mockBrowser,
       );
 
       assert.strictEqual(session.sessionId, 'session-1');
@@ -67,7 +70,7 @@ describe('SessionManager', () => {
         mockTransport,
         mockServer,
         mockContext,
-        mockBrowser
+        mockBrowser,
       );
 
       assert.strictEqual(session.transport, mockTransport);
@@ -84,12 +87,33 @@ describe('SessionManager', () => {
       });
 
       // 创建 2 个会话
-      limitedManager.createSession('s1', 'u1', mockTransport, mockServer, mockContext, mockBrowser);
-      limitedManager.createSession('s2', 'u2', mockTransport, mockServer, mockContext, mockBrowser);
+      limitedManager.createSession(
+        's1',
+        'u1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      limitedManager.createSession(
+        's2',
+        'u2',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       // 第 3 个应该失败
       assert.throws(() => {
-        limitedManager.createSession('s3', 'u3', mockTransport, mockServer, mockContext, mockBrowser);
+        limitedManager.createSession(
+          's3',
+          'u3',
+          mockTransport,
+          mockServer,
+          mockContext,
+          mockBrowser,
+        );
       }, /达到最大会话数限制/);
 
       limitedManager.stop();
@@ -104,7 +128,7 @@ describe('SessionManager', () => {
         mockTransport,
         mockServer,
         mockContext,
-        mockBrowser
+        mockBrowser,
       );
 
       const retrieved = sessionManager.getSession('session-1');
@@ -126,7 +150,7 @@ describe('SessionManager', () => {
         mockTransport,
         mockServer,
         mockContext,
-        mockBrowser
+        mockBrowser,
       );
 
       const session = sessionManager.getSession('session-1')!;
@@ -150,7 +174,7 @@ describe('SessionManager', () => {
         mockTransport,
         mockServer,
         mockContext,
-        mockBrowser
+        mockBrowser,
       );
 
       const result = await sessionManager.deleteSession('session-1');
@@ -166,7 +190,7 @@ describe('SessionManager', () => {
         mockTransport,
         mockServer,
         mockContext,
-        mockBrowser
+        mockBrowser,
       );
 
       await sessionManager.deleteSession('session-1');
@@ -182,9 +206,30 @@ describe('SessionManager', () => {
 
   describe('getUserSessions', () => {
     it('应该返回用户的所有会话', () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
-      sessionManager.createSession('s2', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
-      sessionManager.createSession('s3', 'user-2', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      sessionManager.createSession(
+        's2',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      sessionManager.createSession(
+        's3',
+        'user-2',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       const user1Sessions = sessionManager.getUserSessions('user-1');
       assert.strictEqual(user1Sessions.length, 2);
@@ -199,8 +244,22 @@ describe('SessionManager', () => {
 
   describe('cleanupUserSessions', () => {
     it('应该清理用户的所有会话', async () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
-      sessionManager.createSession('s2', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      sessionManager.createSession(
+        's2',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       await sessionManager.cleanupUserSessions('user-1');
 
@@ -211,7 +270,14 @@ describe('SessionManager', () => {
 
   describe('cleanupExpiredSessions', () => {
     it('应该删除超时的会话', async () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       // 等待超过超时时间
       await new Promise(resolve => setTimeout(resolve, 1100));
@@ -222,7 +288,14 @@ describe('SessionManager', () => {
     });
 
     it('应该保留活跃的会话', async () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       // 短暂等待但不超时
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -235,9 +308,30 @@ describe('SessionManager', () => {
 
   describe('getStats', () => {
     it('应该返回正确的统计信息', () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
-      sessionManager.createSession('s2', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
-      sessionManager.createSession('s3', 'user-2', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      sessionManager.createSession(
+        's2',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      sessionManager.createSession(
+        's3',
+        'user-2',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       const stats = sessionManager.getStats();
 
@@ -250,7 +344,14 @@ describe('SessionManager', () => {
 
   describe('hasSession', () => {
     it('应该正确检查会话是否存在', () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       assert.strictEqual(sessionManager.hasSession('s1'), true);
       assert.strictEqual(sessionManager.hasSession('non-existent'), false);
@@ -259,8 +360,22 @@ describe('SessionManager', () => {
 
   describe('getAllSessionIds', () => {
     it('应该返回所有会话 ID', () => {
-      sessionManager.createSession('s1', 'user-1', mockTransport, mockServer, mockContext, mockBrowser);
-      sessionManager.createSession('s2', 'user-2', mockTransport, mockServer, mockContext, mockBrowser);
+      sessionManager.createSession(
+        's1',
+        'user-1',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
+      sessionManager.createSession(
+        's2',
+        'user-2',
+        mockTransport,
+        mockServer,
+        mockContext,
+        mockBrowser,
+      );
 
       const ids = sessionManager.getAllSessionIds();
 

@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -16,11 +15,13 @@ import {fileURLToPath} from 'node:url';
 import type {Browser} from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_EXTENSION_PATH = path.join(__dirname, '../../test-extension-enhanced');
+const TEST_EXTENSION_PATH = path.join(
+  __dirname,
+  '../../test-extension-enhanced',
+);
 
 describe('extension_tools_integration', () => {
   let browser: Browser;
@@ -46,7 +47,7 @@ describe('extension_tools_integration', () => {
     // 获取测试扩展 ID
     const extensions = await helper.getExtensions();
     const testExt = extensions.find(ext =>
-      ext.name.includes('Enhanced MCP Debug Test Extension')
+      ext.name.includes('Enhanced MCP Debug Test Extension'),
     );
 
     if (!testExt) {
@@ -116,7 +117,10 @@ describe('extension_tools_integration', () => {
     // Step 5: Inspect storage
     console.log('Step 5: Inspect Extension Storage');
     try {
-      const storage = await helper.getExtensionStorage(testExtensionId, 'local');
+      const storage = await helper.getExtensionStorage(
+        testExtensionId,
+        'local',
+      );
       console.log(`✅ Local Storage:`);
       console.log(`   Keys: ${Object.keys(storage.data).length}`);
       if (Object.keys(storage.data).length > 0) {
@@ -148,7 +152,7 @@ describe('extension_tools_integration', () => {
         const result = await helper.evaluateInContext(
           bgContext.targetId,
           'typeof chrome',
-          true
+          true,
         );
         console.log(`✅ typeof chrome = ${result}`);
       } catch (error) {
@@ -164,8 +168,9 @@ describe('extension_tools_integration', () => {
   it('Storage operations workflow', async () => {
     console.log('\n📦 测试存储操作流程...\n');
 
-    const bgContext = (await helper.getExtensionContexts(testExtensionId))
-      .find(ctx => ctx.isPrimary);
+    const bgContext = (await helper.getExtensionContexts(testExtensionId)).find(
+      ctx => ctx.isPrimary,
+    );
 
     if (!bgContext) {
       console.log('⚠️  跳过测试：无 background context');
@@ -175,7 +180,10 @@ describe('extension_tools_integration', () => {
     try {
       // 1. 读取当前存储
       console.log('Step 1: Read current storage');
-      const storage1 = await helper.getExtensionStorage(testExtensionId, 'local');
+      const storage1 = await helper.getExtensionStorage(
+        testExtensionId,
+        'local',
+      );
       console.log(`   Keys: ${Object.keys(storage1.data).length}`);
 
       // 2. 写入数据
@@ -194,13 +202,16 @@ describe('extension_tools_integration', () => {
 
       // 4. 读取新数据
       console.log('\nStep 3: Read updated storage');
-      const storage2 = await helper.getExtensionStorage(testExtensionId, 'local');
+      const storage2 = await helper.getExtensionStorage(
+        testExtensionId,
+        'local',
+      );
       console.log(`   Keys: ${Object.keys(storage2.data).length}`);
       console.log(`   Data:`, storage2.data);
 
       assert.ok(
         Object.keys(storage2.data).length >= Object.keys(storage1.data).length,
-        '数据应该增加或保持不变'
+        '数据应该增加或保持不变',
       );
 
       console.log('\n✅ 存储操作流程测试完成');
@@ -225,19 +236,16 @@ describe('extension_tools_integration', () => {
     // 测试无效的 target ID
     console.log('\nTest 2: Invalid target ID');
     try {
-      await helper.evaluateInContext(
-        'invalid-target-id',
-        '1 + 1',
-        true
-      );
+      await helper.evaluateInContext('invalid-target-id', '1 + 1', true);
       assert.fail('应该抛出错误');
-    } catch (error) {
+    } catch (_error) {
       console.log(`   ✅ 正确抛出错误`);
     }
 
     // 测试错误的代码
-    const bgContext = (await helper.getExtensionContexts(testExtensionId))
-      .find(ctx => ctx.isPrimary);
+    const bgContext = (await helper.getExtensionContexts(testExtensionId)).find(
+      ctx => ctx.isPrimary,
+    );
 
     if (bgContext) {
       console.log('\nTest 3: Invalid code evaluation');
@@ -245,10 +253,10 @@ describe('extension_tools_integration', () => {
         await helper.evaluateInContext(
           bgContext.targetId,
           'invalid.code.here',
-          true
+          true,
         );
         console.log('   ⚠️  应该抛出错误');
-      } catch (error) {
+      } catch (_error) {
         console.log(`   ✅ 正确捕获运行时错误`);
       }
     }

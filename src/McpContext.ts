@@ -104,15 +104,15 @@ export class McpContext implements Context {
 
   // Extension helper for extension debugging functionality
   #extensionHelper: ExtensionHelper;
-  
+
   // CDP Target Manager for hybrid architecture (optional)
   #cdpTargetManager?: CdpTargetManager;
   #useCdpForTargets = false; // 是否使用 CDP 管理 Target
-  
+
   // CDP Operations for high-frequency operations
   #cdpOperations?: CdpOperations;
   #useCdpForOperations = false; // 是否使用 CDP 执行高频操作
-  
+
   // CDP Session Manager for enhanced logging
   #cdpSessionManager: CDPSessionManager;
   #enhancedConsoleCollectors = new WeakMap<Page, EnhancedConsoleCollector>();
@@ -120,14 +120,14 @@ export class McpContext implements Context {
   private constructor(browser: Browser, logger: Debugger) {
     this.browser = browser;
     this.logger = logger;
-    
+
     // 初始化 CDP Session Manager
     this.#cdpSessionManager = new CDPSessionManager();
-    
+
     this.#extensionHelper = new ExtensionHelper(browser, {
       logging: {
-        useConsole: true  // 启用详细日志用于调试扩展检测问题
-      }
+        useConsole: true, // 启用详细日志用于调试扩展检测问题
+      },
     });
 
     this.#networkCollector = new NetworkCollector(
@@ -150,16 +150,16 @@ export class McpContext implements Context {
         });
       },
     );
-    
+
     // 为新创建的页面自动创建 CDP session 和增强日志收集器
-    browser.on('targetcreated', async (target) => {
+    browser.on('targetcreated', async target => {
       const page = await target.page();
       if (page) {
         await this.#initializeEnhancedConsoleCollector(page);
       }
     });
   }
-  
+
   /**
    * 为页面初始化增强日志收集器
    */
@@ -169,18 +169,27 @@ export class McpContext implements Context {
       const collector = new EnhancedConsoleCollector();
       await collector.init(page, cdpSession);
       this.#enhancedConsoleCollectors.set(page, collector);
-      
+
       // 监听页面导航，清空旧日志
-      page.on('framenavigated', async (frame) => {
+      page.on('framenavigated', async frame => {
         if (frame === page.mainFrame()) {
           collector.clear();
-          this.logger('[McpContext] Enhanced console collector cleared for navigation: %s', page.url());
+          this.logger(
+            '[McpContext] Enhanced console collector cleared for navigation: %s',
+            page.url(),
+          );
         }
       });
-      
-      this.logger('[McpContext] Enhanced console collector initialized for: %s', page.url());
+
+      this.logger(
+        '[McpContext] Enhanced console collector initialized for: %s',
+        page.url(),
+      );
     } catch (error) {
-      this.logger('[McpContext] Failed to initialize enhanced console collector: %s', error);
+      this.logger(
+        '[McpContext] Failed to initialize enhanced console collector: %s',
+        error,
+      );
     }
   }
 
@@ -188,11 +197,11 @@ export class McpContext implements Context {
     try {
       // 添加超时保护
       const pagesPromise = this.createPagesSnapshot();
-      const timeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Pages snapshot timeout')), 5000)
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Pages snapshot timeout')), 5000),
       );
       await Promise.race([pagesPromise, timeout]);
-      
+
       // 如果浏览器没有打开任何页面，创建一个新页面
       // 这种情况在连接到只有扩展页面的浏览器时会发生
       if (this.#pages.length === 0) {
@@ -203,11 +212,11 @@ export class McpContext implements Context {
         this.#networkCollector.addPage(page);
         this.#consoleCollector.addPage(page);
       }
-      
+
       this.setSelectedPageIdx(0);
       await this.#networkCollector.init();
       await this.#consoleCollector.init();
-      
+
       // 为已存在的页面初始化增强日志收集器
       for (const page of this.#pages) {
         await this.#initializeEnhancedConsoleCollector(page);
@@ -247,7 +256,7 @@ export class McpContext implements Context {
   /**
    * 最小化初始化：延迟创建页面直到首次使用
    * 适用于多租户场景，避免连接时卡在 browser.newPage()
-   * 
+   *
    * @param browser - 浏览器实例
    * @param logger - 日志记录器
    * @param options - 配置选项
@@ -259,18 +268,18 @@ export class McpContext implements Context {
     options?: {
       useCdpForTargets?: boolean; // 是否使用 CDP 管理 Target（混合架构）
       useCdpForOperations?: boolean; // 是否使用 CDP 执行高频操作
-    }
+    },
   ) {
     const context = new McpContext(browser, logger);
-    
+
     // 不创建页面，标记为未初始化
     context.#pages = [];
     context.#initialized = false;
-    
+
     // 配置是否使用 CDP 管理 Target
     context.#useCdpForTargets = options?.useCdpForTargets ?? false;
     context.#useCdpForOperations = options?.useCdpForOperations ?? false;
-    
+
     if (context.#useCdpForTargets) {
       logger('Context created with CDP hybrid mode (Target management)');
       // 初始化 CDP Target Manager
@@ -278,20 +287,22 @@ export class McpContext implements Context {
       try {
         await context.#cdpTargetManager.init();
       } catch (error) {
-        logger(`Warning: CDP Target Manager init failed, fallback to Puppeteer: ${error}`);
+        logger(
+          `Warning: CDP Target Manager init failed, fallback to Puppeteer: ${error}`,
+        );
         context.#useCdpForTargets = false;
         context.#cdpTargetManager = undefined;
       }
     }
-    
+
     if (context.#useCdpForOperations) {
       logger('Context created with CDP hybrid mode (Operations)');
     }
-    
+
     if (!context.#useCdpForTargets && !context.#useCdpForOperations) {
       logger('Context created with minimal initialization (lazy mode)');
     }
-    
+
     return context;
   }
 
@@ -321,57 +332,58 @@ export class McpContext implements Context {
   async #initializeLazy(): Promise<void> {
     try {
       this.logger('Lazy initialization: creating page...');
-      
+
       let page: Page;
-      
+
       // 混合架构：使用 CDP 管理 Target
       if (this.#useCdpForTargets && this.#cdpTargetManager) {
         this.logger('[Hybrid] Using CDP to create target');
-        
+
         try {
           // 使用 CDP 直接创建 Target
-          const targetId = await this.#cdpTargetManager.createTarget('about:blank');
-          
+          const targetId =
+            await this.#cdpTargetManager.createTarget('about:blank');
+
           // 从 Target ID 获取 Page 对象
           page = await this.#cdpTargetManager.getPageForTarget(targetId, 10000);
-          
+
           this.logger('[Hybrid] Target created via CDP successfully');
         } catch (cdpError) {
           this.logger(`[Hybrid] CDP target creation failed: ${cdpError}`);
           this.logger('[Hybrid] Fallback to Puppeteer newPage()');
-          
+
           // 回退到 Puppeteer
           this.#useCdpForTargets = false;
           const pagePromise = this.browser.newPage();
-          const timeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('newPage timeout (30s)')), 30000)
+          const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('newPage timeout (30s)')), 30000),
           );
           page = await Promise.race([pagePromise, timeout]);
         }
       } else {
         // 使用 Puppeteer 原生方法
         const pagePromise = this.browser.newPage();
-        const timeout = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('newPage timeout (30s)')), 30000)
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('newPage timeout (30s)')), 30000),
         );
-        
+
         page = await Promise.race([pagePromise, timeout]);
       }
-      
+
       this.logger('Page created successfully');
-      
+
       this.#pages = [page];
       this.setSelectedPageIdx(0);
-      
+
       // 初始化收集器
       this.#networkCollector.addPage(page);
       this.#consoleCollector.addPage(page);
-      
+
       await Promise.all([
         this.#networkCollector.init(),
-        this.#consoleCollector.init()
+        this.#consoleCollector.init(),
       ]);
-      
+
       // 初始化 CDP Operations（如果启用）
       if (this.#useCdpForOperations) {
         try {
@@ -384,7 +396,7 @@ export class McpContext implements Context {
           this.#cdpOperations = undefined;
         }
       }
-      
+
       this.#initialized = true;
       this.logger('Lazy initialization completed');
     } catch (error) {
@@ -407,22 +419,25 @@ export class McpContext implements Context {
 
   async newPage(): Promise<Page> {
     let page: Page;
-    
+
     // 混合架构：使用 CDP 创建新页面
     if (this.#useCdpForTargets && this.#cdpTargetManager) {
       try {
         this.logger('[Hybrid] Creating new page via CDP');
-        const targetId = await this.#cdpTargetManager.createTarget('about:blank');
+        const targetId =
+          await this.#cdpTargetManager.createTarget('about:blank');
         page = await this.#cdpTargetManager.getPageForTarget(targetId, 10000);
         this.logger('[Hybrid] New page created via CDP');
       } catch (cdpError) {
-        this.logger(`[Hybrid] CDP newPage failed, fallback to Puppeteer: ${cdpError}`);
+        this.logger(
+          `[Hybrid] CDP newPage failed, fallback to Puppeteer: ${cdpError}`,
+        );
         page = await this.browser.newPage();
       }
     } else {
       page = await this.browser.newPage();
     }
-    
+
     const pages = await this.createPagesSnapshot();
     this.setSelectedPageIdx(pages.indexOf(page));
     this.#networkCollector.addPage(page);
@@ -531,7 +546,7 @@ export class McpContext implements Context {
     if (oldPage) {
       oldPage.off('dialog', this.#dialogHandler);
     }
-    
+
     this.#selectedPageIdx = idx;
     const newPage = this.getSelectedPage();
     newPage.on('dialog', this.#dialogHandler);
@@ -728,15 +743,13 @@ export class McpContext implements Context {
   /**
    * Get all contexts for an extension
    */
-  async getExtensionContexts(
-    extensionId: string,
-  ): Promise<ExtensionContext[]> {
+  async getExtensionContexts(extensionId: string): Promise<ExtensionContext[]> {
     return this.#extensionHelper.getExtensionContexts(extensionId);
   }
 
   /**
    * Switch to a specific extension context
-   * 
+   *
    * @param contextId - Context ID (target ID)
    * @returns Page 对象
    * @throws Error 如果 context 不存在或是 Service Worker
@@ -798,14 +811,16 @@ export class McpContext implements Context {
     extensionId: string,
     duration?: number,
     messageTypes?: Array<'runtime' | 'tabs' | 'external'>,
-  ): Promise<Array<{
-    timestamp: number;
-    type: 'sent' | 'received';
-    method: string;
-    message: unknown;
-    sender?: unknown;
-    tabId?: number;
-  }>> {
+  ): Promise<
+    Array<{
+      timestamp: number;
+      type: 'sent' | 'received';
+      method: string;
+      message: unknown;
+      sender?: unknown;
+      tabId?: number;
+    }>
+  > {
     return this.#extensionHelper.monitorExtensionMessages(
       extensionId,
       duration,
@@ -820,11 +835,13 @@ export class McpContext implements Context {
     extensionId: string,
     storageTypes?: StorageType[],
     duration?: number,
-  ): Promise<Array<{
-    timestamp: number;
-    storageArea: StorageType;
-    changes: Record<string, {oldValue?: unknown; newValue?: unknown}>;
-  }>> {
+  ): Promise<
+    Array<{
+      timestamp: number;
+      storageArea: StorageType;
+      changes: Record<string, {oldValue?: unknown; newValue?: unknown}>;
+    }>
+  > {
     return this.#extensionHelper.watchExtensionStorage(
       extensionId,
       storageTypes,
@@ -899,7 +916,9 @@ export class McpContext implements Context {
   /**
    * Get extension background target (Service Worker or Background Page)
    */
-  async getExtensionBackgroundTarget(extensionId: string): Promise<Page | null> {
+  async getExtensionBackgroundTarget(
+    extensionId: string,
+  ): Promise<Page | null> {
     const target =
       await this.#extensionHelper.getExtensionBackgroundTarget(extensionId);
     if (!target) {
@@ -918,57 +937,59 @@ export class McpContext implements Context {
 
     return null;
   }
-  
+
   // ===== CDP Hybrid Architecture Methods =====
-  
+
   /**
    * 获取页面的 CDP session（用于增强日志捕获）
    */
   getCDPSession(page: Page): CDPSession | undefined {
     return this.#cdpSessionManager.getSession(page);
   }
-  
+
   /**
    * 获取或创建页面的 CDP session
    */
   async getOrCreateCDPSession(page: Page): Promise<CDPSession> {
     return this.#cdpSessionManager.getOrCreateSession(page);
   }
-  
+
   /**
    * 获取页面的增强日志收集器
    */
-  getEnhancedConsoleCollector(page: Page): EnhancedConsoleCollector | undefined {
+  getEnhancedConsoleCollector(
+    page: Page,
+  ): EnhancedConsoleCollector | undefined {
     return this.#enhancedConsoleCollectors.get(page);
   }
-  
+
   /**
    * 获取 CDP Operations 实例（如果已启用）
    */
   getCdpOperations(): CdpOperations | undefined {
     return this.#cdpOperations;
   }
-  
+
   /**
    * 检查是否启用了 CDP 高频操作
    */
   isCdpOperationsEnabled(): boolean {
     return this.#useCdpForOperations && !!this.#cdpOperations;
   }
-  
+
   /**
    * 检查是否启用了 CDP Target 管理
    */
   isCdpTargetManagementEnabled(): boolean {
     return this.#useCdpForTargets && !!this.#cdpTargetManager;
   }
-  
+
   /**
    * 清理资源（包括 CDP Target Manager 和 CDP Operations）
    */
   async dispose(): Promise<void> {
     this.logger('Disposing McpContext resources...');
-    
+
     // 清理 CDP Operations
     if (this.#cdpOperations) {
       try {
@@ -978,7 +999,7 @@ export class McpContext implements Context {
         this.logger(`Warning: Failed to dispose CDP Operations: ${error}`);
       }
     }
-    
+
     // 清理 CDP Target Manager
     if (this.#cdpTargetManager) {
       try {
@@ -988,7 +1009,7 @@ export class McpContext implements Context {
         this.logger(`Warning: Failed to dispose CDP Target Manager: ${error}`);
       }
     }
-    
+
     this.logger('McpContext resources disposed');
   }
 }

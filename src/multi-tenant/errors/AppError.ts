@@ -6,19 +6,19 @@
 
 /**
  * 应用错误基类
- * 
+ *
  * 提供统一的错误处理机制，支持错误码、HTTP状态码、详细信息等
  */
 export class AppError extends Error {
   /** 错误代码（用于客户端识别） */
   public readonly code: string;
-  
+
   /** HTTP 状态码 */
   public readonly statusCode: number;
-  
+
   /** 详细信息（用于调试） */
-  public readonly details?: any;
-  
+  public readonly details?: unknown;
+
   /** 时间戳 */
   public readonly timestamp: number;
 
@@ -26,7 +26,7 @@ export class AppError extends Error {
     code: string,
     message: string,
     statusCode = 500,
-    details?: any
+    details?: unknown,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -34,10 +34,10 @@ export class AppError extends Error {
     this.statusCode = statusCode;
     this.details = details;
     this.timestamp = Date.now();
-    
+
     // 保持正确的原型链
     Object.setPrototypeOf(this, new.target.prototype);
-    
+
     // 捕获堆栈跟踪
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
@@ -52,7 +52,7 @@ export class AppError extends Error {
     code: string;
     message: string;
     statusCode: number;
-    details?: any;
+    details?: unknown;
     timestamp: number;
   } {
     return {
@@ -81,13 +81,11 @@ export class AppError extends Error {
  * 用户未找到错误
  */
 export class UserNotFoundError extends AppError {
-  constructor(userId: string, details?: any) {
-    super(
-      'USER_NOT_FOUND',
-      `User ${userId} not found`,
-      404,
-      { userId, ...details }
-    );
+  constructor(userId: string, details?: Record<string, unknown>) {
+    super('USER_NOT_FOUND', `User ${userId} not found`, 404, {
+      userId,
+      ...details,
+    });
   }
 }
 
@@ -95,12 +93,16 @@ export class UserNotFoundError extends AppError {
  * 用户已存在错误
  */
 export class UserAlreadyExistsError extends AppError {
-  constructor(identifier: string, field: 'email' | 'userId' = 'email', details?: any) {
+  constructor(
+    identifier: string,
+    field: 'email' | 'userId' = 'email',
+    details?: Record<string, unknown>,
+  ) {
     super(
       'USER_ALREADY_EXISTS',
       `User with ${field} '${identifier}' already exists`,
       409,
-      { [field]: identifier, ...details }
+      {[field]: identifier, ...details},
     );
   }
 }
@@ -110,12 +112,7 @@ export class UserAlreadyExistsError extends AppError {
  */
 export class InvalidEmailError extends AppError {
   constructor(email: string) {
-    super(
-      'INVALID_EMAIL',
-      `Invalid email format: ${email}`,
-      400,
-      { email }
-    );
+    super('INVALID_EMAIL', `Invalid email format: ${email}`, 400, {email});
   }
 }
 
@@ -127,13 +124,11 @@ export class InvalidEmailError extends AppError {
  * 浏览器未找到错误
  */
 export class BrowserNotFoundError extends AppError {
-  constructor(browserId: string, details?: any) {
-    super(
-      'BROWSER_NOT_FOUND',
-      `Browser ${browserId} not found`,
-      404,
-      { browserId, ...details }
-    );
+  constructor(browserId: string, details?: Record<string, unknown>) {
+    super('BROWSER_NOT_FOUND', `Browser ${browserId} not found`, 404, {
+      browserId,
+      ...details,
+    });
   }
 }
 
@@ -141,13 +136,8 @@ export class BrowserNotFoundError extends AppError {
  * 浏览器连接失败错误
  */
 export class BrowserConnectionError extends AppError {
-  constructor(message: string, details?: any) {
-    super(
-      'BROWSER_CONNECTION_FAILED',
-      message,
-      400,
-      details
-    );
+  constructor(message: string, details?: Record<string, unknown>) {
+    super('BROWSER_CONNECTION_FAILED', message, 400, details);
   }
 }
 
@@ -155,12 +145,16 @@ export class BrowserConnectionError extends AppError {
  * 浏览器不可访问错误
  */
 export class BrowserNotAccessibleError extends AppError {
-  constructor(browserURL: string, reason?: string, details?: any) {
+  constructor(
+    browserURL: string,
+    reason?: string,
+    details?: Record<string, unknown>,
+  ) {
     super(
       'BROWSER_NOT_ACCESSIBLE',
       `Cannot connect to browser at ${browserURL}${reason ? `: ${reason}` : ''}`,
       400,
-      { browserURL, reason, ...details }
+      {browserURL, reason, ...details},
     );
   }
 }
@@ -174,7 +168,7 @@ export class TokenNameAlreadyExistsError extends AppError {
       'TOKEN_NAME_EXISTS',
       `Token name '${tokenName}' already exists for user ${userId}`,
       409,
-      { tokenName, userId }
+      {tokenName, userId},
     );
   }
 }
@@ -188,12 +182,9 @@ export class TokenNameAlreadyExistsError extends AppError {
  */
 export class SessionNotFoundError extends AppError {
   constructor(sessionId: string) {
-    super(
-      'SESSION_NOT_FOUND',
-      `Session ${sessionId} not found`,
-      404,
-      { sessionId }
-    );
+    super('SESSION_NOT_FOUND', `Session ${sessionId} not found`, 404, {
+      sessionId,
+    });
   }
 }
 
@@ -202,12 +193,9 @@ export class SessionNotFoundError extends AppError {
  */
 export class SessionExpiredError extends AppError {
   constructor(sessionId: string) {
-    super(
-      'SESSION_EXPIRED',
-      `Session ${sessionId} has expired`,
-      401,
-      { sessionId }
-    );
+    super('SESSION_EXPIRED', `Session ${sessionId} has expired`, 401, {
+      sessionId,
+    });
   }
 }
 
@@ -220,7 +208,7 @@ export class MaxSessionsReachedError extends AppError {
       'MAX_SESSIONS_REACHED',
       `Maximum number of sessions reached: ${maxSessions}`,
       429,
-      { maxSessions }
+      {maxSessions},
     );
   }
 }
@@ -238,7 +226,7 @@ export class StorageNotInitializedError extends AppError {
       'STORAGE_NOT_INITIALIZED',
       `Storage${storageType ? ` (${storageType})` : ''} not initialized`,
       500,
-      { storageType }
+      {storageType},
     );
   }
 }
@@ -247,12 +235,16 @@ export class StorageNotInitializedError extends AppError {
  * 存储操作失败错误
  */
 export class StorageOperationError extends AppError {
-  constructor(operation: string, reason: string, details?: any) {
+  constructor(
+    operation: string,
+    reason: string,
+    details?: Record<string, unknown>,
+  ) {
     super(
       'STORAGE_OPERATION_FAILED',
       `Storage operation '${operation}' failed: ${reason}`,
       500,
-      { operation, reason, ...details }
+      {operation, reason, ...details},
     );
   }
 }
@@ -266,7 +258,7 @@ export class SyncMethodNotSupportedError extends AppError {
       'SYNC_METHOD_NOT_SUPPORTED',
       `${methodName}() is synchronous and not supported in async storage mode. Use ${asyncAlternative}() instead`,
       500,
-      { methodName, asyncAlternative }
+      {methodName, asyncAlternative},
     );
   }
 }
@@ -279,12 +271,16 @@ export class SyncMethodNotSupportedError extends AppError {
  * 参数验证错误
  */
 export class ValidationError extends AppError {
-  constructor(field: string, message: string, details?: any) {
+  constructor(
+    field: string,
+    message: string,
+    details?: Record<string, unknown>,
+  ) {
     super(
       'VALIDATION_ERROR',
       `Validation failed for '${field}': ${message}`,
       400,
-      { field, ...details }
+      {field, ...details},
     );
   }
 }
@@ -298,7 +294,7 @@ export class MissingRequiredParameterError extends AppError {
       'MISSING_REQUIRED_PARAMETER',
       `Required parameter '${parameter}' is missing`,
       400,
-      { parameter }
+      {parameter},
     );
   }
 }
@@ -307,12 +303,12 @@ export class MissingRequiredParameterError extends AppError {
  * 无效参数错误
  */
 export class InvalidParameterError extends AppError {
-  constructor(parameter: string, value: any, reason?: string) {
+  constructor(parameter: string, value: unknown, reason?: string) {
     super(
       'INVALID_PARAMETER',
       `Invalid value for parameter '${parameter}'${reason ? `: ${reason}` : ''}`,
       400,
-      { parameter, value, reason }
+      {parameter, value, reason},
     );
   }
 }
@@ -325,13 +321,8 @@ export class InvalidParameterError extends AppError {
  * 配置错误
  */
 export class ConfigurationError extends AppError {
-  constructor(message: string, details?: any) {
-    super(
-      'CONFIGURATION_ERROR',
-      message,
-      500,
-      details
-    );
+  constructor(message: string, details?: Record<string, unknown>) {
+    super('CONFIGURATION_ERROR', message, 500, details);
   }
 }
 
@@ -344,7 +335,7 @@ export class UnsupportedStorageTypeError extends AppError {
       'UNSUPPORTED_STORAGE_TYPE',
       `Unsupported storage type: ${type}`,
       500,
-      { type }
+      {type},
     );
   }
 }
@@ -358,12 +349,9 @@ export class UnsupportedStorageTypeError extends AppError {
  */
 export class IPNotAllowedError extends AppError {
   constructor(ip: string) {
-    super(
-      'IP_NOT_ALLOWED',
-      `IP address ${ip} is not in the whitelist`,
-      403,
-      { ip }
-    );
+    super('IP_NOT_ALLOWED', `IP address ${ip} is not in the whitelist`, 403, {
+      ip,
+    });
   }
 }
 
@@ -371,13 +359,8 @@ export class IPNotAllowedError extends AppError {
  * 未授权错误
  */
 export class UnauthorizedError extends AppError {
-  constructor(message = 'Unauthorized', details?: any) {
-    super(
-      'UNAUTHORIZED',
-      message,
-      401,
-      details
-    );
+  constructor(message = 'Unauthorized', details?: Record<string, unknown>) {
+    super('UNAUTHORIZED', message, 401, details);
   }
 }
 
@@ -385,13 +368,8 @@ export class UnauthorizedError extends AppError {
  * 禁止访问错误
  */
 export class ForbiddenError extends AppError {
-  constructor(message = 'Forbidden', details?: any) {
-    super(
-      'FORBIDDEN',
-      message,
-      403,
-      details
-    );
+  constructor(message = 'Forbidden', details?: Record<string, unknown>) {
+    super('FORBIDDEN', message, 403, details);
   }
 }
 
@@ -403,12 +381,16 @@ export class ForbiddenError extends AppError {
  * 速率限制错误
  */
 export class RateLimitError extends AppError {
-  constructor(limit: number, window: number, details?: any) {
+  constructor(
+    limit: number,
+    window: number,
+    details?: Record<string, unknown>,
+  ) {
     super(
       'RATE_LIMIT_EXCEEDED',
       `Rate limit exceeded: ${limit} requests per ${window}ms`,
       429,
-      { limit, window, ...details }
+      {limit, window, ...details},
     );
   }
 }
@@ -420,44 +402,39 @@ export class RateLimitError extends AppError {
 /**
  * 判断是否为 AppError
  */
-export function isAppError(error: any): error is AppError {
+export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
 /**
  * 将任意错误转换为 AppError
  */
-export function toAppError(error: any): AppError {
+export function toAppError(error: unknown): AppError {
   if (isAppError(error)) {
     return error;
   }
-  
+
   if (error instanceof Error) {
-    return new AppError(
-      'INTERNAL_ERROR',
-      error.message,
-      500,
-      { originalError: error.name, stack: error.stack }
-    );
+    return new AppError('INTERNAL_ERROR', error.message, 500, {
+      originalError: error.name,
+      stack: error.stack,
+    });
   }
-  
-  return new AppError(
-    'UNKNOWN_ERROR',
-    String(error),
-    500,
-    { originalError: error }
-  );
+
+  return new AppError('UNKNOWN_ERROR', String(error), 500, {
+    originalError: error,
+  });
 }
 
 /**
  * 格式化错误响应（用于 HTTP）
  */
-export function formatErrorResponse(error: any): {
+export function formatErrorResponse(error: unknown): {
   error: string;
   code: string;
   message: string;
   statusCode: number;
-  details?: any;
+  details?: unknown;
   timestamp: number;
 } {
   const appError = toAppError(error);

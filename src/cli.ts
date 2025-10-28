@@ -95,22 +95,19 @@ export const cliOptions = {
   },
   transport: {
     type: 'string',
-    description:
-      'Transport protocol to use for MCP communication.',
+    description: 'Transport protocol to use for MCP communication.',
     choices: ['stdio', 'sse', 'streamable'] as const,
     default: 'stdio',
     alias: 't',
   },
   port: {
     type: 'number',
-    description:
-      'Port number for HTTP-based transports (SSE or Streamable).',
+    description: 'Port number for HTTP-based transports (SSE or Streamable).',
     alias: 'p',
   },
   mode: {
     type: 'string',
-    description:
-      'Server mode (multi-tenant for enterprise deployment).',
+    description: 'Server mode (multi-tenant for enterprise deployment).',
     choices: ['multi-tenant'] as const,
     alias: 'm',
   },
@@ -118,15 +115,19 @@ export const cliOptions = {
 
 export function parseArguments(version: string, argv = process.argv) {
   // 检测是否是打包的二进制文件
-  const isBundled = !process.argv[1] || process.argv[1].includes('bun-') || !process.argv[1].endsWith('.js');
-  const scriptName = isBundled 
-    ? 'chrome-extension-debug-mcp'  // 打包后的可执行文件名
-    : 'npx chrome-extension-debug-mcp@latest';  // npm 运行方式
+  const isBundled =
+    !process.argv[1] ||
+    process.argv[1].includes('bun-') ||
+    !process.argv[1].endsWith('.js');
+  const scriptName = isBundled
+    ? 'chrome-extension-debug-mcp' // 打包后的可执行文件名
+    : 'npx chrome-extension-debug-mcp@latest'; // npm 运行方式
 
   const yargsInstance = yargs(hideBin(argv))
     .scriptName(scriptName)
     .usage('$0 [options]')
-    .epilog(`Chrome Extension Debug MCP v${version}
+    .epilog(
+      `Chrome Extension Debug MCP v${version}
 
 Transport Modes:
   stdio      - Standard I/O (default, for MCP clients)
@@ -151,7 +152,8 @@ Multi-Tenant Mode:
     AUTH_ENABLED=true PORT=32122 $0 --mode multi-tenant
 
 For more information, visit:
-  https://github.com/GoogleChromeLabs/chrome-devtools-mcp`)
+  https://github.com/GoogleChromeLabs/chrome-devtools-mcp`,
+    )
     .options(cliOptions)
     .check(args => {
       // We can't set default in the options else
@@ -162,14 +164,8 @@ For more information, visit:
       return true;
     })
     .example([
-      [
-        '$0',
-        'Start with stdio transport (default)',
-      ],
-      [
-        '$0 --transport sse',
-        'Start SSE server on port 32122',
-      ],
+      ['$0', 'Start with stdio transport (default)'],
+      ['$0 --transport sse', 'Start SSE server on port 32122'],
       [
         '$0 --transport streamable --port 3000',
         'Start Streamable HTTP server on port 3000',
@@ -181,14 +177,8 @@ For more information, visit:
       ['$0 --channel beta', 'Use Chrome Beta'],
       ['$0 --headless', 'Run in headless mode'],
       ['$0 --logFile /tmp/log.txt', 'Save logs to a file'],
-      [
-        '$0 --viewport 1280x720',
-        'Launch with viewport size 1280x720px',
-      ],
-      [
-        '$0 --mode multi-tenant',
-        'Start multi-tenant server for teams',
-      ],
+      ['$0 --viewport 1280x720', 'Launch with viewport size 1280x720px'],
+      ['$0 --mode multi-tenant', 'Start multi-tenant server for teams'],
     ])
     .alias('h', 'help')
     .alias('v', 'version');
@@ -200,11 +190,12 @@ For more information, visit:
     .parseSync();
 
   // 参数验证
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const validationResult = ParameterValidator.validate(parsed as any);
-  
+
   if (!validationResult.valid || validationResult.warnings.length > 0) {
     ParameterValidator.displayResults(validationResult);
-    
+
     if (!validationResult.valid) {
       process.exit(1);
     }

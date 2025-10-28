@@ -6,11 +6,15 @@
 
 /**
  * JSONL 文件存储适配器
- * 
+ *
  * 包装现有的 PersistentStoreV2，提供统一接口
  */
 
-import {PersistentStoreV2, type UserRecordV2, type BrowserRecordV2} from './PersistentStoreV2.js';
+import {
+  PersistentStoreV2,
+  type UserRecordV2,
+  type BrowserRecordV2,
+} from './PersistentStoreV2.js';
 import type {StorageAdapter} from './StorageAdapter.js';
 
 /**
@@ -73,7 +77,7 @@ export class JSONLStorageAdapter implements StorageAdapter {
       browser.userId,
       browser.browserURL,
       browser.tokenName,
-      browser.metadata?.description
+      browser.metadata?.description,
     );
   }
 
@@ -100,7 +104,7 @@ export class JSONLStorageAdapter implements StorageAdapter {
 
   async updateBrowser(
     browserId: string,
-    updates: { browserURL?: string; description?: string }
+    updates: {browserURL?: string; description?: string},
   ): Promise<void> {
     await this.store.updateBrowser(browserId, updates);
   }
@@ -121,7 +125,7 @@ export class JSONLStorageAdapter implements StorageAdapter {
   // 统计信息
   // ============================================================================
 
-  async getStats(): Promise<{ users: number; browsers: number }> {
+  async getStats(): Promise<{users: number; browsers: number}> {
     return this.store.getStats();
   }
 }

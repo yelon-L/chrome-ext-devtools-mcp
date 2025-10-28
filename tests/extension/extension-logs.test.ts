@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -15,11 +14,13 @@ import {fileURLToPath} from 'node:url';
 import type {Browser} from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-
 import {ExtensionHelper} from '../../src/extension/ExtensionHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_EXTENSION_PATH = path.join(__dirname, '../../test-extension-enhanced');
+const TEST_EXTENSION_PATH = path.join(
+  __dirname,
+  '../../test-extension-enhanced',
+);
 
 describe('get_extension_logs', () => {
   let browser: Browser;
@@ -45,7 +46,7 @@ describe('get_extension_logs', () => {
     // 获取测试扩展 ID
     const extensions = await helper.getExtensions();
     const testExt = extensions.find(ext =>
-      ext.name.includes('Enhanced MCP Debug Test Extension')
+      ext.name.includes('Enhanced MCP Debug Test Extension'),
     );
 
     if (!testExt) {
@@ -66,7 +67,11 @@ describe('get_extension_logs', () => {
       const result = await helper.getBackgroundLogs(testExtensionId);
 
       assert.ok(result, '应该返回日志结果');
-      assert.strictEqual(typeof result.isActive, 'boolean', 'isActive 应该是布尔值');
+      assert.strictEqual(
+        typeof result.isActive,
+        'boolean',
+        'isActive 应该是布尔值',
+      );
       assert.ok(Array.isArray(result.logs), 'logs 应该是数组');
 
       console.log(`✅ Extension Logs:`);
@@ -86,7 +91,9 @@ describe('get_extension_logs', () => {
       const result = await helper.getBackgroundLogs(testExtensionId);
 
       assert.ok('isActive' in result, '结果应该包含 isActive');
-      console.log(`✅ Service Worker 状态: ${result.isActive ? 'Active' : 'Inactive'}`);
+      console.log(
+        `✅ Service Worker 状态: ${result.isActive ? 'Active' : 'Inactive'}`,
+      );
     } catch (error) {
       console.log(`⚠️  状态检查跳过: ${(error as Error).message}`);
     }
@@ -105,14 +112,11 @@ describe('get_extension_logs', () => {
         const validTypes = ['log', 'info', 'warn', 'error', 'debug'];
         assert.ok(
           validTypes.includes(log.type),
-          `log type 应该是有效值，实际: ${log.type}`
+          `log type 应该是有效值，实际: ${log.type}`,
         );
 
         // 验证 timestamp
-        assert.ok(
-          typeof log.timestamp === 'number',
-          'timestamp 应该是数字'
-        );
+        assert.ok(typeof log.timestamp === 'number', 'timestamp 应该是数字');
         assert.ok(log.timestamp > 0, 'timestamp 应该 > 0');
       }
 
@@ -176,7 +180,7 @@ describe('get_extension_logs', () => {
       const result = await helper.getBackgroundLogs(testExtensionId);
 
       const logTypes = new Set(result.logs.map(log => log.type));
-      
+
       console.log(`✅ 日志类型分布:`);
       for (const type of logTypes) {
         const count = result.logs.filter(log => log.type === type).length;

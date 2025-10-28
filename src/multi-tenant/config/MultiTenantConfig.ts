@@ -6,7 +6,7 @@
 
 /**
  * 多租户服务器配置管理
- * 
+ *
  * 统一管理所有配置项，支持环境变量和默认值
  */
 
@@ -127,18 +127,23 @@ export interface MultiTenantConfig {
  */
 export function loadConfigFromEnv(version: string): MultiTenantConfig {
   // 存储类型
-  const storageType = (process.env.STORAGE_TYPE || 'jsonl') as 'jsonl' | 'postgresql';
-  
+  const storageType = (process.env.STORAGE_TYPE || 'jsonl') as
+    | 'jsonl'
+    | 'postgresql';
+
   // 存储配置
   const storageConfig: StorageConfig = {
     type: storageType,
   };
-  
+
   if (storageType === 'jsonl') {
     storageConfig.jsonl = {
       dataDir: process.env.DATA_DIR || './.mcp-data',
       logFileName: process.env.LOG_FILE_NAME || 'store-v2.jsonl',
-      snapshotThreshold: parseInt(process.env.SNAPSHOT_THRESHOLD || '10000', 10),
+      snapshotThreshold: parseInt(
+        process.env.SNAPSHOT_THRESHOLD || '10000',
+        10,
+      ),
       autoCompaction: process.env.AUTO_COMPACTION !== 'false',
     };
   } else {
@@ -152,13 +157,13 @@ export function loadConfigFromEnv(version: string): MultiTenantConfig {
       idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
     };
   }
-  
+
   // IP 白名单
   const allowedIPsEnv = process.env.ALLOWED_IPS;
-  const allowedIPs = allowedIPsEnv 
+  const allowedIPs = allowedIPsEnv
     ? allowedIPsEnv.split(',').map(ip => ip.trim())
     : null;
-  
+
   // CORS 配置
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
@@ -169,40 +174,62 @@ export function loadConfigFromEnv(version: string): MultiTenantConfig {
       port: parseInt(process.env.PORT || '32122', 10),
       version,
     },
-    
+
     storage: storageConfig,
-    
+
     session: {
       timeout: parseInt(process.env.SESSION_TIMEOUT || '3600000', 10), // 1 hour
-      cleanupInterval: parseInt(process.env.SESSION_CLEANUP_INTERVAL || '60000', 10), // 1 minute
-      maxSessions: process.env.MAX_SESSIONS 
+      cleanupInterval: parseInt(
+        process.env.SESSION_CLEANUP_INTERVAL || '60000',
+        10,
+      ), // 1 minute
+      maxSessions: process.env.MAX_SESSIONS
         ? parseInt(process.env.MAX_SESSIONS, 10)
         : undefined,
       // 默认逻辑：未设置 maxSessions 则自动启用持久连接模式（单客户端场景）
-      persistentMode: process.env.PERSISTENT_MODE === 'true' 
-        || (process.env.PERSISTENT_MODE !== 'false' && !process.env.MAX_SESSIONS),
+      persistentMode:
+        process.env.PERSISTENT_MODE === 'true' ||
+        (process.env.PERSISTENT_MODE !== 'false' && !process.env.MAX_SESSIONS),
     },
-    
+
     browserPool: {
-      healthCheckInterval: parseInt(process.env.BROWSER_HEALTH_CHECK_INTERVAL || '30000', 10),
-      maxReconnectAttempts: parseInt(process.env.MAX_RECONNECT_ATTEMPTS || '3', 10),
+      healthCheckInterval: parseInt(
+        process.env.BROWSER_HEALTH_CHECK_INTERVAL || '30000',
+        10,
+      ),
+      maxReconnectAttempts: parseInt(
+        process.env.MAX_RECONNECT_ATTEMPTS || '3',
+        10,
+      ),
       reconnectDelay: parseInt(process.env.RECONNECT_DELAY || '5000', 10),
-      connectionTimeout: parseInt(process.env.CONNECTION_TIMEOUT || '30000', 10),
-      detectionTimeout: parseInt(process.env.BROWSER_DETECTION_TIMEOUT || '3000', 10),
+      connectionTimeout: parseInt(
+        process.env.CONNECTION_TIMEOUT || '30000',
+        10,
+      ),
+      detectionTimeout: parseInt(
+        process.env.BROWSER_DETECTION_TIMEOUT || '3000',
+        10,
+      ),
     },
-    
+
     performance: {
       apiCacheTTL: parseInt(process.env.API_CACHE_TTL || '30000', 10), // 30 seconds
       apiCacheMaxSize: parseInt(process.env.API_CACHE_MAX_SIZE || '500', 10),
-      monitorBufferSize: parseInt(process.env.MONITOR_BUFFER_SIZE || '1000', 10),
-      connectionTimesBufferSize: parseInt(process.env.CONNECTION_TIMES_BUFFER_SIZE || '100', 10),
+      monitorBufferSize: parseInt(
+        process.env.MONITOR_BUFFER_SIZE || '1000',
+        10,
+      ),
+      connectionTimesBufferSize: parseInt(
+        process.env.CONNECTION_TIMES_BUFFER_SIZE || '100',
+        10,
+      ),
     },
-    
+
     security: {
       allowedIPs,
       allowedOrigins,
     },
-    
+
     experimental: {
       useCdpHybrid: process.env.USE_CDP_HYBRID === 'true',
       useCdpOperations: process.env.USE_CDP_OPERATIONS === 'true',
@@ -215,12 +242,12 @@ export function loadConfigFromEnv(version: string): MultiTenantConfig {
  */
 export function validateConfig(config: MultiTenantConfig): string[] {
   const errors: string[] = [];
-  
+
   // 验证端口
   if (config.server.port < 1 || config.server.port > 65535) {
     errors.push(`Invalid port: ${config.server.port} (must be 1-65535)`);
   }
-  
+
   // 验证 PostgreSQL 配置
   if (config.storage.type === 'postgresql' && config.storage.postgresql) {
     const pg = config.storage.postgresql;
@@ -234,16 +261,16 @@ export function validateConfig(config: MultiTenantConfig): string[] {
       errors.push('PostgreSQL user is required');
     }
   }
-  
+
   // 验证超时配置
   if (config.session.timeout < 1000) {
     errors.push('Session timeout must be at least 1000ms');
   }
-  
+
   if (config.browserPool.connectionTimeout < 1000) {
     errors.push('Connection timeout must be at least 1000ms');
   }
-  
+
   return errors;
 }
 
@@ -252,35 +279,51 @@ export function validateConfig(config: MultiTenantConfig): string[] {
  */
 export function printConfig(config: MultiTenantConfig): void {
   console.log('\n📋 Configuration:');
-  console.log(`   Server: port=${config.server.port}, version=${config.server.version}`);
+  console.log(
+    `   Server: port=${config.server.port}, version=${config.server.version}`,
+  );
   console.log(`   Storage: type=${config.storage.type}`);
-  
+
   if (config.storage.type === 'jsonl' && config.storage.jsonl) {
     console.log(`     - dataDir: ${config.storage.jsonl.dataDir}`);
     console.log(`     - logFileName: ${config.storage.jsonl.logFileName}`);
-  } else if (config.storage.type === 'postgresql' && config.storage.postgresql) {
+  } else if (
+    config.storage.type === 'postgresql' &&
+    config.storage.postgresql
+  ) {
     const pg = config.storage.postgresql;
     console.log(`     - host: ${pg.host}:${pg.port}`);
     console.log(`     - database: ${pg.database}`);
     console.log(`     - user: ${pg.user}`);
     console.log(`     - password: ${'*'.repeat(8)}`);
   }
-  
-  console.log(`   Session: timeout=${config.session.timeout}ms, cleanup=${config.session.cleanupInterval}ms, persistent=${config.session.persistentMode}`);
+
+  console.log(
+    `   Session: timeout=${config.session.timeout}ms, cleanup=${config.session.cleanupInterval}ms, persistent=${config.session.persistentMode}`,
+  );
   if (config.session.maxSessions) {
     console.log(`     - maxSessions: ${config.session.maxSessions}`);
   }
-  console.log(`   BrowserPool: healthCheck=${config.browserPool.healthCheckInterval}ms, maxReconnect=${config.browserPool.maxReconnectAttempts}`);
-  
+  console.log(
+    `   BrowserPool: healthCheck=${config.browserPool.healthCheckInterval}ms, maxReconnect=${config.browserPool.maxReconnectAttempts}`,
+  );
+
   if (config.security.allowedIPs) {
-    console.log(`   Security: IP whitelist enabled (${config.security.allowedIPs.length} rules)`);
+    console.log(
+      `   Security: IP whitelist enabled (${config.security.allowedIPs.length} rules)`,
+    );
   } else {
     console.log(`   Security: No IP whitelist (all IPs allowed)`);
   }
-  
-  if (config.experimental.useCdpHybrid || config.experimental.useCdpOperations) {
-    console.log(`   Experimental: CDP hybrid=${config.experimental.useCdpHybrid}, CDP operations=${config.experimental.useCdpOperations}`);
+
+  if (
+    config.experimental.useCdpHybrid ||
+    config.experimental.useCdpOperations
+  ) {
+    console.log(
+      `   Experimental: CDP hybrid=${config.experimental.useCdpHybrid}, CDP operations=${config.experimental.useCdpOperations}`,
+    );
   }
-  
+
   console.log('');
 }

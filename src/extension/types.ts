@@ -91,7 +91,11 @@ export interface ExtensionMessageEvent {
   /** 消息类型 */
   type: 'sent' | 'received';
   /** 调用方法 */
-  method: 'runtime.sendMessage' | 'tabs.sendMessage' | 'runtime.onMessage' | 'runtime.connect';
+  method:
+    | 'runtime.sendMessage'
+    | 'tabs.sendMessage'
+    | 'runtime.onMessage'
+    | 'runtime.connect';
   /** 消息内容 */
   message: unknown;
   /** 发送方信息 */
@@ -114,10 +118,13 @@ export interface StorageChangeEvent {
   /** Storage 区域 */
   storageArea: StorageType;
   /** 变化的键值对 */
-  changes: Record<string, {
-    oldValue?: unknown;
-    newValue?: unknown;
-  }>;
+  changes: Record<
+    string,
+    {
+      oldValue?: unknown;
+      newValue?: unknown;
+    }
+  >;
 }
 
 /**

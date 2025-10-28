@@ -7,9 +7,9 @@
 
 /**
  * MCP Streamable HTTP Server - 用于测试
- * 
+ *
  * 基于官方 StreamableHTTPServerTransport 实现
- * 
+ *
  * 使用方式：
  * node build/src/server-http.js --browser-url http://localhost:9222
  */
@@ -22,10 +22,15 @@ import http from 'node:http';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
-import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 
 import type {Channel} from './browser.js';
-import {ensureBrowserConnected, ensureBrowserLaunched, shouldCloseBrowser, validateBrowserURL, verifyBrowserConnection, getBrowserURL} from './browser.js';
+import {
+  ensureBrowserConnected,
+  ensureBrowserLaunched,
+  shouldCloseBrowser,
+  validateBrowserURL,
+  verifyBrowserConnection,
+} from './browser.js';
 import {parseArguments} from './cli.js';
 import {logger} from './logger.js';
 import {McpContext} from './McpContext.js';
@@ -37,11 +42,14 @@ import {displayStreamableModeInfo} from './utils/modeMessages.js';
 import {VERSION} from './version.js';
 
 // 存储所有会话
-const sessions = new Map<string, {
-  transport: StreamableHTTPServerTransport;
-  server: McpServer;
-  context: McpContext;
-}>();
+const sessions = new Map<
+  string,
+  {
+    transport: StreamableHTTPServerTransport;
+    server: McpServer;
+    context: McpContext;
+  }
+>();
 
 // 保存服务器配置（用于验证浏览器连接）
 const SERVER_CONFIG: {
@@ -55,7 +63,7 @@ async function startHTTPServer() {
   const args = parseArguments(VERSION);
   const port = parseInt(process.env.PORT || '32123', 10);
   SERVER_CONFIG.port = port;
-  
+
   // 保存 browserURL 配置
   if (args.browserUrl) {
     SERVER_CONFIG.browserURL = args.browserUrl;
@@ -68,16 +76,21 @@ async function startHTTPServer() {
       await validateBrowserURL(args.browserUrl);
       console.log('[HTTP] Browser validation successful');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error('\n❌ Browser Connection Validation Failed');
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error(
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      );
       console.error(`Error: ${errorMessage}`);
       console.error('');
       console.error('📝 Please check:');
       console.error('  1. Chrome is running with remote debugging enabled');
       console.error(`  2. The browser URL is correct: ${args.browserUrl}`);
       console.error('  3. No firewall is blocking the connection');
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error(
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      );
       console.error('');
       process.exit(1);
     }
@@ -85,12 +98,12 @@ async function startHTTPServer() {
 
   // 启动浏览器
   console.log('[HTTP] Initializing browser...');
-  
+
   const extraArgs: string[] = (args.chromeArg ?? []).map(String);
   if (args.proxyServer) {
     extraArgs.push(`--proxy-server=${args.proxyServer}`);
   }
-  
+
   const devtools = args.experimentalDevtools ?? false;
   let browser = args.browserUrl
     ? await ensureBrowserConnected({
@@ -111,7 +124,11 @@ async function startHTTPServer() {
 
   // 工具注册函数
   const toolMutex = new Mutex();
-  function registerTool(mcpServer: McpServer, tool: ToolDefinition, context: McpContext): void {
+  function registerTool(
+    mcpServer: McpServer,
+    tool: ToolDefinition,
+    context: McpContext,
+  ): void {
     mcpServer.registerTool(
       tool.name,
       {
@@ -127,7 +144,8 @@ async function startHTTPServer() {
           const content = await response.handle(tool.name, context);
           return {content};
         } catch (error) {
-          const errorText = error instanceof Error ? error.message : String(error);
+          const errorText =
+            error instanceof Error ? error.message : String(error);
           return {
             content: [{type: 'text', text: errorText}],
             isError: true,
@@ -142,11 +160,14 @@ async function startHTTPServer() {
   // HTTP 服务器
   const httpServer = http.createServer(async (req, res) => {
     const url = new URL(req.url!, `http://${req.headers.host}`);
-    
+
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Mcp-Session-Id');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Mcp-Session-Id',
+    );
 
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
@@ -157,12 +178,14 @@ async function startHTTPServer() {
     // 健康检查
     if (url.pathname === '/health') {
       res.writeHead(200, {'Content-Type': 'application/json'});
-      res.end(JSON.stringify({
-        status: 'ok',
-        sessions: sessions.size,
-        browser: 'connected',
-        transport: 'streamable-http',
-      }));
+      res.end(
+        JSON.stringify({
+          status: 'ok',
+          sessions: sessions.size,
+          browser: 'connected',
+          transport: 'streamable-http',
+        }),
+      );
       return;
     }
 
@@ -175,95 +198,120 @@ async function startHTTPServer() {
 
     // MCP 端点
     if (url.pathname === '/mcp') {
-      const sessionIdFromHeader = req.headers['mcp-session-id'] as string | undefined;
-      
-      console.log(`[HTTP] ${req.method} /mcp, Session: ${sessionIdFromHeader || 'new'}`);
-      
+      const sessionIdFromHeader = req.headers['mcp-session-id'] as
+        | string
+        | undefined;
+
+      console.log(
+        `[HTTP] ${req.method} /mcp, Session: ${sessionIdFromHeader || 'new'}`,
+      );
+
       // 查找或创建会话
-      let session = sessionIdFromHeader ? sessions.get(sessionIdFromHeader) : undefined;
-      
+      let session = sessionIdFromHeader
+        ? sessions.get(sessionIdFromHeader)
+        : undefined;
+
       if (!session) {
         // 创建新会话
-        let sessionToStore: {transport: StreamableHTTPServerTransport; server: McpServer; context: McpContext} | null = null;
-        
+        let sessionToStore: {
+          transport: StreamableHTTPServerTransport;
+          server: McpServer;
+          context: McpContext;
+        } | null = null;
+
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: async (sessionId) => {
+          onsessioninitialized: async sessionId => {
             console.log(`[HTTP] ✅ Session initialized: ${sessionId}`);
             // 在会话初始化后保存 session
             if (sessionToStore) {
               sessions.set(sessionId, sessionToStore);
-              console.log(`[HTTP] 📦 Session saved: ${sessionId}, total sessions: ${sessions.size}`);
+              console.log(
+                `[HTTP] 📦 Session saved: ${sessionId}, total sessions: ${sessions.size}`,
+              );
             }
           },
-          onsessionclosed: async (sessionId) => {
+          onsessionclosed: async sessionId => {
             console.log(`[HTTP] 📴 Session closed: ${sessionId}`);
             sessions.delete(sessionId);
           },
         });
-        
+
         // 注意：不要手动调用 transport.start()
         // mcpServer.connect() 会自动调用它
-        
+
         // 创建 MCP Server
         const mcpServer = new McpServer(
           {name: 'chrome-devtools-mcp', version: VERSION},
           {capabilities: {tools: {}}},
         );
-        
+
         // ✅ 验证并重连浏览器（如果配置了 browserURL）
         if (SERVER_CONFIG.browserURL) {
-          const isConnected = await verifyBrowserConnection(SERVER_CONFIG.browserURL);
+          const isConnected = await verifyBrowserConnection(
+            SERVER_CONFIG.browserURL,
+          );
           if (!isConnected) {
             console.warn('[HTTP] ⚠️  Browser connection verification failed');
             console.warn('[HTTP] 🔄 Attempting to reconnect...');
-            
+
             try {
               // ✅ 尝试重连浏览器
               browser = await ensureBrowserConnected({
                 browserURL: SERVER_CONFIG.browserURL,
                 devtools,
               });
-              
+
               console.log('[HTTP] ✅ Browser reconnected successfully');
             } catch (reconnectError) {
               // 重连失败，返回错误响应
               console.error('[HTTP] ❌ Failed to reconnect to browser');
-              console.error('[HTTP] Error:', reconnectError instanceof Error ? reconnectError.message : String(reconnectError));
-              
+              console.error(
+                '[HTTP] Error:',
+                reconnectError instanceof Error
+                  ? reconnectError.message
+                  : String(reconnectError),
+              );
+
               res.writeHead(503, {'Content-Type': 'application/json'});
-              res.end(JSON.stringify({
-                jsonrpc: '2.0',
-                error: {
-                  code: -32000,
-                  message: 'Browser connection lost and reconnection failed',
-                  data: {
-                    browserURL: SERVER_CONFIG.browserURL,
-                    error: reconnectError instanceof Error ? reconnectError.message : String(reconnectError),
-                    suggestion: 'Please ensure Chrome is running with --remote-debugging-port and restart the service if needed',
+              res.end(
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  error: {
+                    code: -32000,
+                    message: 'Browser connection lost and reconnection failed',
+                    data: {
+                      browserURL: SERVER_CONFIG.browserURL,
+                      error:
+                        reconnectError instanceof Error
+                          ? reconnectError.message
+                          : String(reconnectError),
+                      suggestion:
+                        'Please ensure Chrome is running with --remote-debugging-port and restart the service if needed',
+                    },
                   },
-                },
-              }));
+                }),
+              );
               return;
             }
           }
         }
-        
+
         // 创建 Context
         const context = await McpContext.from(browser, logger);
-        
+
         // 从统一注册中心获取所有工具并注册
         const tools = getAllTools();
         for (const tool of tools) {
           registerTool(mcpServer, tool, context);
         }
-        
+
         await mcpServer.connect(transport);
-        
+
         session = {transport, server: mcpServer, context};
         sessionToStore = session;
       }
-      
+
       // 处理请求
       await session.transport.handleRequest(req, res);
       return;
@@ -277,7 +325,7 @@ async function startHTTPServer() {
   httpServer.on('error', (error: NodeJS.ErrnoException) => {
     console.error('\n[HTTP] ❌ Server failed to start');
     console.error('');
-    
+
     if (error.code === 'EADDRINUSE') {
       console.error(`❌ Port ${port} is already in use`);
       console.error('');
@@ -307,7 +355,7 @@ async function startHTTPServer() {
       console.error('Details:');
       console.error(error.stack || error);
     }
-    
+
     console.error('');
     process.exit(1);
   });
@@ -321,14 +369,16 @@ async function startHTTPServer() {
 
   process.on('SIGINT', async () => {
     console.log('\n[HTTP] 🛑 Shutting down...');
-    for (const [id, session] of sessions) {
+    for (const [_id, session] of sessions) {
       await session.transport.close();
     }
     if (browser && shouldCloseBrowser()) {
       console.log('[HTTP] 🔒 Closing browser...');
       await browser.close();
     } else if (browser) {
-      console.log('[HTTP] ✅ Keeping external browser running (connected via --browserUrl)');
+      console.log(
+        '[HTTP] ✅ Keeping external browser running (connected via --browserUrl)',
+      );
     }
     httpServer.close(() => process.exit(0));
   });

@@ -6,7 +6,7 @@
 
 /**
  * 循环缓冲区（固定大小）
- * 
+ *
  * 用于高效存储最近的 N 个数据点，避免数组 shift() 的 O(n) 开销
  * 适用场景：性能监控、滑动窗口统计
  */
@@ -29,13 +29,13 @@ export class CircularBuffer<T> {
 
   /**
    * 添加元素到缓冲区
-   * 
+   *
    * 时间复杂度: O(1)
    */
   push(item: T): void {
     this.buffer[this.index] = item;
     this.index = (this.index + 1) % this.capacity;
-    
+
     if (this.count < this.capacity) {
       this.count++;
     }
@@ -43,7 +43,7 @@ export class CircularBuffer<T> {
 
   /**
    * 获取所有有效元素（按插入顺序）
-   * 
+   *
    * 时间复杂度: O(n)
    */
   getAll(): T[] {
@@ -54,14 +54,14 @@ export class CircularBuffer<T> {
       // 已满：需要重新排序
       return [
         ...this.buffer.slice(this.index),
-        ...this.buffer.slice(0, this.index)
+        ...this.buffer.slice(0, this.index),
       ];
     }
   }
 
   /**
    * 遍历所有元素
-   * 
+   *
    * 时间复杂度: O(n)
    */
   forEach(callback: (item: T, index: number) => void): void {
@@ -72,17 +72,17 @@ export class CircularBuffer<T> {
 
   /**
    * 计算平均值（仅适用于数字类型）
-   * 
+   *
    * 时间复杂度: O(n)
    */
   average(): number {
     if (this.count === 0) return 0;
-    
+
     let sum = 0;
     for (let i = 0; i < this.count; i++) {
       sum += this.buffer[i] as number;
     }
-    
+
     return sum / this.count;
   }
 
@@ -102,7 +102,7 @@ export class CircularBuffer<T> {
    */
   min(): number {
     if (this.count === 0) return NaN;
-    
+
     let min = this.buffer[0] as number;
     for (let i = 1; i < this.count; i++) {
       const val = this.buffer[i] as number;
@@ -116,7 +116,7 @@ export class CircularBuffer<T> {
    */
   max(): number {
     if (this.count === 0) return NaN;
-    
+
     let max = this.buffer[0] as number;
     for (let i = 1; i < this.count; i++) {
       const val = this.buffer[i] as number;

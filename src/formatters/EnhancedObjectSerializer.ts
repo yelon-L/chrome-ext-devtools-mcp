@@ -8,7 +8,7 @@ import type {CDPSession, Protocol} from 'puppeteer-core';
 
 /**
  * Enhanced Object Serializer
- * 
+ *
  * 使用 CDP Runtime.getProperties 完整序列化对象
  * 支持函数、Error、Map、Set 等复杂类型
  */
@@ -21,7 +21,7 @@ export class EnhancedObjectSerializer {
     session: CDPSession,
     depth = 0,
     maxDepth = 3,
-  ): Promise<any> {
+  ): Promise<unknown> {
     // 深度限制（防止无限递归）
     if (depth > maxDepth) {
       return '[Max Depth Reached]';
@@ -51,7 +51,7 @@ export class EnhancedObjectSerializer {
       return {
         __type: 'Date',
         value: obj.description,
-        iso: obj.description,  // description 包含完整日期字符串
+        iso: obj.description, // description 包含完整日期字符串
       };
     }
 
@@ -93,7 +93,7 @@ export class EnhancedObjectSerializer {
   private async serializeFunction(
     obj: Protocol.Runtime.RemoteObject,
     session: CDPSession,
-  ): Promise<any> {
+  ): Promise<unknown> {
     if (!obj.objectId) {
       return {__type: 'Function', name: 'unknown'};
     }
@@ -104,7 +104,9 @@ export class EnhancedObjectSerializer {
         ownProperties: true,
       });
 
-      const nameMatch = obj.description?.match(/^(?:async\s+)?function\s+(\w+)/);
+      const nameMatch = obj.description?.match(
+        /^(?:async\s+)?function\s+(\w+)/,
+      );
       const name =
         nameMatch?.[1] ||
         props.result.find(p => p.name === 'name')?.value?.value ||
@@ -130,7 +132,7 @@ export class EnhancedObjectSerializer {
   private async serializeError(
     obj: Protocol.Runtime.RemoteObject,
     session: CDPSession,
-  ): Promise<any> {
+  ): Promise<unknown> {
     if (!obj.objectId) {
       return {__type: 'Error', message: obj.description || 'Unknown error'};
     }
@@ -160,10 +162,10 @@ export class EnhancedObjectSerializer {
    */
   private async serializeMap(
     obj: Protocol.Runtime.RemoteObject,
-    session: CDPSession,
-    depth: number,
-    maxDepth: number,
-  ): Promise<any> {
+    _session: CDPSession,
+    _depth: number,
+    _maxDepth: number,
+  ): Promise<unknown> {
     // 从 description 解析大小（如 "Map(2)"）
     const sizeMatch = obj.description?.match(/Map\((\d+)\)/);
     const size = sizeMatch ? parseInt(sizeMatch[1]) : 0;
@@ -180,10 +182,10 @@ export class EnhancedObjectSerializer {
    */
   private async serializeSet(
     obj: Protocol.Runtime.RemoteObject,
-    session: CDPSession,
-    depth: number,
-    maxDepth: number,
-  ): Promise<any> {
+    _session: CDPSession,
+    _depth: number,
+    _maxDepth: number,
+  ): Promise<unknown> {
     // 从 description 解析大小（如 "Set(5)"）
     const sizeMatch = obj.description?.match(/Set\((\d+)\)/);
     const size = sizeMatch ? parseInt(sizeMatch[1]) : 0;
@@ -203,7 +205,7 @@ export class EnhancedObjectSerializer {
     session: CDPSession,
     depth: number,
     maxDepth: number,
-  ): Promise<any> {
+  ): Promise<unknown> {
     if (!obj.objectId) {
       return [];
     }
@@ -222,7 +224,12 @@ export class EnhancedObjectSerializer {
       const serialized = await Promise.all(
         elements.map(async elem => {
           if (elem.value) {
-            return await this.serialize(elem.value, session, depth + 1, maxDepth);
+            return await this.serialize(
+              elem.value,
+              session,
+              depth + 1,
+              maxDepth,
+            );
           }
           return undefined;
         }),
@@ -242,7 +249,7 @@ export class EnhancedObjectSerializer {
     session: CDPSession,
     depth: number,
     maxDepth: number,
-  ): Promise<any> {
+  ): Promise<unknown> {
     if (!obj.objectId) {
       return {};
     }
@@ -253,7 +260,7 @@ export class EnhancedObjectSerializer {
         ownProperties: true,
       });
 
-      const result: Record<string, any> = {};
+      const result: Record<string, unknown> = {};
 
       for (const prop of props.result) {
         // 跳过内部属性和 Symbol

@@ -10,8 +10,8 @@
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
 
+// @ts-expect-error - pg module types not available in scripts folder
 import pg from 'pg';
 
 const {Pool} = pg;
@@ -122,7 +122,7 @@ async function migrate(config: MigrationConfig) {
         );
       } else if (op.op === 'update_browser') {
         const setParts: string[] = [];
-        const values: any[] = [];
+        const values: unknown[] = [];
 
         if (op.browserURL) {
           setParts.push('browser_url = $1');

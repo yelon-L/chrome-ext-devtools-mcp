@@ -6,7 +6,7 @@
 
 /**
  * 工具元数据扩展
- * 
+ *
  * 为工具添加更丰富的元数据支持，用于：
  * - 工具发现和过滤
  * - 限流和权限控制
@@ -45,19 +45,19 @@ export enum ToolStability {
 export interface ExtendedToolMetadata {
   /** 工具分类 */
   category: ToolCategories;
-  
+
   /** 是否只读（不修改环境） */
   readOnlyHint: boolean;
-  
+
   /** 标签（用于搜索和过滤） */
   tags?: string[];
-  
+
   /** 优先级 */
   priority?: ToolPriority;
-  
+
   /** 稳定性级别 */
   stability?: ToolStability;
-  
+
   /** 限流配置 */
   rateLimit?: {
     /** 每秒最大请求数 */
@@ -67,44 +67,44 @@ export interface ExtendedToolMetadata {
     /** 每小时最大请求数 */
     requestsPerHour?: number;
   };
-  
+
   /** 超时配置（毫秒） */
   timeout?: number;
-  
+
   /** 所需权限 */
   requiredPermissions?: string[];
-  
+
   /** 是否需要浏览器实例 */
   requiresBrowser?: boolean;
-  
+
   /** 是否需要页面实例 */
   requiresPage?: boolean;
-  
+
   /** 是否需要扩展环境 */
   requiresExtension?: boolean;
-  
+
   /** 性能影响等级 (1-5, 5为最高) */
   performanceImpact?: 1 | 2 | 3 | 4 | 5;
-  
+
   /** 是否可在后台运行 */
   canRunInBackground?: boolean;
-  
+
   /** 示例用法 */
   examples?: Array<{
     description: string;
-    params: Record<string, any>;
+    params: Record<string, unknown>;
     expectedResult?: string;
   }>;
-  
+
   /** 相关工具（推荐配合使用） */
   relatedTools?: string[];
-  
+
   /** 版本信息 */
   version?: string;
-  
+
   /** 作者信息 */
   author?: string;
-  
+
   /** 变更日志 */
   changelog?: Array<{
     version: string;
@@ -119,25 +119,25 @@ export interface ExtendedToolMetadata {
 export interface ToolFilter {
   /** 分类过滤 */
   categories?: ToolCategories[];
-  
+
   /** 标签过滤（包含任一标签） */
   tags?: string[];
-  
+
   /** 是否只读 */
   readOnly?: boolean;
-  
+
   /** 优先级过滤 */
   minPriority?: ToolPriority;
-  
+
   /** 稳定性过滤 */
   stability?: ToolStability[];
-  
+
   /** 排除实验性功能 */
   excludeExperimental?: boolean;
-  
+
   /** 排除已弃用功能 */
   excludeDeprecated?: boolean;
-  
+
   /** 搜索关键词（匹配名称或描述） */
   search?: string;
 }
@@ -148,27 +148,27 @@ export interface ToolFilter {
 export interface ToolUsageStats {
   /** 工具名称 */
   toolName: string;
-  
+
   /** 调用次数 */
   callCount: number;
-  
+
   /** 成功次数 */
   successCount: number;
-  
+
   /** 失败次数 */
   errorCount: number;
-  
+
   /** 平均执行时间（毫秒） */
   avgExecutionTime: number;
-  
+
   /** 最后调用时间 */
   lastCalled: number;
-  
+
   /** 错误详情 */
   recentErrors?: Array<{
     timestamp: number;
     error: string;
-    params?: Record<string, any>;
+    params?: Record<string, unknown>;
   }>;
 }
 
@@ -184,7 +184,7 @@ export class ToolRegistry {
    */
   register(toolName: string, metadata: ExtendedToolMetadata): void {
     this.metadata.set(toolName, metadata);
-    
+
     // 初始化统计
     if (!this.stats.has(toolName)) {
       this.stats.set(toolName, {
@@ -218,7 +218,7 @@ export class ToolRegistry {
    */
   filter(filter: ToolFilter): string[] {
     const tools = this.getAllToolNames();
-    
+
     return tools.filter(toolName => {
       const metadata = this.metadata.get(toolName);
       if (!metadata) return false;
@@ -235,7 +235,10 @@ export class ToolRegistry {
       }
 
       // 只读过滤
-      if (filter.readOnly !== undefined && metadata.readOnlyHint !== filter.readOnly) {
+      if (
+        filter.readOnly !== undefined &&
+        metadata.readOnlyHint !== filter.readOnly
+      ) {
         return false;
       }
 
@@ -256,12 +259,18 @@ export class ToolRegistry {
       }
 
       // 排除实验性
-      if (filter.excludeExperimental && metadata.stability === ToolStability.EXPERIMENTAL) {
+      if (
+        filter.excludeExperimental &&
+        metadata.stability === ToolStability.EXPERIMENTAL
+      ) {
         return false;
       }
 
       // 排除已弃用
-      if (filter.excludeDeprecated && metadata.stability === ToolStability.DEPRECATED) {
+      if (
+        filter.excludeDeprecated &&
+        metadata.stability === ToolStability.DEPRECATED
+      ) {
         return false;
       }
 
@@ -282,7 +291,12 @@ export class ToolRegistry {
   /**
    * 记录工具调用
    */
-  recordCall(toolName: string, success: boolean, executionTime: number, error?: string): void {
+  recordCall(
+    toolName: string,
+    success: boolean,
+    executionTime: number,
+    error?: string,
+  ): void {
     let stats = this.stats.get(toolName);
     if (!stats) {
       stats = {
@@ -302,7 +316,7 @@ export class ToolRegistry {
       stats.successCount++;
     } else {
       stats.errorCount++;
-      
+
       // 记录最近的错误（最多保留10个）
       if (!stats.recentErrors) {
         stats.recentErrors = [];
@@ -315,11 +329,10 @@ export class ToolRegistry {
     }
 
     // 更新平均执行时间
-    stats.avgExecutionTime = (
+    stats.avgExecutionTime =
       (stats.avgExecutionTime * (stats.callCount - 1) + executionTime) /
-      stats.callCount
-    );
-    
+      stats.callCount;
+
     stats.lastCalled = Date.now();
   }
 

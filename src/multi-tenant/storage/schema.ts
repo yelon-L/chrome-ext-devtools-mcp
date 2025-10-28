@@ -6,7 +6,7 @@
 
 /**
  * 数据库Schema类型定义
- * 
+ *
  * 使用Kysely提供编译时类型安全
  */
 
@@ -30,7 +30,7 @@ export interface UsersTable {
   username: string;
   registered_at: number;
   updated_at: number | null;
-  metadata: ColumnType<any, string | undefined, string | undefined>;
+  metadata: ColumnType<unknown, string | undefined, string | undefined>;
   created_at: Generated<Date>;
 }
 
@@ -46,7 +46,7 @@ export interface BrowsersTable {
   created_at_ts: number;
   last_connected_at: number | null;
   tool_call_count: Generated<number>;
-  metadata: ColumnType<any, string | undefined, string | undefined>;
+  metadata: ColumnType<unknown, string | undefined, string | undefined>;
   created_at: Generated<Date>;
 }
 
@@ -72,9 +72,14 @@ export type UserUpdate = Partial<Omit<UsersTable, 'user_id' | 'created_at'>>;
 /**
  * 浏览器插入类型（排除Generated字段）
  */
-export type BrowserInsert = Omit<BrowsersTable, 'browser_id' | 'tool_call_count' | 'created_at'>;
+export type BrowserInsert = Omit<
+  BrowsersTable,
+  'browser_id' | 'tool_call_count' | 'created_at'
+>;
 
 /**
  * 浏览器更新类型（所有字段可选）
  */
-export type BrowserUpdate = Partial<Omit<BrowsersTable, 'browser_id' | 'user_id' | 'created_at'>>;
+export type BrowserUpdate = Partial<
+  Omit<BrowsersTable, 'browser_id' | 'user_id' | 'created_at'>
+>;

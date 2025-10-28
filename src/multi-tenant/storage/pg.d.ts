@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -9,19 +8,19 @@
  */
 declare module 'pg' {
   export class Pool {
-    constructor(config: any);
+    constructor(config: unknown);
     connect(): Promise<PoolClient>;
-    query(queryText: string, values?: any[]): Promise<QueryResult>;
+    query(queryText: string, values?: unknown[]): Promise<QueryResult>;
     end(): Promise<void>;
   }
 
   export interface PoolClient {
-    query(queryText: string, values?: any[]): Promise<QueryResult>;
+    query(queryText: string, values?: unknown[]): Promise<QueryResult>;
     release(): void;
   }
 
   export interface QueryResult {
-    rows: any[];
+    rows: unknown[];
     rowCount: number;
   }
 }

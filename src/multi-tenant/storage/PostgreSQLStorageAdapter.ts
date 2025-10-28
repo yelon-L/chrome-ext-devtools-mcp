@@ -6,7 +6,7 @@
 
 /**
  * PostgreSQL 存储适配器
- * 
+ *
  * 使用 PostgreSQL 数据库作为存储后端
  */
 
@@ -28,10 +28,8 @@ import type {StorageAdapter} from './StorageAdapter.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// @ts-ignore - pg module loaded at runtime
 let Pool: typeof pg.Pool;
 try {
-  // @ts-ignore
   const pgModule = await import('pg');
   Pool = pgModule.default?.Pool || pgModule.Pool;
 } catch {
@@ -47,7 +45,7 @@ export interface PostgreSQLConfig {
   database: string;
   user: string;
   password: string;
-  max?: number;              // 最大连接数
+  max?: number; // 最大连接数
   idleTimeoutMillis?: number;
   connectionTimeoutMillis?: number;
 }
@@ -75,7 +73,7 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
       idleTimeoutMillis: config.idleTimeoutMillis || 30000,
       connectionTimeoutMillis: config.connectionTimeoutMillis || 5000,
     });
-    
+
     // 创建Kysely实例
     this.db = createDB(this.pool);
   }
@@ -155,9 +153,9 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
    */
   private async getAppliedMigrations(): Promise<Set<string>> {
     const result = await this.pool.query(
-      `SELECT name FROM ${this.migrationsTable} ORDER BY id`
+      `SELECT name FROM ${this.migrationsTable} ORDER BY id`,
     );
-    return new Set(result.rows.map(row => row.name));
+    return new Set(result.rows.map(row => (row as {name: string}).name));
   }
 
   /**
@@ -169,7 +167,8 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
       return [];
     }
 
-    const files = fs.readdirSync(this.migrationsDir)
+    const files = fs
+      .readdirSync(this.migrationsDir)
       .filter(f => f.endsWith('.sql'))
       .sort();
     return files;
@@ -194,7 +193,7 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
       // 记录迁移历史
       await client.query(
         `INSERT INTO ${this.migrationsTable} (name) VALUES ($1)`,
-        [filename]
+        [filename],
       );
 
       await client.query('COMMIT');
@@ -202,7 +201,11 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
     } catch (error) {
       await client.query('ROLLBACK');
       this.logger.error(`迁移失败: ${filename}`, error as Error);
-      throw new StorageOperationError('migration', `Failed to apply ${filename}`, error);
+      throw new StorageOperationError(
+        'migration',
+        `Failed to apply ${filename}`,
+        error,
+      );
     } finally {
       client.release();
     }
@@ -214,7 +217,7 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
    */
   private async createTables(): Promise<void> {
     const client = await this.pool.connect();
-    
+
     try {
       await client.query('BEGIN');
 
@@ -230,7 +233,7 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      
+
       // 创建用户表索引
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_email ON mcp_users(email)
@@ -252,7 +255,7 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
           FOREIGN KEY (user_id) REFERENCES mcp_users(user_id) ON DELETE CASCADE
         )
       `);
-      
+
       // 创建浏览器表索引
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_token ON mcp_browsers(token)
@@ -410,26 +413,26 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
   async getUserBrowsers(userId: string): Promise<BrowserRecordV2[]> {
     const result = await this.pool.query(
       'SELECT * FROM mcp_browsers WHERE user_id = $1 ORDER BY created_at_ts DESC',
-      [userId]
+      [userId],
     );
 
-    return result.rows.map((row: any) => this.mapBrowserRow(row));
+    return result.rows.map((row: unknown) => this.mapBrowserRow(row));
   }
 
   async getAllBrowsers(): Promise<BrowserRecordV2[]> {
     const result = await this.pool.query(
-      'SELECT * FROM mcp_browsers ORDER BY created_at_ts DESC'
+      'SELECT * FROM mcp_browsers ORDER BY created_at_ts DESC',
     );
 
-    return result.rows.map((row: any) => this.mapBrowserRow(row));
+    return result.rows.map((row: unknown) => this.mapBrowserRow(row));
   }
 
   async updateBrowser(
     browserId: string,
-    updates: { browserURL?: string; description?: string }
+    updates: {browserURL?: string; description?: string},
   ): Promise<void> {
     const setParts: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.browserURL !== undefined) {
@@ -438,7 +441,9 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
     }
 
     if (updates.description !== undefined) {
-      setParts.push(`metadata = jsonb_set(COALESCE(metadata, '{}'), '{description}', $${paramIndex++})`);
+      setParts.push(
+        `metadata = jsonb_set(COALESCE(metadata, '{}'), '{description}', $${paramIndex++})`,
+      );
       values.push(JSON.stringify(updates.description));
     }
 
@@ -450,42 +455,43 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
 
     await this.pool.query(
       `UPDATE mcp_browsers SET ${setParts.join(', ')} WHERE browser_id = $${paramIndex}`,
-      values
+      values,
     );
   }
 
   async updateLastConnected(browserId: string): Promise<void> {
     await this.pool.query(
       'UPDATE mcp_browsers SET last_connected_at = $1 WHERE browser_id = $2',
-      [Date.now(), browserId]
+      [Date.now(), browserId],
     );
   }
 
   async incrementToolCallCount(browserId: string): Promise<void> {
     await this.pool.query(
       'UPDATE mcp_browsers SET tool_call_count = tool_call_count + 1 WHERE browser_id = $2',
-      [browserId]
+      [browserId],
     );
   }
 
   async unbindBrowser(browserId: string): Promise<void> {
-    await this.pool.query(
-      'DELETE FROM mcp_browsers WHERE browser_id = $1',
-      [browserId]
-    );
+    await this.pool.query('DELETE FROM mcp_browsers WHERE browser_id = $1', [
+      browserId,
+    ]);
   }
 
   // ============================================================================
   // 统计信息
   // ============================================================================
 
-  async getStats(): Promise<{ users: number; browsers: number }> {
+  async getStats(): Promise<{users: number; browsers: number}> {
     const usersResult = await this.pool.query('SELECT COUNT(*) FROM mcp_users');
-    const browsersResult = await this.pool.query('SELECT COUNT(*) FROM mcp_browsers');
+    const browsersResult = await this.pool.query(
+      'SELECT COUNT(*) FROM mcp_browsers',
+    );
 
     return {
-      users: parseInt(usersResult.rows[0].count),
-      browsers: parseInt(browsersResult.rows[0].count),
+      users: parseInt((usersResult.rows[0] as {count: string}).count),
+      browsers: parseInt((browsersResult.rows[0] as {count: string}).count),
     };
   }
 
@@ -493,28 +499,51 @@ export class PostgreSQLStorageAdapter implements StorageAdapter {
   // 辅助方法
   // ============================================================================
 
-  private mapUserRow(row: any): UserRecordV2 {
+  private mapUserRow(row: unknown): UserRecordV2 {
+    const typedRow = row as {
+      user_id: string;
+      email: string;
+      username: string;
+      registered_at: string;
+      updated_at?: string;
+      metadata?: string;
+    };
     return {
-      userId: row.user_id,
-      email: row.email,
-      username: row.username,
-      registeredAt: parseInt(row.registered_at),
-      updatedAt: row.updated_at ? parseInt(row.updated_at) : undefined,
-      metadata: row.metadata || undefined,
+      userId: typedRow.user_id,
+      email: typedRow.email,
+      username: typedRow.username,
+      registeredAt: parseInt(typedRow.registered_at),
+      updatedAt: typedRow.updated_at
+        ? parseInt(typedRow.updated_at)
+        : undefined,
+      metadata: typedRow.metadata ? JSON.parse(typedRow.metadata) : undefined,
     };
   }
 
-  private mapBrowserRow(row: any): BrowserRecordV2 {
+  private mapBrowserRow(row: unknown): BrowserRecordV2 {
+    const typedRow = row as {
+      browser_id: string;
+      user_id: string;
+      browser_url: string;
+      token_name?: string;
+      token?: string;
+      created_at_ts: string;
+      last_connected_at?: string;
+      tool_call_count?: number;
+      metadata?: unknown;
+    };
     return {
-      browserId: row.browser_id,
-      userId: row.user_id,
-      browserURL: row.browser_url,
-      tokenName: row.token_name,
-      token: row.token,
-      createdAt: parseInt(row.created_at_ts),
-      lastConnectedAt: row.last_connected_at ? parseInt(row.last_connected_at) : undefined,
-      toolCallCount: row.tool_call_count || 0,
-      metadata: row.metadata || undefined,
+      browserId: typedRow.browser_id,
+      userId: typedRow.user_id,
+      browserURL: typedRow.browser_url,
+      tokenName: typedRow.token_name || '',
+      token: typedRow.token || '',
+      createdAt: parseInt(typedRow.created_at_ts),
+      lastConnectedAt: typedRow.last_connected_at
+        ? parseInt(typedRow.last_connected_at)
+        : undefined,
+      toolCallCount: typedRow.tool_call_count || 0,
+      metadata: typedRow.metadata || undefined,
     };
   }
 }

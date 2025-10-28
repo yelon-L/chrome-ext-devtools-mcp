@@ -9,7 +9,7 @@ import type {CDPSession, Page} from 'puppeteer-core';
 
 /**
  * CDP 高频操作助手
- * 
+ *
  * 使用 CDP 协议直接实现高频操作，绕过 Puppeteer 中间层提升性能
  */
 export class CdpOperations {
@@ -37,7 +37,7 @@ export class CdpOperations {
 
   /**
    * 使用 CDP 直接导航
-   * 
+   *
    * @param url - 目标 URL
    * @param options - 导航选项
    * @returns 是否成功
@@ -47,7 +47,7 @@ export class CdpOperations {
     options?: {
       waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
       timeout?: number;
-    }
+    },
   ): Promise<{success: boolean; loaderId?: string; errorText?: string}> {
     if (!this.#cdpSession) {
       throw new Error('CDP Session 未初始化');
@@ -55,13 +55,13 @@ export class CdpOperations {
 
     try {
       this.#logger(`[CdpOperations] 导航至: ${url}`);
-      
+
       // 启用 Page domain
       await this.#cdpSession.send('Page.enable');
-      
+
       // 发送导航命令
       const result = await this.#cdpSession.send('Page.navigate', {url});
-      
+
       if (result.errorText) {
         this.#logger(`[CdpOperations] 导航失败: ${result.errorText}`);
         return {success: false, errorText: result.errorText};
@@ -80,7 +80,7 @@ export class CdpOperations {
       }
 
       this.#logger(`[CdpOperations] 导航成功: ${url}`);
-      
+
       return {success: true, loaderId: result.loaderId};
     } catch (error) {
       this.#logger(`[CdpOperations] 导航异常: ${error}`);
@@ -91,7 +91,7 @@ export class CdpOperations {
 
   /**
    * 使用 CDP 直接执行 JavaScript
-   * 
+   *
    * @param expression - JavaScript 表达式
    * @param options - 执行选项
    * @returns 执行结果
@@ -102,7 +102,7 @@ export class CdpOperations {
       awaitPromise?: boolean;
       returnByValue?: boolean;
       timeout?: number;
-    }
+    },
   ): Promise<{
     success: boolean;
     result?: unknown;
@@ -114,10 +114,10 @@ export class CdpOperations {
 
     try {
       this.#logger(`[CdpOperations] 执行脚本`);
-      
+
       // 启用 Runtime domain
       await this.#cdpSession.send('Runtime.enable');
-      
+
       const awaitPromise = options?.awaitPromise ?? true;
       const returnByValue = options?.returnByValue ?? true;
 
@@ -137,7 +137,7 @@ export class CdpOperations {
       }
 
       this.#logger(`[CdpOperations] 脚本执行成功`);
-      
+
       return {
         success: true,
         result: result.result.value,

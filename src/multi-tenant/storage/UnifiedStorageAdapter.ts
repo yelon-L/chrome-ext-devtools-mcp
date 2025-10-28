@@ -6,13 +6,20 @@
 
 /**
  * 统一存储访问层
- * 
+ *
  * 提供统一的同步接口，内部自动处理 JSONL 和 PostgreSQL 的差异
  */
 
-import {SyncMethodNotSupportedError, StorageNotInitializedError} from '../errors/index.js';
+import {
+  SyncMethodNotSupportedError,
+  StorageNotInitializedError,
+} from '../errors/index.js';
 
-import type {PersistentStoreV2, UserRecordV2, BrowserRecordV2} from './PersistentStoreV2.js';
+import type {
+  PersistentStoreV2,
+  UserRecordV2,
+  BrowserRecordV2,
+} from './PersistentStoreV2.js';
 import type {StorageAdapter} from './StorageAdapter.js';
 
 /**
@@ -26,7 +33,8 @@ export class UnifiedStorage {
   constructor(store: PersistentStoreV2 | StorageAdapter) {
     // 检查是否是 StorageAdapter（异步接口）
     // StorageAdapter 的 getUser 返回 Promise，而 PersistentStoreV2 的 getUserById 是同步的
-    if ('getUser' in store && typeof (store as any).getUser === 'function') {
+    const storeWithGetUser = store as {getUser?: unknown};
+    if ('getUser' in store && typeof storeWithGetUser.getUser === 'function') {
       // StorageAdapter (异步)
       this.storage = store as StorageAdapter;
     } else {
@@ -65,7 +73,10 @@ export class UnifiedStorage {
     if (this.storeV2) {
       return this.storeV2.listUserBrowsers(userId);
     }
-    throw new SyncMethodNotSupportedError('listUserBrowsers', 'getUserBrowsersAsync');
+    throw new SyncMethodNotSupportedError(
+      'listUserBrowsers',
+      'getUserBrowsersAsync',
+    );
   }
 
   getBrowserById(browserId: string): BrowserRecordV2 | null {
@@ -79,7 +90,10 @@ export class UnifiedStorage {
     if (this.storeV2) {
       return this.storeV2.getBrowserByToken(token);
     }
-    throw new SyncMethodNotSupportedError('getBrowserByToken', 'getBrowserByTokenAsync');
+    throw new SyncMethodNotSupportedError(
+      'getBrowserByToken',
+      'getBrowserByTokenAsync',
+    );
   }
 
   getStats(): {users: number; browsers: number} {
@@ -104,13 +118,19 @@ export class UnifiedStorage {
     return false;
   }
 
-  async registerUserByEmail(email: string, username?: string): Promise<UserRecordV2> {
+  async registerUserByEmail(
+    email: string,
+    username?: string,
+  ): Promise<UserRecordV2> {
     if (this.storeV2) {
       return this.storeV2.registerUserByEmail(email, username);
     }
     if (this.storage) {
       // 生成 userId 从邮箱
-      const userId = email.split('@')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      const userId = email
+        .split('@')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-');
       const user: UserRecordV2 = {
         userId,
         email,
@@ -171,10 +191,15 @@ export class UnifiedStorage {
     userId: string,
     browserURL: string,
     tokenName?: string,
-    description?: string
+    description?: string,
   ): Promise<BrowserRecordV2> {
     if (this.storeV2) {
-      return this.storeV2.bindBrowser(userId, browserURL, tokenName, description);
+      return this.storeV2.bindBrowser(
+        userId,
+        browserURL,
+        tokenName,
+        description,
+      );
     }
     if (this.storage) {
       const browserId = this.generateBrowserId();
@@ -228,7 +253,7 @@ export class UnifiedStorage {
 
   async updateBrowser(
     browserId: string,
-    data: {browserURL?: string; description?: string}
+    data: {browserURL?: string; description?: string},
   ): Promise<void> {
     if (this.storeV2) {
       return this.storeV2.updateBrowser(browserId, data);
@@ -312,7 +337,7 @@ export class UnifiedStorage {
   private generateToken(): string {
     const randomBytes = crypto.getRandomValues(new Uint8Array(32));
     const hex = Array.from(randomBytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     return `mcp_${hex}`;
   }

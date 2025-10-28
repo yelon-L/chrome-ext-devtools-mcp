@@ -233,10 +233,11 @@ async function main() {
       case 'up':
         await migrateUp(pool);
         break;
-      case 'down':
+      case 'down': {
         const count = arg ? parseInt(arg, 10) : 1;
         await migrateDown(pool, count);
         break;
+      }
       case 'status':
         await showStatus(pool);
         break;

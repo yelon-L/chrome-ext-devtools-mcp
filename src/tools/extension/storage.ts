@@ -95,14 +95,13 @@ export const inspectExtensionStorage = defineTool({
         response.appendResponseLine(formatted);
         response.appendResponseLine('```');
       }
-
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to inspect extension storage. The extension may be inactive or lack storage permission.'
+        'Unable to inspect extension storage. The extension may be inactive or lack storage permission.',
       );
     }
-    
+
     response.setIncludePages(true);
   },
 });
