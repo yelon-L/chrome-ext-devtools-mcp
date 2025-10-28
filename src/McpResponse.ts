@@ -241,8 +241,9 @@ Call ${handleDialog.name} to handle it before continuing.`);
           this.#networkRequestsOptions.pagination,
         );
         response.push(...data.info);
+        const pageIdx = context.getSelectedPageIdx();
         for (const request of data.items) {
-          response.push(getShortDescriptionForRequest(request));
+          response.push(getShortDescriptionForRequest(request, pageIdx));
         }
       } else {
         response.push('No requests found.');
@@ -313,9 +314,19 @@ Call ${handleDialog.name} to handle it before continuing.`);
       response.push(line);
     }
 
+    // Request Body with availability indication
+    response.push(`### Request Body`);
     if (this.#attachedNetworkRequestData?.requestBody) {
-      response.push(`### Request Body`);
       response.push(this.#attachedNetworkRequestData.requestBody);
+    } else {
+      const hasPostData = httpRequest.hasPostData();
+      if (!hasPostData) {
+        response.push('*No request body (GET request or no data sent)*');
+      } else {
+        response.push(
+          '*Request body not available (may be binary data, too large, or failed to capture)*',
+        );
+      }
     }
 
     const httpResponse = httpRequest.response();
@@ -326,9 +337,20 @@ Call ${handleDialog.name} to handle it before continuing.`);
       }
     }
 
+    // Response Body with availability indication
+    response.push(`### Response Body`);
     if (this.#attachedNetworkRequestData?.responseBody) {
-      response.push(`### Response Body`);
       response.push(this.#attachedNetworkRequestData.responseBody);
+    } else {
+      if (!httpResponse) {
+        response.push(
+          '*Response not available (request may have failed or is still pending)*',
+        );
+      } else {
+        response.push(
+          '*Response body not available (may be binary data, too large, or failed to capture)*',
+        );
+      }
     }
 
     const httpFailure = httpRequest.failure();

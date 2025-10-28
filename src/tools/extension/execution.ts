@@ -713,7 +713,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
 
 **Example**: reload_extension(extensionId, {cacheStrategy: 'auto'}) - Smart reload with automatic cache handling`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_LIFECYCLE,
     readOnlyHint: false,
   },
   schema: {

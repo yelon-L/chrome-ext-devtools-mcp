@@ -10,8 +10,48 @@ import type {HTTPRequest, HTTPResponse} from 'puppeteer-core';
 
 const BODY_CONTEXT_SIZE_LIMIT = 10000;
 
-export function getShortDescriptionForRequest(request: HTTPRequest): string {
-  return `${request.url()} ${request.method()} ${getStatusFromRequest(request)}`;
+/**
+ * Generate a stable request ID that persists across tool calls.
+ * Format: reqid-{pageIdx}-{internalId}
+ */
+export function generateStableRequestId(
+  pageIdx: number,
+  request: HTTPRequest,
+): string {
+  // Use Puppeteer's internal request ID
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const internalId = (request as any)._requestId || request.url();
+  return `reqid-${pageIdx}-${internalId}`;
+}
+
+/**
+ * Parse a stable request ID back to its components.
+ * Returns null if the ID format is invalid.
+ */
+export function parseStableRequestId(stableId: string): {
+  pageIdx: number;
+  internalId: string;
+} | null {
+  const match = stableId.match(/^reqid-(\d+)-(.+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    pageIdx: parseInt(match[1], 10),
+    internalId: match[2],
+  };
+}
+
+export function getShortDescriptionForRequest(
+  request: HTTPRequest,
+  pageIdx?: number,
+): string {
+  const idPrefix =
+    pageIdx !== undefined
+      ? `[${generateStableRequestId(pageIdx, request)}] `
+      : '';
+  return `${idPrefix}${request.url()} ${request.method()} ${getStatusFromRequest(request)}`;
 }
 
 export function getStatusFromRequest(request: HTTPRequest): string {

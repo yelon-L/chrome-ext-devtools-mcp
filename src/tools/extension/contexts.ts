@@ -56,7 +56,7 @@ export const listExtensionContexts = defineTool({
 - \`evaluate_in_extension\` - Run code in a specific context
 - \`switch_extension_context\` - Change active context for code execution`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
   },
   schema: {
@@ -133,7 +133,7 @@ This is essential for debugging different parts of an extension:
 
 Use list_extension_contexts first to get available Target IDs.`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: false,
   },
   schema: {

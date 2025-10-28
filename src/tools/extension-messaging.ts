@@ -51,7 +51,7 @@ Useful for debugging communication between different parts of an extension (back
 - Messages are captured in chronological order
 - Sender information includes tab, URL, and frame details`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
   },
   schema: {
@@ -183,7 +183,7 @@ For full API tracing, use browser DevTools Performance profiler.
 - Debug message flow between components
 - Identify excessive API usage`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
   },
   schema: {

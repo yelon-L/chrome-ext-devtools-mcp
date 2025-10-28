@@ -41,10 +41,22 @@
     "db:sync": "npm run migrate:up && npm run codegen && npm run generate-mappers",
     "db:reset": "npm run migrate:down && npm run migrate:up && npm run codegen && npm run generate-mappers"
   },
+  "keywords": [
+    "mcp",
+    "chrome-extension",
+    "debugging",
+    "devtools",
+    "ai-assistant",
+    "claude",
+    "browser-extension",
+    "testing",
+    "automation"
+  ],
   "files": [
     "build/src",
     "build/node_modules",
     "LICENSE",
+    "claude-marketplace.json",
     "!*.tsbuildinfo"
   ],
   "repository": "ChromeDevTools/chrome-devtools-mcp",

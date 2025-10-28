@@ -46,7 +46,7 @@ export const inspectExtensionStorage = defineTool({
 
 **Example**: inspect_extension_storage with storageType="local" shows 15 keys totaling 2.3MB of 5MB quota.`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
   },
   schema: {

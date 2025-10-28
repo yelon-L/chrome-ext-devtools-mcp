@@ -50,7 +50,7 @@ export const inspectExtensionManifest = defineTool({
 
 **Example**: inspect_extension_manifest finds that MV2 extension uses deprecated webRequest blocking and suggests using declarativeNetRequest for MV3.`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
   },
   schema: {

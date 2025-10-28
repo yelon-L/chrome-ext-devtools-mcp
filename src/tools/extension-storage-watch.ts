@@ -52,7 +52,7 @@ Useful for debugging data persistence, state management, and synchronization iss
 - Multiple storage types can be monitored simultaneously
 - Changes are captured in real-time with timestamps`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
   },
   schema: {

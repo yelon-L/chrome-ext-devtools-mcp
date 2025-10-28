@@ -38,7 +38,7 @@ export const listExtensions = defineTool({
 
 **Related tools**: \`activate_extension_service_worker\`, \`get_extension_details\`, \`diagnose_extension_errors\``,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_DISCOVERY,
     readOnlyHint: true,
   },
   schema: {
@@ -316,7 +316,7 @@ export const getExtensionDetails = defineTool({
 - \`inspect_extension_manifest\` - Deep manifest analysis with recommendations
 - \`check_content_script_injection\` - Test content script injection`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_DISCOVERY,
     readOnlyHint: true,
   },
   schema: {

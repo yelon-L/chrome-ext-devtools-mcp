@@ -51,7 +51,7 @@ For most testing, both work fine.
 
 **Related tools**: \`is_popup_open\`, \`wait_for_popup\`, \`take_snapshot\`, \`navigate_page\``,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INTERACTION,
     readOnlyHint: false, // 有副作用：打开 popup
   },
   schema: {
@@ -325,7 +325,7 @@ export const isPopupOpen = defineTool({
 - \`wait_for_popup\` - Wait for popup to open
 - \`list_extension_contexts\` - See all contexts including popup`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INTERACTION,
     readOnlyHint: true, // 只读操作
   },
   schema: {
@@ -421,7 +421,7 @@ export const waitForPopup = defineTool({
 - \`is_popup_open\` - Instant status check (no waiting)
 - \`take_snapshot\` - Use after popup is ready`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INTERACTION,
     readOnlyHint: true,
   },
   schema: {
@@ -534,7 +534,7 @@ This tool is useful for programmatic control.
 - \`open_extension_popup\` - Open popup after closing
 - \`is_popup_open\` - Verify popup is closed`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INTERACTION,
     readOnlyHint: false, // 有副作用：关闭 popup
   },
   schema: {
@@ -650,7 +650,7 @@ export const getPopupInfo = defineTool({
 - \`is_popup_open\` - Quick status check
 - \`list_extension_contexts\` - All contexts`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INTERACTION,
     readOnlyHint: true,
   },
   schema: {
@@ -754,7 +754,7 @@ export const interactWithPopup = defineTool({
 **Related tools**: \`navigate_page\`, \`open_extension_popup\`, \`take_screenshot\``,
 
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INTERACTION,
     readOnlyHint: false,
   },
 

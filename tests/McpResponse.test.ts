@@ -504,3 +504,120 @@ describe('McpResponse network pagination', () => {
     });
   });
 });
+
+describe('McpResponse body availability indication', () => {
+  it('shows "No request body" for GET request', async () => {
+    await withBrowser(async (response, context) => {
+      const request = getMockRequest({
+        method: 'GET',
+        hasPostData: false,
+      });
+      context.getNetworkRequests = () => [request];
+      response.attachNetworkRequest(request.url());
+
+      const result = await response.handle('test', context);
+      const text = result[0].text as string;
+
+      assert.ok(text.includes('### Request Body'));
+      assert.ok(
+        text.includes('*No request body (GET request or no data sent)*'),
+      );
+    });
+  });
+
+  it('shows request body when POST data is available', async () => {
+    await withBrowser(async (response, context) => {
+      const request = getMockRequest({
+        method: 'POST',
+        hasPostData: true,
+        postData: '{"test": "data"}',
+      });
+      context.getNetworkRequests = () => [request];
+      response.attachNetworkRequest(request.url());
+
+      const result = await response.handle('test', context);
+      const text = result[0].text as string;
+
+      assert.ok(text.includes('### Request Body'));
+      assert.ok(text.includes('{"test": "data"}'));
+      assert.ok(!text.includes('*No request body'));
+    });
+  });
+
+  it('shows "not available" when POST has no data', async () => {
+    await withBrowser(async (response, context) => {
+      const request = getMockRequest({
+        method: 'POST',
+        hasPostData: true,
+        postData: undefined,
+        fetchPostData: Promise.reject(new Error('No data')),
+      });
+      context.getNetworkRequests = () => [request];
+      response.attachNetworkRequest(request.url());
+
+      const result = await response.handle('test', context);
+      const text = result[0].text as string;
+
+      assert.ok(text.includes('### Request Body'));
+      assert.ok(text.includes('*Request body not available'));
+    });
+  });
+
+  it('shows response body when available', async () => {
+    await withBrowser(async (response, context) => {
+      const httpResponse = getMockResponse();
+      httpResponse.buffer = () => Promise.resolve(Buffer.from('response data'));
+
+      const request = getMockRequest({
+        response: httpResponse,
+      });
+      context.getNetworkRequests = () => [request];
+      response.attachNetworkRequest(request.url());
+
+      const result = await response.handle('test', context);
+      const text = result[0].text as string;
+
+      assert.ok(text.includes('### Response Body'));
+      assert.ok(text.includes('response data'));
+      assert.ok(!text.includes('*Response'));
+    });
+  });
+
+  it('shows "not available" when response has no body', async () => {
+    await withBrowser(async (response, context) => {
+      const httpResponse = getMockResponse();
+      httpResponse.buffer = () => Promise.reject(new Error('Failed'));
+
+      const request = getMockRequest({
+        response: httpResponse,
+      });
+      context.getNetworkRequests = () => [request];
+      response.attachNetworkRequest(request.url());
+
+      const result = await response.handle('test', context);
+      const text = result[0].text as string;
+
+      assert.ok(text.includes('### Response Body'));
+      assert.ok(text.includes('*Response body not available'));
+    });
+  });
+
+  it('shows "Response not available" when request failed', async () => {
+    await withBrowser(async (response, context) => {
+      const request = getMockRequest({
+        response: undefined,
+        failure() {
+          return {errorText: 'Network error'};
+        },
+      });
+      context.getNetworkRequests = () => [request];
+      response.attachNetworkRequest(request.url());
+
+      const result = await response.handle('test', context);
+      const text = result[0].text as string;
+
+      assert.ok(text.includes('### Response Body'));
+      assert.ok(text.includes('*Response not available'));
+    });
+  });
+});

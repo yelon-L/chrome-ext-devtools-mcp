@@ -1,0 +1,112 @@
+{
+  "name": "Chrome Extension DevTools MCP",
+  "description": "Debug Chrome extensions with AI assistance - inspect, test, and troubleshoot extensions using natural language commands",
+  "version": "0.8.18",
+  "author": "Chrome Extension DevTools MCP Team",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/yelon-L/chrome-ext-devtools-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yelon-L/chrome-ext-devtools-mcp.git"
+  },
+  "categories": ["development", "debugging", "testing"],
+  "keywords": [
+    "chrome",
+    "extension",
+    "debugging",
+    "devtools",
+    "mcp",
+    "ai-assistant",
+    "chrome-extension",
+    "browser-extension",
+    "testing",
+    "automation"
+  ],
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "installation": {
+    "npm": "chrome-extension-debug-mcp",
+    "requirements": {
+      "node": ">=20.19.0"
+    }
+  },
+  "configuration": {
+    "stdio": {
+      "command": "npx",
+      "args": ["-y", "chrome-extension-debug-mcp"]
+    },
+    "sse": {
+      "url": "http://localhost:3000/sse",
+      "description": "Server-Sent Events mode for real-time debugging",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    },
+    "http": {
+      "url": "http://localhost:3000",
+      "description": "HTTP mode for standard debugging"
+    }
+  },
+  "features": [
+    "🔍 Discover and inspect installed Chrome extensions",
+    "🐛 Debug extension errors with detailed stack traces",
+    "📊 Monitor extension logs (background, content scripts, popup)",
+    "🎯 Interact with extension popups programmatically",
+    "💾 Inspect and modify extension storage (local, sync, session)",
+    "🔄 Hot reload extensions during development",
+    "🌐 Multi-tenant support for team collaboration",
+    "🔧 Check content script injection status",
+    "📝 Inspect extension manifests with validation",
+    "📡 Monitor extension message passing",
+    "🎨 Enhanced console log capture (Workers, iframes)",
+    "🔐 Secure authentication and token management"
+  ],
+  "tools": {
+    "discovery": [
+      "list_extensions",
+      "get_extension_details",
+      "list_extension_contexts",
+      "get_connected_browser"
+    ],
+    "lifecycle": ["reload_extension", "activate_extension_service_worker"],
+    "debugging": [
+      "get_extension_runtime_errors",
+      "diagnose_extension_errors",
+      "clear_extension_errors"
+    ],
+    "interaction": [
+      "open_extension_popup",
+      "close_popup",
+      "interact_with_popup",
+      "is_popup_open",
+      "wait_for_popup",
+      "get_popup_info"
+    ],
+    "monitoring": [
+      "get_background_logs",
+      "get_offscreen_logs",
+      "get_page_console_logs",
+      "monitor_extension_messages",
+      "watch_extension_storage",
+      "trace_extension_api_calls"
+    ],
+    "inspection": [
+      "inspect_extension_storage",
+      "inspect_extension_manifest",
+      "check_content_script_injection"
+    ]
+  },
+  "documentation": {
+    "quickstart": "https://github.com/yelon-L/chrome-ext-devtools-mcp#quick-start",
+    "guide": "https://github.com/yelon-L/chrome-ext-devtools-mcp/blob/main/README.md",
+    "api": "https://github.com/yelon-L/chrome-ext-devtools-mcp/blob/main/docs/API.md",
+    "examples": "https://github.com/yelon-L/chrome-ext-devtools-mcp/tree/main/examples"
+  },
+  "support": {
+    "issues": "https://github.com/yelon-L/chrome-ext-devtools-mcp/issues",
+    "discussions": "https://github.com/yelon-L/chrome-ext-devtools-mcp/discussions"
+  }
+}

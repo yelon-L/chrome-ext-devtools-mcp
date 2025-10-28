@@ -40,7 +40,7 @@ export const getBackgroundLogs = defineTool({
 
 **Related tools**: \`get_extension_runtime_errors\`, \`get_page_console_logs\``,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
   },
   schema: {
@@ -223,7 +223,7 @@ export const getOffscreenLogs = defineTool({
 
 **Related tools**: \`get_background_logs\`, \`get_page_console_logs\`, \`list_extension_contexts\``,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
   },
   schema: {

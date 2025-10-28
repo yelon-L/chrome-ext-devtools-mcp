@@ -10,15 +10,108 @@ import {describe, it} from 'node:test';
 import {ProtocolError} from 'puppeteer-core';
 
 import {
+  generateStableRequestId,
   getFormattedHeaderValue,
   getFormattedRequestBody,
   getFormattedResponseBody,
   getShortDescriptionForRequest,
+  parseStableRequestId,
 } from '../../src/formatters/networkFormatter.js';
 import {getMockRequest, getMockResponse} from '../utils.js';
 
 describe('networkFormatter', () => {
+  describe('generateStableRequestId', () => {
+    it('generates correct ID format', () => {
+      const request = getMockRequest();
+      // Mock internal _requestId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (request as any)._requestId = '12345';
+
+      const result = generateStableRequestId(0, request);
+
+      assert.strictEqual(result, 'reqid-0-12345');
+    });
+
+    it('uses URL as fallback when _requestId is missing', () => {
+      const request = getMockRequest();
+
+      const result = generateStableRequestId(1, request);
+
+      assert.strictEqual(result, 'reqid-1-http://example.com');
+    });
+
+    it('handles different page indices', () => {
+      const request = getMockRequest();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (request as any)._requestId = 'abc123';
+
+      const result = generateStableRequestId(5, request);
+
+      assert.strictEqual(result, 'reqid-5-abc123');
+    });
+  });
+
+  describe('parseStableRequestId', () => {
+    it('parses valid ID correctly', () => {
+      const result = parseStableRequestId('reqid-0-12345');
+
+      assert.deepStrictEqual(result, {
+        pageIdx: 0,
+        internalId: '12345',
+      });
+    });
+
+    it('parses ID with complex internal ID', () => {
+      const result = parseStableRequestId('reqid-3-abc-def-123');
+
+      assert.deepStrictEqual(result, {
+        pageIdx: 3,
+        internalId: 'abc-def-123',
+      });
+    });
+
+    it('returns null for invalid format', () => {
+      const result = parseStableRequestId('invalid-id');
+
+      assert.strictEqual(result, null);
+    });
+
+    it('returns null for missing prefix', () => {
+      const result = parseStableRequestId('0-12345');
+
+      assert.strictEqual(result, null);
+    });
+
+    it('returns null for invalid page index', () => {
+      const result = parseStableRequestId('reqid-abc-12345');
+
+      assert.strictEqual(result, null);
+    });
+  });
+
   describe('getShortDescriptionForRequest', () => {
+    it('includes stable ID when pageIdx provided', () => {
+      const request = getMockRequest();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (request as any)._requestId = '12345';
+
+      const result = getShortDescriptionForRequest(request, 0);
+
+      assert.strictEqual(
+        result,
+        '[reqid-0-12345] http://example.com GET [pending]',
+      );
+    });
+
+    it('works without pageIdx (backward compatibility)', () => {
+      const request = getMockRequest();
+      const result = getShortDescriptionForRequest(request);
+
+      assert.strictEqual(result, 'http://example.com GET [pending]');
+    });
+  });
+
+  describe('getShortDescriptionForRequest (original tests)', () => {
     it('works', async () => {
       const request = getMockRequest();
       const result = getShortDescriptionForRequest(request);

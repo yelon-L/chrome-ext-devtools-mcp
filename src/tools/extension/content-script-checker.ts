@@ -50,7 +50,7 @@ export const checkContentScriptInjection = defineTool({
 
 **Example**: check_content_script_injection with testUrl="https://github.com/user/repo" shows that pattern "*://github.com/*/*" matches but "*://www.github.com/*/*" doesn't.`,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
   },
   schema: {

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {ResourceType} from 'puppeteer-core';
+import type {HTTPRequest, ResourceType} from 'puppeteer-core';
 import z from 'zod';
 
 import {ToolCategories} from './categories.js';
@@ -74,16 +74,76 @@ export const listNetworkRequests = defineTool({
 
 export const getNetworkRequest = defineTool({
   name: 'get_network_request',
-  description: `Gets a network request by URL. You can get all requests by calling ${listNetworkRequests.name}.`,
+  description: `Gets a network request by stable ID or URL.
+
+**Stable Request ID** (Recommended):
+- Format: reqid-{pageIdx}-{internalId}
+- Example: reqid-0-12345
+- Persists across tool calls
+- Get IDs from ${listNetworkRequests.name}
+
+**URL** (Legacy):
+- Direct URL string
+- May match multiple requests
+
+You can get all requests by calling ${listNetworkRequests.name}.`,
   annotations: {
     category: ToolCategories.NETWORK,
     readOnlyHint: true,
   },
   schema: {
-    url: z.string().describe('The URL of the request.'),
+    id: z
+      .string()
+      .optional()
+      .describe(
+        'The stable request ID (format: reqid-{pageIdx}-{internalId}). Recommended for precise matching.',
+      ),
+    url: z
+      .string()
+      .optional()
+      .describe(
+        'The URL of the request. Legacy parameter, may match multiple requests.',
+      ),
   },
-  handler: async (request, response, _context) => {
-    response.attachNetworkRequest(request.params.url);
+  handler: async (request, response, context) => {
+    // Prefer ID over URL
+    if (request.params.id) {
+      const {parseStableRequestId} = await import(
+        '../formatters/networkFormatter.js'
+      );
+      const parsed = parseStableRequestId(request.params.id);
+
+      if (!parsed) {
+        response.appendResponseLine(
+          `Invalid request ID format. Expected format: reqid-{pageIdx}-{internalId}`,
+        );
+        return;
+      }
+
+      // Find request by internal ID using McpContext method
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requests = (context as any).getNetworkRequests() as HTTPRequest[];
+      const targetRequest = requests.find((req: HTTPRequest) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const internalId = (req as any)._requestId || req.url();
+        return internalId === parsed.internalId;
+      });
+
+      if (!targetRequest) {
+        response.appendResponseLine(
+          `Request not found with ID: ${request.params.id}. The request may have been cleared by navigation.`,
+        );
+        return;
+      }
+
+      response.attachNetworkRequest(targetRequest.url());
+    } else if (request.params.url) {
+      response.attachNetworkRequest(request.params.url);
+    } else {
+      response.appendResponseLine(
+        'Please provide either "id" (recommended) or "url" parameter.',
+      );
+    }
   },
 });
 

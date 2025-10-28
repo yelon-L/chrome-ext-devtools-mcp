@@ -44,7 +44,7 @@ MV3 Service Workers become inactive after ~30 seconds. When inactive:
 
 **Related tools**: \`list_extensions\`, \`evaluate_in_extension\`, \`list_extension_contexts\``,
   annotations: {
-    category: ToolCategories.EXTENSION_DEBUGGING,
+    category: ToolCategories.EXTENSION_LIFECYCLE,
     readOnlyHint: false,
   },
   schema: {
