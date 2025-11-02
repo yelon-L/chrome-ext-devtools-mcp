@@ -8,6 +8,32 @@
  * 参数验证器 - 提供友好的错误提示
  */
 
+import z from 'zod';
+
+/**
+ * 标准分页参数 Schema
+ *
+ * 遵循 MCP 最佳实践，提供清晰的默认行为说明
+ */
+export const paginationSchema = {
+  pageSize: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      'Maximum number of items to return. When omitted, returns all items.',
+    ),
+  pageIdx: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe(
+      'Page number to return (0-based). When omitted, returns the first page.',
+    ),
+};
+
 interface ValidationResult {
   valid: boolean;
   errors: string[];

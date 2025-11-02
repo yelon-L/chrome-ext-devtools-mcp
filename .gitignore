@@ -152,7 +152,12 @@ log.txt
 package-lock.json
 .windsurf/
 Caddyfile.dev
-test-extension-enhanced
+# test-extension-enhanced
 pnpm-lock*
 restartMcpService
-.mcp-data
+.mcp-datatest-all-extension-tools.ts
+test-extension-tools-mcp.mjs
+test-mcp-ide-connection.mjs
+test-all-tools-http.sh
+diagnose-mcp-connection.sh
+start-chrome-with-test-extension.sh

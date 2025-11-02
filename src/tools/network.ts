@@ -7,6 +7,8 @@
 import type {HTTPRequest, ResourceType} from 'puppeteer-core';
 import z from 'zod';
 
+import {paginationSchema} from '../utils/paramValidator.js';
+
 import {ToolCategories} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
@@ -40,22 +42,7 @@ export const listNetworkRequests = defineTool({
     readOnlyHint: true,
   },
   schema: {
-    pageSize: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe(
-        'Maximum number of requests to return. When omitted, returns all requests.',
-      ),
-    pageIdx: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .describe(
-        'Page number to return (0-based). When omitted, returns the first page.',
-      ),
+    ...paginationSchema,
     resourceTypes: z
       .array(z.enum(FILTERABLE_RESOURCE_TYPES))
       .optional()

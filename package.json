@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension-debug-mcp",
-  "version": "0.8.18",
+  "version": "0.9.19",
   "description": "MCP server for Chrome Extension Debugging",
   "type": "module",
   "bin": "./build/src/index.js",
@@ -23,6 +23,7 @@
     "start:multi-tenant:dev": "npm run build && AUTH_ENABLED=false PORT=32122 node build/src/multi-tenant/server-multi-tenant.js",
     "test:node20": "node --require ./build/tests/setup.js --test-reporter spec --test-force-exit --test build/tests",
     "test": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test \"build/tests/**/*.test.js\"",
+    "test:all-tools": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test \"build/tests/integration/all-tools.test.js\"",
     "test:multi-tenant": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test \"build/tests/multi-tenant/**/*.test.js\"",
     "test:only": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test --test-only \"build/tests/**/*.test.js\"",
     "test:only:no-build": "node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test --test-only \"build/tests/**/*.test.js\"",

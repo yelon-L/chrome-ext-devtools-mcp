@@ -475,7 +475,9 @@ function generateRecommendations(
     // 应该注入但可能有问题
     recommendations.push('Reload the page to ensure content scripts inject');
     recommendations.push('Check browser console for any content script errors');
-    recommendations.push('Use `get_extension_logs` to see content script logs');
+    recommendations.push(
+      'Use `get_background_logs` to see content script logs',
+    );
 
     if (manifestVersion === 3) {
       recommendations.push('Verify host_permissions are declared and granted');

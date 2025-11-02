@@ -15,30 +15,9 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const getBackgroundLogs = defineTool({
   name: 'get_background_logs',
-  description: `Get console logs from extension's background context (Service Worker or Background Page).
+  description: `Get console logs from extension's background context (Service Worker or Background Page) with filtering by level and time.
 
-**🎯 For AI**: Monitor background script console output - SW (MV3) or Background Page (MV2).
-
-**Scope**: ONLY background context logs
-- ✅ Service Worker (MV3)
-- ✅ Background Page (MV2)
-- ❌ Content Scripts → use \`get_page_console_logs\` on the target page
-- ❌ Popup → use \`get_page_console_logs\` after opening as page
-
-**Data source**: CDP Runtime.consoleAPICalled on background target
-
-**What you get**:
-- Console messages (log, warn, error, info, debug)
-- Timestamps and stack traces
-- Filtering by level and time range
-
-**⚠️ MV3 Service Worker**: SW must be active. Use \`activate_extension_service_worker\` if needed.
-
-**Use cases**:
-- "What is my background script logging?" → See SW/background logs
-- "Did my SW console.log() work?" → Verify background logging
-
-**Related tools**: \`get_extension_runtime_errors\`, \`get_page_console_logs\``,
+**Note**: Service Worker must be active. Use \`activate_extension_service_worker\` if needed.`,
   annotations: {
     category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
@@ -55,22 +34,24 @@ export const getBackgroundLogs = defineTool({
       .optional()
       .default(false)
       .describe(
-        'Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.',
+        'Whether to include historical logs stored by the extension. When omitted, defaults to false. Note: requires extension to store logs in globalThis.__logs.',
       ),
     level: z
       .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
       .optional()
-      .describe('Log levels to include. If not specified, returns all levels.'),
+      .describe('Log levels to include. When omitted, returns all levels.'),
     limit: z
       .number()
       .positive()
       .optional()
-      .describe('Maximum number of log entries to return. Default is 50.'),
+      .describe(
+        'Maximum number of log entries to return. When omitted, defaults to 50.',
+      ),
     since: z
       .number()
       .optional()
       .describe(
-        'Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.',
+        'Only return logs since this timestamp (milliseconds since epoch). When omitted, returns all logs. Useful for incremental log collection.',
       ),
     duration: z
       .number()
@@ -78,7 +59,7 @@ export const getBackgroundLogs = defineTool({
       .optional()
       .default(5000)
       .describe(
-        'Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).',
+        'Duration in milliseconds to capture real-time logs. When omitted, defaults to 5000 (5 seconds).',
       ),
   },
   handler: async (request, response, context) => {
@@ -189,39 +170,9 @@ export const getBackgroundLogs = defineTool({
 
 export const getOffscreenLogs = defineTool({
   name: 'get_offscreen_logs',
-  description: `Get console logs from extension's Offscreen Document (MV3 only).
+  description: `Get console logs from extension's Offscreen Document (MV3 only) - hidden page for DOM operations like Canvas or Audio.
 
-**🎯 For AI**: Monitor Offscreen Document console output - independent console for DOM operations.
-
-**Scope**: ONLY Offscreen Document logs
-- ✅ Offscreen Document (MV3)
-- ❌ Service Worker → use \`get_background_logs\`
-- ❌ Content Scripts → use \`get_page_console_logs\`
-- ❌ Popup → use \`get_page_console_logs\`
-
-**What is Offscreen Document**:
-- Hidden HTML page with DOM access (Canvas, Audio, Clipboard)
-- Independent console (not in SW or page console)
-- Created via \`chrome.offscreen.createDocument()\`
-- Typical use cases: Canvas rendering, Audio processing, background DOM operations
-
-**Data source**: CDP Runtime.consoleAPICalled on offscreen target
-
-**What you get**:
-- Console messages (log, warn, error, info, debug)
-- Timestamps and stack traces
-- Filtering by level and time range
-
-**Prerequisites**:
-- Extension must have created an Offscreen Document
-- Offscreen Document must be active
-
-**Use cases**:
-- "What is my offscreen document logging?" → See offscreen logs
-- "Did my Canvas operation work?" → Check offscreen console
-- "Debug Audio processing" → Monitor offscreen logs
-
-**Related tools**: \`get_background_logs\`, \`get_page_console_logs\`, \`list_extension_contexts\``,
+**Prerequisite**: Extension must have created an Offscreen Document.`,
   annotations: {
     category: ToolCategories.EXTENSION_MONITORING,
     readOnlyHint: true,
@@ -238,22 +189,24 @@ export const getOffscreenLogs = defineTool({
       .optional()
       .default(false)
       .describe(
-        'Whether to include historical logs stored by the extension. Default is false. Note: requires extension to store logs in globalThis.__logs.',
+        'Whether to include historical logs stored by the extension. When omitted, defaults to false. Note: requires extension to store logs in globalThis.__logs.',
       ),
     level: z
       .array(z.enum(['error', 'warn', 'info', 'log', 'debug']))
       .optional()
-      .describe('Log levels to include. If not specified, returns all levels.'),
+      .describe('Log levels to include. When omitted, returns all levels.'),
     limit: z
       .number()
       .positive()
       .optional()
-      .describe('Maximum number of log entries to return. Default is 50.'),
+      .describe(
+        'Maximum number of log entries to return. When omitted, defaults to 50.',
+      ),
     since: z
       .number()
       .optional()
       .describe(
-        'Only return logs since this timestamp (milliseconds since epoch). Useful for incremental log collection.',
+        'Only return logs since this timestamp (milliseconds since epoch). When omitted, returns all logs. Useful for incremental log collection.',
       ),
     duration: z
       .number()
@@ -261,7 +214,7 @@ export const getOffscreenLogs = defineTool({
       .optional()
       .default(5000)
       .describe(
-        'Duration in milliseconds to capture real-time logs. Default is 5000 (5 seconds).',
+        'Duration in milliseconds to capture real-time logs. When omitted, defaults to 5000 (5 seconds).',
       ),
   },
   handler: async (request, response, context) => {

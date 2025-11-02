@@ -183,7 +183,7 @@ bash scripts/start-http-mcp.sh
 | `inspect_extension_storage`      | 检查 Storage                        |
 | `watch_extension_storage`        | 监控 Storage 变化                   |
 | `get_extension_logs`             | 收集日志                            |
-| `evaluate_in_extension`          | 执行代码                            |
+| `evaluate_in_extension`          | 执行表达式（非语句）                |
 | `reload_extension`               | 智能热重载（增强版）⭐⭐⭐⭐⭐      |
 | `diagnose_extension_errors`      | 错误诊断器（新增）⭐⭐⭐⭐⭐        |
 | `inspect_extension_manifest`     | Manifest 深度检查（新增）⭐⭐⭐⭐   |

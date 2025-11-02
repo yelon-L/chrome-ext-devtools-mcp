@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Enhanced MCP Debug Test Extension",
+  "version": "2.3.0",
+  "description": "Enhanced MCP Debug Test Extension v2.3.0 - Offscreen Document 日志测试 + WebSocket监控 + 完整MCP工具覆盖",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage",
+    "alarms",
+    "webRequest",
+    "notifications",
+    "management",
+    "offscreen"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Enhanced MCP Debug Test",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js", "websocket-test.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "minimum_chrome_version": "109"
+}

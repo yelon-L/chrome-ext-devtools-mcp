@@ -658,60 +658,9 @@ function resolveActualStrategy(
 
 export const reloadExtension = defineTool({
   name: 'reload_extension',
-  description: `Complete disk reload for Chrome extensions with smart cache management
+  description: `Reload extension from disk using chrome.developerPrivate.reload() with smart cache management.
 
-**Core Principle**: 
-- **Unload completely → Read from disk → Reload fresh**
-- **Uses chrome.developerPrivate.reload()** - Chrome's official developer reload API
-- **Equivalent to manually clicking the "Reload" button in chrome://extensions**
-- **Smart cache management** - Automatically handles browser caching issues
-
-**Cache Strategies**:
-- **auto** (default): Intelligently detects cache issues and applies appropriate strategy
-- **force-clear**: Clear all browser caches before reload (use when experiencing stale code issues)
-- **preserve**: Keep all caches for fastest reload (may use cached resources)
-- **disable**: Disable caching during reload operation
-
-**Complete Reload Process**:
-1. 🔥 Detect and handle cache strategy
-2. 🧹 Clear browser caches if needed (Service Worker cache, HTTP cache, storage)
-3. 📂 Re-read manifest.json and all files from disk
-4. 🔄 Re-parse manifest, reload all resources
-5. ✅ Start fresh Service Worker/Background Script
-6. 📝 Verify reload with latest code
-
-**Files That Get Reloaded**:
-- ✅ manifest.json (permissions, CSP, version, etc.)
-- ✅ All JavaScript files (background, content scripts, popup, etc.)
-- ✅ All CSS stylesheets
-- ✅ All HTML pages
-- ✅ Icons, images, and static assets
-- ✅ Any file declared in manifest
-
-**Cache Strategy Recommendations**:
-- Use **auto** for most development scenarios (AI will decide automatically)
-- Use **force-clear** when code changes don't appear after reload
-- Use **preserve** for rapid iteration when cache issues are not a concern
-- Use **disable** for final testing to ensure no caching artifacts
-
-**Optional Features**:
-- cacheStrategy: 'auto' | 'force-clear' | 'preserve' | 'disable' (default: 'auto')
-- preserveStorage: true - Keep chrome.storage data (default: false)
-- waitForReady: true - Wait and verify reload completion (default: true)
-- captureErrors: true - Quick error check after reload (default: true)
-- captureLogs: true - Capture full startup logs (default: false, more detailed than captureErrors)
-
-**Typical Workflow**:
-Modify extension files → reload_extension(auto) → Cache handled automatically → Changes take effect
-
-**Important Notes**:
-- 🔥 Most thorough reload with intelligent cache management
-- 📂 Everything loaded from disk directory files
-- ✅ Works for unpacked extensions (development environment)
-- ⚠️ All extension pages (popup, options) will be closed
-- 🚀 Smart cache detection prevents stale code issues
-
-**Example**: reload_extension(extensionId, {cacheStrategy: 'auto'}) - Smart reload with automatic cache handling`,
+Supports cache strategies: auto (default), force-clear, preserve, disable. Use force-clear if code changes don't appear.`,
   annotations: {
     category: ToolCategories.EXTENSION_LIFECYCLE,
     readOnlyHint: false,
@@ -725,29 +674,31 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
       .enum(['auto', 'force-clear', 'preserve', 'disable'])
       .optional()
       .describe(
-        'Cache handling strategy: auto (smart detection), force-clear (clear all caches), preserve (keep caches), disable (disable caching). Default is auto.',
+        'Cache handling strategy: auto (smart detection), force-clear (clear all caches), preserve (keep caches), disable (disable caching). When omitted, defaults to auto.',
       ),
     preserveStorage: z
       .boolean()
       .optional()
       .describe(
-        'Preserve chrome.storage data during reload. Default is false (clears state).',
+        'Preserve chrome.storage data during reload. When omitted, defaults to false (clears state).',
       ),
     waitForReady: z
       .boolean()
       .optional()
       .describe(
-        'Wait and verify extension is ready after reload. Default is true.',
+        'Wait and verify extension is ready after reload. When omitted, defaults to true.',
       ),
     captureErrors: z
       .boolean()
       .optional()
-      .describe('Capture and report errors after reload. Default is true.'),
+      .describe(
+        'Capture and report errors after reload. When omitted, defaults to true.',
+      ),
     captureLogs: z.boolean().optional().default(false)
       .describe(`Capture full startup logs (Background + Offscreen) after reload.
       - true: Show all logs (useful for debugging startup issues)
-      - false: Only quick error check (faster, default)
-      Default: false`),
+      - false: Only quick error check (faster)
+      When omitted, defaults to false.`),
     logDuration: z
       .number()
       .min(1000)
@@ -755,7 +706,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
       .optional()
       .default(3000)
       .describe(
-        `Log capture duration in milliseconds. Default: 3000ms (3 seconds)`,
+        `Log capture duration in milliseconds. When omitted, defaults to 3000ms (3 seconds).`,
       ),
   },
   handler: async (request, response, context) => {
@@ -1311,7 +1262,7 @@ Modify extension files → reload_extension(auto) → Cache handled automaticall
         '- Use `list_extension_contexts` to see active contexts',
       );
       response.appendResponseLine(
-        '- Use `get_extension_logs` to monitor extension activity',
+        '- Use `get_background_logs` to monitor extension activity',
       );
       response.appendResponseLine(
         '- Refresh web pages to re-inject content scripts',
@@ -1600,7 +1551,7 @@ export const clearExtensionErrors = defineTool({
           );
           response.appendResponseLine('**Recommended workflow**:');
           response.appendResponseLine(
-            '1. `reload_extension` - Apply your code fixes',
+            `1. ${reloadExtension.name} - Apply your code fixes`,
           );
           response.appendResponseLine('2. Test your extension');
           response.appendResponseLine(
@@ -1631,19 +1582,25 @@ export const clearExtensionErrors = defineTool({
 
 export const evaluateInExtension = defineTool({
   name: 'evaluate_in_extension',
-  description: `Execute JavaScript code in extension's background context with full chrome.* API access.
+  description: `Evaluate JavaScript **expressions** in extension's background context with full chrome.* API access.
 
 **🎯 For AI: PREREQUISITE** - Service Worker MUST be 🟢 Active (check with \`list_extensions\` first).
+
+**⚠️ CODE LIMITATION**: Only **expressions** are supported, NOT statements.
+- ✅ Expressions: \`chrome.runtime.id\`, \`await chrome.storage.local.get()\`, \`{a: 1, b: 2}\`, \`console.log('test')\`
+- ❌ Statements: \`const x = 1;\`, \`let y = 2;\`, \`if (true) {...}\`
+- Code is wrapped in: \`(async () => { return (YOUR_CODE); })()\`
+
+**Use cases**:
+- Read extension state: \`chrome.runtime.id\`, \`chrome.runtime.getManifest()\`
+- Query storage: \`await chrome.storage.local.get()\`
+- Call extension functions that return values
+- Test API availability: \`typeof chrome.tabs\`
 
 **🎯 Auto-capture logs**: By default, this tool automatically captures logs from:
 - 📝 Background Service Worker
 - 📝 Offscreen Document
 - 📝 Current page console
-
-**Use cases**:
-- Test extension APIs (chrome.runtime, chrome.storage, etc.)
-- Debug extension logic and inspect state
-- Call extension functions
 
 **⚠️ MV3 Prerequisites**:
 1. Check SW status: \`list_extensions\` 
@@ -1666,7 +1623,7 @@ export const evaluateInExtension = defineTool({
     code: z
       .string()
       .describe(
-        'JavaScript code to execute in the extension context. Can be async.',
+        'JavaScript expression to evaluate (NOT statements). Examples: "chrome.runtime.id", "await chrome.storage.local.get()", "{a: 1, b: 2}". Code will be wrapped in async IIFE and must return a value.',
       ),
     contextId: z
       .string()
@@ -1777,7 +1734,7 @@ export const evaluateInExtension = defineTool({
       }
 
       response.appendResponseLine(
-        `\n**Code**:\n\`\`\`javascript\n${code}\n\`\`\``,
+        `\n**Expression**:\n\`\`\`javascript\n${code}\n\`\`\``,
       );
       response.appendResponseLine(
         `\n**Result**:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``,
@@ -1788,11 +1745,25 @@ export const evaluateInExtension = defineTool({
         const logResults = await logCapturePromise;
         formatCapturedLogs(logResults, response);
       }
-    } catch {
+    } catch (error) {
       // ✅ Following navigate_page_history pattern: simple error message
       response.appendResponseLine(
-        'Unable to evaluate code in extension. The extension may be inactive or the code has syntax errors.',
+        'Unable to evaluate expression in extension. The extension may be inactive or the expression has syntax errors.',
       );
+      response.appendResponseLine(
+        '\n**Remember**: Only expressions are supported, NOT statements.',
+      );
+      response.appendResponseLine('✅ Valid: `chrome.runtime.id`');
+      response.appendResponseLine(
+        '✅ Valid: `await chrome.storage.local.get()`',
+      );
+      response.appendResponseLine('✅ Valid: `console.log("test")`');
+      response.appendResponseLine('❌ Invalid: `const x = 1;`');
+      response.appendResponseLine('❌ Invalid: `let y = 2;`');
+
+      if (error instanceof Error && error.message) {
+        response.appendResponseLine(`\n**Error details**: ${error.message}`);
+      }
     }
 
     // Include page console data (for page logs)

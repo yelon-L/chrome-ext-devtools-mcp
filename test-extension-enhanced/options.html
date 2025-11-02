@@ -1,0 +1,763 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Enhanced MCP Test Extension - Options</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+      }
+
+      .section {
+        background: white;
+        margin: 20px 0;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .section h3 {
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+      }
+
+      .config-item {
+        margin: 15px 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #667eea;
+      }
+
+      .config-item label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #333;
+      }
+
+      .config-item input,
+      .config-item select,
+      .config-item textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+
+      .config-item textarea {
+        height: 100px;
+        resize: vertical;
+      }
+
+      .button-group {
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .btn {
+        padding: 10px 20px;
+        margin: 5px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s ease;
+      }
+
+      .btn-primary {
+        background: #667eea;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #5a6fd8;
+      }
+
+      .btn-secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: #545b62;
+      }
+
+      .btn-danger {
+        background: #dc3545;
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #c82333;
+      }
+
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        text-align: center;
+      }
+
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .log-viewer {
+        background: #000;
+        color: #00ff00;
+        font-family: 'Courier New', monospace;
+        padding: 15px;
+        border-radius: 5px;
+        height: 300px;
+        overflow-y: auto;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>📡 Enhanced MCP Test Extension</h1>
+      <p>Week 3 功能测试 - 配置和监控面板</p>
+    </div>
+
+    <div class="section">
+      <h3>🔧 监控配置</h3>
+
+      <div class="config-item">
+        <label for="monitoringInterval">消息监控间隔 (秒)</label>
+        <input
+          type="number"
+          id="monitoringInterval"
+          value="10"
+          min="1"
+          max="300"
+        />
+      </div>
+
+      <div class="config-item">
+        <label for="logLevel">日志级别</label>
+        <select id="logLevel">
+          <option value="debug">Debug (全部)</option>
+          <option
+            value="info"
+            selected
+            >Info (信息)</option
+          >
+          <option value="warn">Warn (警告)</option>
+          <option value="error">Error (错误)</option>
+        </select>
+      </div>
+
+      <div class="config-item">
+        <label for="messageTypes">监控的消息类型</label>
+        <div style="margin: 10px 0">
+          <input
+            type="checkbox"
+            id="runtimeMessages"
+            checked
+          />
+          <label
+            for="runtimeMessages"
+            style="display: inline; margin-left: 5px"
+            >Runtime Messages</label
+          >
+        </div>
+        <div style="margin: 10px 0">
+          <input
+            type="checkbox"
+            id="tabMessages"
+            checked
+          />
+          <label
+            for="tabMessages"
+            style="display: inline; margin-left: 5px"
+            >Tab Messages</label
+          >
+        </div>
+        <div style="margin: 10px 0">
+          <input
+            type="checkbox"
+            id="externalMessages"
+          />
+          <label
+            for="externalMessages"
+            style="display: inline; margin-left: 5px"
+            >External Messages</label
+          >
+        </div>
+      </div>
+
+      <div class="config-item">
+        <label for="customScript">自定义测试脚本</label>
+        <textarea
+          id="customScript"
+          placeholder="输入自定义JavaScript代码用于测试..."
+        >
+// Week 3测试脚本示例
+console.log('[Custom Test] 执行自定义测试');
+
+// 测试DOM操作
+const testElement = document.createElement('div');
+testElement.textContent = 'Custom Test Element';
+testElement.style.cssText = 'background: yellow; padding: 5px; position: fixed; top: 100px; right: 10px; z-index: 999999;';
+document.body.appendChild(testElement);
+
+setTimeout(() => {
+  if (testElement.parentNode) {
+    testElement.parentNode.removeChild(testElement);
+  }
+}, 3000);
+      </textarea
+        >
+      </div>
+    </div>
+
+    <!-- 新增: 表单测试区域 (用于测试type工具) -->
+    <div class="section">
+      <h3>📝 表单测试区域</h3>
+      <p style="color: #666; margin-bottom: 15px">
+        此区域用于测试MCP的type、click和evaluate工具
+      </p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px">
+        <div>
+          <label for="testInput1">测试输入框1:</label>
+          <input
+            type="text"
+            id="testInput1"
+            class="test-input"
+            placeholder="请输入文本"
+            style="
+              width: 100%;
+              padding: 8px;
+              margin: 5px 0;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+            "
+          />
+
+          <label for="testInput2">测试输入框2 (密码):</label>
+          <input
+            type="password"
+            id="testInput2"
+            class="test-input"
+            placeholder="请输入密码"
+            style="
+              width: 100%;
+              padding: 8px;
+              margin: 5px 0;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+            "
+          />
+
+          <label for="testTextarea">测试文本域:</label>
+          <textarea
+            id="testTextarea"
+            class="test-textarea"
+            rows="3"
+            placeholder="请输入多行文本"
+            style="
+              width: 100%;
+              padding: 8px;
+              margin: 5px 0;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+            "
+          ></textarea>
+        </div>
+
+        <div>
+          <label for="testSelect">测试下拉框:</label>
+          <select
+            id="testSelect"
+            class="test-select"
+            style="
+              width: 100%;
+              padding: 8px;
+              margin: 5px 0;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+            "
+          >
+            <option value="">请选择</option>
+            <option value="option1">选项1</option>
+            <option value="option2">选项2</option>
+            <option value="option3">选项3</option>
+          </select>
+
+          <label style="display: block; margin: 10px 0">
+            <input
+              type="checkbox"
+              id="testCheckbox1"
+              class="test-checkbox"
+            />
+            测试复选框1
+          </label>
+          <label style="display: block; margin: 10px 0">
+            <input
+              type="checkbox"
+              id="testCheckbox2"
+              class="test-checkbox"
+            />
+            测试复选框2
+          </label>
+
+          <button
+            id="testSubmit"
+            class="btn btn-primary"
+            style="margin-top: 10px"
+            >提交测试表单</button
+          >
+          <button
+            id="clearForm"
+            class="btn btn-secondary"
+            style="margin-top: 10px"
+            >清空表单</button
+          >
+        </div>
+      </div>
+
+      <div
+        id="formResult"
+        style="
+          margin-top: 15px;
+          padding: 10px;
+          background: #f5f5f5;
+          border-radius: 4px;
+          display: none;
+        "
+      >
+        <strong>表单提交结果:</strong>
+        <pre
+          id="formData"
+          style="margin-top: 5px; white-space: pre-wrap"
+        ></pre>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>🚀 测试控制</h3>
+
+      <div class="button-group">
+        <button
+          class="btn btn-primary"
+          id="startFullTest"
+          >开始完整测试</button
+        >
+        <button
+          class="btn btn-secondary"
+          id="runCustomScript"
+          >运行自定义脚本</button
+        >
+        <button
+          class="btn btn-primary"
+          id="saveConfig"
+          >保存配置</button
+        >
+        <button
+          class="btn btn-secondary"
+          id="loadConfig"
+          >加载配置</button
+        >
+        <button
+          class="btn btn-danger"
+          id="resetConfig"
+          >重置配置</button
+        >
+      </div>
+
+      <div
+        id="testStatus"
+        class="status"
+        style="display: none"
+      ></div>
+    </div>
+
+    <div class="section">
+      <h3>📊 实时监控</h3>
+
+      <div class="button-group">
+        <button
+          class="btn btn-primary"
+          id="startMonitoring"
+          >开始监控</button
+        >
+        <button
+          class="btn btn-secondary"
+          id="stopMonitoring"
+          >停止监控</button
+        >
+        <button
+          class="btn btn-secondary"
+          id="clearLogs"
+          >清除日志</button
+        >
+        <button
+          class="btn btn-secondary"
+          id="exportLogs"
+          >导出日志</button
+        >
+      </div>
+
+      <div
+        class="log-viewer"
+        id="logViewer"
+      >
+        [Options] 📡 Enhanced MCP Test Extension - Options页面已加载 [Options]
+        ⏳ 等待用户开始监控...
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>📋 扩展信息</h3>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px">
+        <div>
+          <strong>扩展ID:</strong> <span id="extensionId">加载中...</span><br />
+          <strong>版本:</strong> <span id="extensionVersion">加载中...</span
+          ><br />
+          <strong>Manifest版本:</strong>
+          <span id="manifestVersion">加载中...</span>
+        </div>
+        <div>
+          <strong>活动标签数:</strong> <span id="tabCount">检查中...</span
+          ><br />
+          <strong>存储使用:</strong> <span id="storageUsage">计算中...</span
+          ><br />
+          <strong>运行时间:</strong> <span id="uptime">00:00:00</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Week 3测试：Options页面逻辑
+      let monitoringActive = false;
+      let startTime = Date.now();
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        console.log('[Options] 🚀 Options页面初始化');
+
+        await loadExtensionInfo();
+        await loadConfig();
+        bindEventHandlers();
+        startPeriodicUpdates();
+
+        console.log('[Options] ✅ Options页面初始化完成');
+      });
+
+      async function loadExtensionInfo() {
+        try {
+          const manifest = chrome.runtime.getManifest();
+          document.getElementById('extensionId').textContent =
+            chrome.runtime.id;
+          document.getElementById('extensionVersion').textContent =
+            manifest.version;
+          document.getElementById('manifestVersion').textContent =
+            manifest.manifest_version;
+
+          // 获取标签数
+          const tabs = await chrome.tabs.query({});
+          document.getElementById('tabCount').textContent = tabs.length;
+
+          // 计算存储使用
+          const storage = await chrome.storage.local.get(null);
+          const storageSize = JSON.stringify(storage).length;
+          document.getElementById('storageUsage').textContent =
+            `${storageSize} bytes`;
+        } catch (error) {
+          console.error('[Options] ❌ 加载扩展信息失败:', error);
+        }
+      }
+
+      async function loadConfig() {
+        try {
+          const config = await chrome.storage.local.get(['mcpTestConfig']);
+          if (config.mcpTestConfig) {
+            const cfg = config.mcpTestConfig;
+            document.getElementById('monitoringInterval').value =
+              cfg.interval || 10;
+            document.getElementById('logLevel').value = cfg.logLevel || 'info';
+            document.getElementById('runtimeMessages').checked =
+              cfg.runtimeMessages !== false;
+            document.getElementById('tabMessages').checked =
+              cfg.tabMessages !== false;
+            document.getElementById('externalMessages').checked =
+              cfg.externalMessages || false;
+            if (cfg.customScript) {
+              document.getElementById('customScript').value = cfg.customScript;
+            }
+
+            appendLog('[Options] ✅ 配置加载成功');
+          }
+        } catch (error) {
+          appendLog('[Options] ❌ 加载配置失败: ' + error.message);
+        }
+      }
+
+      function bindEventHandlers() {
+        // 保存配置
+        document
+          .getElementById('saveConfig')
+          .addEventListener('click', async () => {
+            try {
+              const config = {
+                interval: parseInt(
+                  document.getElementById('monitoringInterval').value,
+                ),
+                logLevel: document.getElementById('logLevel').value,
+                runtimeMessages:
+                  document.getElementById('runtimeMessages').checked,
+                tabMessages: document.getElementById('tabMessages').checked,
+                externalMessages:
+                  document.getElementById('externalMessages').checked,
+                customScript: document.getElementById('customScript').value,
+              };
+
+              await chrome.storage.local.set({mcpTestConfig: config});
+              showStatus('配置保存成功', 'success');
+              appendLog('[Options] 💾 配置已保存');
+            } catch (error) {
+              showStatus('配置保存失败: ' + error.message, 'error');
+            }
+          });
+
+        // 开始完整测试
+        document
+          .getElementById('startFullTest')
+          .addEventListener('click', async () => {
+            try {
+              appendLog('[Options] 🚀 开始完整功能测试');
+
+              // 发送消息到所有标签页
+              const tabs = await chrome.tabs.query({});
+              let testCount = 0;
+
+              for (const tab of tabs) {
+                if (tab.url && !tab.url.startsWith('chrome://')) {
+                  try {
+                    await chrome.tabs.sendMessage(tab.id, {
+                      type: 'full_test_trigger',
+                      timestamp: Date.now(),
+                      testId: `full_test_${Date.now()}`,
+                    });
+                    testCount++;
+                  } catch (error) {
+                    appendLog(
+                      `[Options] ⚠️ Tab ${tab.id} 测试失败: ${error.message}`,
+                    );
+                  }
+                }
+              }
+
+              appendLog(`[Options] ✅ 完整测试已发送到 ${testCount} 个标签页`);
+              showStatus(`测试已发送到 ${testCount} 个标签页`, 'success');
+            } catch (error) {
+              appendLog('[Options] ❌ 完整测试失败: ' + error.message);
+              showStatus('测试失败: ' + error.message, 'error');
+            }
+          });
+
+        // 运行自定义脚本
+        document
+          .getElementById('runCustomScript')
+          .addEventListener('click', async () => {
+            try {
+              const script = document.getElementById('customScript').value;
+              if (!script.trim()) {
+                showStatus('请输入自定义脚本', 'error');
+                return;
+              }
+
+              appendLog('[Options] 🔧 执行自定义脚本');
+
+              const tabs = await chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+              });
+              if (tabs[0] && tabs[0].id) {
+                await chrome.tabs.sendMessage(tabs[0].id, {
+                  type: 'run_custom_script',
+                  script: script,
+                  timestamp: Date.now(),
+                });
+
+                appendLog('[Options] ✅ 自定义脚本已发送');
+                showStatus('自定义脚本已执行', 'success');
+              } else {
+                showStatus('没有活动标签页', 'error');
+              }
+            } catch (error) {
+              appendLog('[Options] ❌ 自定义脚本执行失败: ' + error.message);
+              showStatus('脚本执行失败: ' + error.message, 'error');
+            }
+          });
+
+        // 开始监控
+        document
+          .getElementById('startMonitoring')
+          .addEventListener('click', () => {
+            monitoringActive = true;
+            appendLog('[Options] 📡 开始实时监控');
+            showStatus('监控已开始', 'success');
+          });
+
+        // 停止监控
+        document
+          .getElementById('stopMonitoring')
+          .addEventListener('click', () => {
+            monitoringActive = false;
+            appendLog('[Options] 🛑 监控已停止');
+            showStatus('监控已停止', 'success');
+          });
+
+        // 清除日志
+        document.getElementById('clearLogs').addEventListener('click', () => {
+          document.getElementById('logViewer').innerHTML = '';
+          appendLog('[Options] 🧹 日志已清除');
+        });
+
+        // 导出日志
+        document.getElementById('exportLogs').addEventListener('click', () => {
+          const logs = document.getElementById('logViewer').textContent;
+          const blob = new Blob([logs], {type: 'text/plain'});
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `mcp-test-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+          a.click();
+
+          URL.revokeObjectURL(url);
+          appendLog('[Options] 📄 日志已导出');
+        });
+
+        // 表单测试功能
+        document.getElementById('testSubmit')?.addEventListener('click', () => {
+          const formData = {
+            testInput1: document.getElementById('testInput1').value,
+            testInput2: document.getElementById('testInput2').value,
+            testTextarea: document.getElementById('testTextarea').value,
+            testSelect: document.getElementById('testSelect').value,
+            testCheckbox1: document.getElementById('testCheckbox1').checked,
+            testCheckbox2: document.getElementById('testCheckbox2').checked,
+            timestamp: new Date().toISOString(),
+          };
+
+          document.getElementById('formResult').style.display = 'block';
+          document.getElementById('formData').textContent = JSON.stringify(
+            formData,
+            null,
+            2,
+          );
+
+          console.log('[Options] 📝 表单提交:', formData);
+          appendLog(
+            `[Form] ✅ 表单提交成功 - ${Object.keys(formData).length}个字段`,
+          );
+        });
+
+        document.getElementById('clearForm')?.addEventListener('click', () => {
+          document.getElementById('testInput1').value = '';
+          document.getElementById('testInput2').value = '';
+          document.getElementById('testTextarea').value = '';
+          document.getElementById('testSelect').value = '';
+          document.getElementById('testCheckbox1').checked = false;
+          document.getElementById('testCheckbox2').checked = false;
+          document.getElementById('formResult').style.display = 'none';
+
+          console.log('[Options] 🧹 表单已清空');
+          appendLog('[Form] 🧹 表单已清空');
+        });
+      }
+
+      function showStatus(message, type) {
+        const statusEl = document.getElementById('testStatus');
+        statusEl.textContent = message;
+        statusEl.className = `status ${type}`;
+        statusEl.style.display = 'block';
+
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 3000);
+      }
+
+      function appendLog(message) {
+        const logViewer = document.getElementById('logViewer');
+        const timestamp = new Date().toLocaleTimeString();
+        logViewer.innerHTML += `\n[${timestamp}] ${message}`;
+        logViewer.scrollTop = logViewer.scrollHeight;
+      }
+
+      function startPeriodicUpdates() {
+        setInterval(async () => {
+          // 更新运行时间
+          const elapsed = Date.now() - startTime;
+          const hours = Math.floor(elapsed / 3600000);
+          const minutes = Math.floor((elapsed % 3600000) / 60000);
+          const seconds = Math.floor((elapsed % 60000) / 1000);
+          document.getElementById('uptime').textContent =
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+          // 如果监控活跃，添加定期日志
+          if (monitoringActive && Math.random() < 0.3) {
+            appendLog(
+              `[Monitor] 📊 监控活跃 - 内存: ${performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB' : 'N/A'}`,
+            );
+          }
+        }, 1000);
+
+        // 定期更新标签数和存储使用
+        setInterval(async () => {
+          try {
+            const tabs = await chrome.tabs.query({});
+            document.getElementById('tabCount').textContent = tabs.length;
+
+            const storage = await chrome.storage.local.get(null);
+            const storageSize = JSON.stringify(storage).length;
+            document.getElementById('storageUsage').textContent =
+              `${storageSize} bytes`;
+          } catch (error) {
+            console.error('[Options] ❌ 定期更新失败:', error);
+          }
+        }, 5000);
+      }
+
+      // Week 3测试：监听来自background的消息
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (monitoringActive) {
+          appendLog(
+            `[Monitor] 📨 收到消息: ${JSON.stringify(message).substring(0, 100)}...`,
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -15,7 +15,10 @@ import {ExtensionHelper} from '../../extension/ExtensionHelper.js';
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
 
+import {listExtensionContexts} from './contexts.js';
+import {listExtensions} from './discovery.js';
 import {captureExtensionLogs, formatCapturedLogs} from './execution.js';
+import {getBackgroundLogs} from './logs.js';
 
 export const activateExtensionServiceWorker = defineTool({
   name: 'activate_extension_service_worker',
@@ -153,7 +156,7 @@ MV3 Service Workers become inactive after ~30 seconds. When inactive:
             `❌ Extension not found: \`${extensionId}\`\n`,
           );
           response.appendResponseLine(
-            '💡 **Tip**: Use `list_extensions` to see all installed extensions',
+            `💡 **Tip**: Use ${listExtensions.name} to see all installed extensions`,
           );
           response.setIncludePages(true);
           return;
@@ -326,10 +329,10 @@ function formatCDPResponse(
       '- Service Worker may need a brief delay to be fully ready after activation',
     );
     response.appendResponseLine(
-      '- Use `list_extension_contexts` to view current extension context status',
+      `- Use ${listExtensionContexts.name} to view current extension context status`,
     );
     response.appendResponseLine(
-      '- Use `get_background_logs` to view SW startup logs',
+      `- Use ${getBackgroundLogs.name} to view SW startup logs`,
     );
   }
 }

@@ -72,22 +72,28 @@ get_page_console_logs({ limit: 10 })  → Last 10 logs
     types: z
       .array(z.enum(['log', 'error', 'warn', 'info', 'debug']))
       .optional()
-      .describe('Filter by log types'),
+      .describe(
+        'Filter by log types. When omitted or empty, returns all types.',
+      ),
     sources: z
       .array(z.enum(['page', 'worker', 'service-worker', 'iframe']))
       .optional()
-      .describe('Filter by log sources'),
+      .describe(
+        'Filter by log sources. When omitted or empty, returns all sources.',
+      ),
     since: z
       .number()
       .optional()
       .describe(
-        'Only return logs after this timestamp (milliseconds since epoch)',
+        'Only return logs after this timestamp (milliseconds since epoch). When omitted, returns all logs.',
       ),
     limit: z
       .number()
       .min(1)
       .optional()
-      .describe('Maximum number of logs to return'),
+      .describe(
+        'Maximum number of logs to return. When omitted, returns all logs.',
+      ),
   },
   handler: async (request, response, context) => {
     const page = context.getSelectedPage();

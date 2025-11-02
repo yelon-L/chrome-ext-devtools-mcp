@@ -184,7 +184,7 @@ bash scripts/start-http-mcp.sh
 | `inspect_extension_storage`      | Inspect Storage                        |
 | `watch_extension_storage`        | Watch Storage changes                  |
 | `get_extension_logs`             | Collect logs                           |
-| `evaluate_in_extension`          | Execute code                           |
+| `evaluate_in_extension`          | Evaluate expressions (not statements)  |
 | `reload_extension`               | Smart Hot Reload (Enhanced) ⭐⭐⭐⭐⭐ |
 | `diagnose_extension_errors`      | Error Diagnostics (New) ⭐⭐⭐⭐⭐     |
 | `inspect_extension_manifest`     | Deep Manifest Check (New) ⭐⭐⭐⭐     |

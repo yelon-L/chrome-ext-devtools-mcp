@@ -6,38 +6,16 @@
 
 import z from 'zod';
 
+import {
+  FILTERABLE_LOG_SOURCES,
+  FILTERABLE_LOG_TYPES,
+} from '../collectors/EnhancedConsoleCollector.js';
+import {paginationSchema} from '../utils/paramValidator.js';
+
 import {ToolCategories} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
 export {getPageConsoleLogs} from './console-history.js';
-
-const FILTERABLE_MESSAGE_TYPES: readonly [string, ...string[]] = [
-  'log',
-  'debug',
-  'info',
-  'error',
-  'warn',
-  'dir',
-  'dirxml',
-  'table',
-  'trace',
-  'clear',
-  'startGroup',
-  'startGroupCollapsed',
-  'endGroup',
-  'assert',
-  'profile',
-  'profileEnd',
-  'count',
-  'timeEnd',
-];
-
-const FILTERABLE_MESSAGE_SOURCES: readonly [string, ...string[]] = [
-  'page',
-  'worker',
-  'service-worker',
-  'iframe',
-];
 
 export const consoleTool = defineTool({
   name: 'list_console_messages',
@@ -70,35 +48,32 @@ export const consoleTool = defineTool({
   },
   schema: {
     types: z
-      .array(z.enum(FILTERABLE_MESSAGE_TYPES))
+      .array(z.enum(FILTERABLE_LOG_TYPES))
       .optional()
-      .describe('Filter by message types'),
+      .describe(
+        'Filter by log types. When omitted or empty, returns all types.',
+      ),
     sources: z
-      .array(z.enum(FILTERABLE_MESSAGE_SOURCES))
+      .array(z.enum(FILTERABLE_LOG_SOURCES))
       .optional()
-      .describe('Filter by message sources'),
+      .describe(
+        'Filter by log sources. When omitted or empty, returns all sources.',
+      ),
     since: z
       .number()
       .optional()
-      .describe('Only messages after this timestamp (milliseconds)'),
+      .describe(
+        'Only return logs after this timestamp (milliseconds since epoch). When omitted, returns all logs.',
+      ),
     limit: z
       .number()
       .int()
       .positive()
       .optional()
-      .describe('Maximum number of messages to return'),
-    pageSize: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe('Messages per page (default: 20)'),
-    pageIdx: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .describe('Page number (0-indexed)'),
+      .describe(
+        'Maximum number of logs to return. When omitted, returns all logs.',
+      ),
+    ...paginationSchema,
   },
   handler: async (request, response, context) => {
     const page = context.getSelectedPage();

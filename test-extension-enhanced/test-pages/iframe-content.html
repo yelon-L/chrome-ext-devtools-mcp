@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>iframe 内容</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background: #f0f0f0;
+      }
+      button {
+        padding: 5px 10px;
+        margin: 5px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>iframe 内容页面</h2>
+    <p id="info"></p>
+
+    <button id="testLogs">测试日志</button>
+    <button id="testErrors">测试错误</button>
+    <button id="testComplexObjects">测试复杂对象</button>
+
+    <script>
+      // 获取 URL 参数
+      const params = new URLSearchParams(window.location.search);
+      const iframeId = params.get('id') || '1';
+
+      document.getElementById('info').textContent = `iframe ID: ${iframeId}`;
+
+      console.log(`[iframe-${iframeId}] iframe 内容加载完成`);
+      console.log(
+        `[iframe-${iframeId}] iframe Map:`,
+        new Map([[`iframe-${iframeId}-key`, `iframe-${iframeId}-value`]]),
+      );
+
+      // 测试日志
+      document.getElementById('testLogs').onclick = () => {
+        console.log(`[iframe-${iframeId}] 测试日志消息`);
+        console.info(`[iframe-${iframeId}] 信息消息`);
+        console.debug(`[iframe-${iframeId}] 调试消息`);
+      };
+
+      // 测试错误
+      document.getElementById('testErrors').onclick = () => {
+        console.error(
+          `[iframe-${iframeId}] iframe 错误:`,
+          new Error(`iframe-${iframeId} error`),
+        );
+        console.warn(`[iframe-${iframeId}] iframe 警告`);
+      };
+
+      // 测试复杂对象
+      document.getElementById('testComplexObjects').onclick = () => {
+        console.log(
+          `[iframe-${iframeId}] Map:`,
+          new Map([
+            [`key1-${iframeId}`, `value1-${iframeId}`],
+            [`key2-${iframeId}`, `value2-${iframeId}`],
+          ]),
+        );
+
+        console.log(`[iframe-${iframeId}] Set:`, new Set([10, 20, 30]));
+
+        console.log(`[iframe-${iframeId}] Date:`, new Date());
+
+        console.log(`[iframe-${iframeId}] 函数:`, function iframeFunc() {
+          return 42;
+        });
+      };
+    </script>
+  </body>
+</html>

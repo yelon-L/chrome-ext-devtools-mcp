@@ -15,6 +15,46 @@ import type {
 import {EnhancedObjectSerializer} from '../formatters/EnhancedObjectSerializer.js';
 
 /**
+ * 可过滤的日志类型
+ *
+ * 遵循 Chrome DevTools Protocol 的 console API 类型定义
+ */
+export const FILTERABLE_LOG_TYPES = [
+  'log',
+  'debug',
+  'info',
+  'error',
+  'warn',
+  'dir',
+  'dirxml',
+  'table',
+  'trace',
+  'clear',
+  'startGroup',
+  'startGroupCollapsed',
+  'endGroup',
+  'assert',
+  'profile',
+  'profileEnd',
+  'count',
+  'timeEnd',
+] as const;
+
+export type ConsoleLogType = (typeof FILTERABLE_LOG_TYPES)[number];
+
+/**
+ * 可过滤的日志来源
+ */
+export const FILTERABLE_LOG_SOURCES = [
+  'page',
+  'worker',
+  'service-worker',
+  'iframe',
+] as const;
+
+export type ConsoleLogSource = (typeof FILTERABLE_LOG_SOURCES)[number];
+
+/**
  * 控制台日志条目
  */
 export interface ConsoleLog {
@@ -27,7 +67,7 @@ export interface ConsoleLog {
   url?: string;
   lineNumber?: number;
   columnNumber?: number;
-  source?: 'page' | 'worker' | 'service-worker' | 'iframe'; // 日志来源
+  source?: ConsoleLogSource; // 日志来源
 }
 
 /**
@@ -53,6 +93,7 @@ export class EnhancedConsoleCollector {
 
     try {
       // 启用 Runtime domain
+      // 如果 target 已关闭，这里会抛出异常
       await cdpSession.send('Runtime.enable');
 
       // 监听执行上下文创建（用于识别 iframe）
@@ -287,8 +328,14 @@ export class EnhancedConsoleCollector {
 
       this.isInitialized = true;
     } catch (error) {
+      // Target 可能已经关闭（如短暂的 iframe），这是正常情况
+      // 不抛出异常，只记录警告
+      if (error instanceof Error && error.message.includes('Target closed')) {
+        // 静默处理 target 关闭的情况
+        return;
+      }
       console.error('[EnhancedConsoleCollector] Failed to initialize:', error);
-      throw error;
+      // 不抛出异常，让调用者继续执行
     }
   }
 

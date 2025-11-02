@@ -165,6 +165,11 @@ export class McpContext implements Context {
    */
   async #initializeEnhancedConsoleCollector(page: Page): Promise<void> {
     try {
+      // 检查页面是否已关闭
+      if (page.isClosed()) {
+        return;
+      }
+
       const cdpSession = await this.#cdpSessionManager.getOrCreateSession(page);
       const collector = new EnhancedConsoleCollector();
       await collector.init(page, cdpSession);

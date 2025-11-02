@@ -18,9 +18,16 @@
 import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
+import {click, fill} from '../input.js';
+import {navigatePage} from '../pages.js';
+import {evaluateScript} from '../script.js';
+import {takeSnapshot} from '../snapshot.js';
 import {defineTool} from '../ToolDefinition.js';
 
+import {listExtensionContexts} from './contexts.js';
+import {listExtensions, getExtensionDetails} from './discovery.js';
 import {captureExtensionLogs, formatCapturedLogs} from './execution.js';
+import {activateExtensionServiceWorker} from './service-worker-activation.js';
 
 /**
  * 打开扩展 Popup
@@ -71,7 +78,7 @@ For most testing, both work fine.
       response.appendResponseLine(`Extension ${extensionId} not found.`);
       response.appendResponseLine('\n**Suggestions**:');
       response.appendResponseLine(
-        '- Use `list_extensions` to see available extensions',
+        `- Use ${listExtensions.name} to see available extensions`,
       );
       response.appendResponseLine('- Verify the extension ID is correct');
       response.setIncludePages(true);
@@ -103,7 +110,7 @@ For most testing, both work fine.
           );
           response.appendResponseLine('\n**Suggestions**:');
           response.appendResponseLine(
-            '- Use `activate_extension_service_worker` manually',
+            `- Use ${activateExtensionServiceWorker.name} manually`,
           );
           response.appendResponseLine('- Check if extension is enabled');
           response.appendResponseLine('- Reload the extension if needed');
@@ -210,7 +217,7 @@ For most testing, both work fine.
           '- Check manifest.json for action.default_popup',
         );
         response.appendResponseLine(
-          '- Use `get_extension_details` to verify configuration',
+          `- Use ${getExtensionDetails.name} to verify configuration`,
         );
         response.setIncludePages(true);
         return;
@@ -234,15 +241,15 @@ For most testing, both work fine.
         );
         response.appendResponseLine('\n**Next Steps**:');
         response.appendResponseLine(
-          '1. Use `take_snapshot` to get popup elements',
+          `1. Use ${takeSnapshot.name} to get popup elements`,
         );
         response.appendResponseLine(
-          '2. Use `click`, `fill` to interact with elements',
+          `2. Use ${click.name}, ${fill.name} to interact with elements`,
         );
         response.appendResponseLine(
-          '3. Use `evaluate_script` to run custom JavaScript',
+          `3. Use ${evaluateScript.name} to run custom JavaScript`,
         );
-        response.appendResponseLine('4. Use `close_popup` when done');
+        response.appendResponseLine(`4. Use ${closePopup.name} when done`);
       } else {
         response.appendResponseLine('# Popup Command Sent ⚠️\n');
         response.appendResponseLine(
@@ -256,13 +263,13 @@ For most testing, both work fine.
         );
         response.appendResponseLine('\n**Next Steps**:');
         response.appendResponseLine(
-          '- Use `is_popup_open` to check if popup is now open',
+          `- Use ${isPopupOpen.name} to check if popup is now open`,
         );
         response.appendResponseLine(
-          '- Use `wait_for_popup` to wait for popup to appear',
+          `- Use ${waitForPopup.name} to wait for popup to appear`,
         );
         response.appendResponseLine(
-          '- Try `list_extension_contexts` to see all contexts',
+          `- Try ${listExtensionContexts.name} to see all contexts`,
         );
       }
     } catch (_error) {
@@ -352,10 +359,12 @@ export const isPopupOpen = defineTool({
       response.appendResponseLine(`**Title**: ${popupContext.title || 'N/A'}`);
       response.appendResponseLine('\n**Available Actions**:');
       response.appendResponseLine(
-        '- Use `take_snapshot` to get popup elements',
+        `- Use ${takeSnapshot.name} to get popup elements`,
       );
-      response.appendResponseLine('- Use `click`, `fill` to interact with UI');
-      response.appendResponseLine('- Use `close_popup` to close it');
+      response.appendResponseLine(
+        `- Use ${click.name}, ${fill.name} to interact with UI`,
+      );
+      response.appendResponseLine(`- Use ${closePopup.name} to close it`);
     } else {
       response.appendResponseLine('# Popup Status: Closed\n');
       response.appendResponseLine('The popup is not currently open.');
@@ -373,10 +382,10 @@ export const isPopupOpen = defineTool({
 
       response.appendResponseLine('\n**Next Steps**:');
       response.appendResponseLine(
-        '- Use `open_extension_popup` to open the popup',
+        `- Use ${openExtensionPopup.name} to open the popup`,
       );
       response.appendResponseLine(
-        '- Use `get_extension_details` to verify popup is configured',
+        `- Use ${getExtensionDetails.name} to verify popup is configured`,
       );
     }
 
@@ -465,7 +474,9 @@ export const waitForPopup = defineTool({
         );
         response.appendResponseLine('\n**Next Steps**:');
         response.appendResponseLine('- Popup is ready for interaction');
-        response.appendResponseLine('- Use `take_snapshot` to get elements');
+        response.appendResponseLine(
+          `- Use ${takeSnapshot.name} to get elements`,
+        );
         response.setIncludePages(true);
         return;
       }
@@ -486,10 +497,10 @@ export const waitForPopup = defineTool({
     response.appendResponseLine('\n**Suggestions**:');
     response.appendResponseLine('- Try increasing the timeout value');
     response.appendResponseLine(
-      '- Use `is_popup_open` to check current status',
+      `- Use ${isPopupOpen.name} to check current status`,
     );
     response.appendResponseLine(
-      '- Use `open_extension_popup` to trigger opening',
+      `- Use ${openExtensionPopup.name} to trigger opening`,
     );
     response.appendResponseLine('- Check if extension has popup in manifest');
 
@@ -554,7 +565,7 @@ This tool is useful for programmatic control.
       response.appendResponseLine('Popup is not open.');
       response.appendResponseLine('\nNothing to close.');
       response.appendResponseLine(
-        '\n**Tip**: Use `is_popup_open` to check status before closing.',
+        `\n**Tip**: Use ${isPopupOpen.name} to check status before closing.`,
       );
       response.setIncludePages(true);
       return;
@@ -596,9 +607,9 @@ This tool is useful for programmatic control.
       response.appendResponseLine('# Popup Closed ✅\n');
       response.appendResponseLine('The popup has been closed successfully.');
       response.appendResponseLine('\n**Next Steps**:');
-      response.appendResponseLine('- Use `open_extension_popup` to reopen');
+      response.appendResponseLine(`- Use ${openExtensionPopup.name} to reopen`);
       response.appendResponseLine(
-        '- Use `is_popup_open` to verify closed status',
+        `- Use ${isPopupOpen.name} to verify closed status`,
       );
     } catch (_error) {
       // ✅ 遵循 close_page 模式：捕获预期错误
@@ -713,9 +724,9 @@ export const getPopupInfo = defineTool({
       response.appendResponseLine('**State**: Closed');
       response.appendResponseLine('');
       response.appendResponseLine('**Available Actions**:');
-      response.appendResponseLine('- Use `open_extension_popup` to open');
+      response.appendResponseLine(`- Use ${openExtensionPopup.name} to open`);
       response.appendResponseLine(
-        '- Use `get_extension_details` for manifest info',
+        `- Use ${getExtensionDetails.name} for manifest info`,
       );
     }
 
@@ -1007,7 +1018,7 @@ export const interactWithPopup = defineTool({
         `**Error**: ${error instanceof Error ? error.message : String(error)}`,
       );
       response.appendResponseLine(
-        '\n**Tip**: Popup may have closed. Use `navigate_page` for stable testing.',
+        `\n**Tip**: Popup may have closed. Use ${navigatePage.name} for stable testing.`,
       );
     }
 

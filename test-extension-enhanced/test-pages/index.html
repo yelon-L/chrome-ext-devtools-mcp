@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>增强日志测试索引</title>
+    <style>
+      body {
+        font-family: Arial;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+      .test-card {
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border: 1px solid #ddd;
+      }
+      .test-card h2 {
+        color: #4caf50;
+      }
+      .test-card a {
+        display: inline-block;
+        padding: 10px 20px;
+        background: #4caf50;
+        color: white;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>增强日志捕获功能测试</h1>
+
+    <div class="test-card">
+      <h2>1. Worker 日志测试</h2>
+      <p>测试 Web Worker 日志捕获功能</p>
+      <a href="worker-test.html">打开测试</a>
+    </div>
+
+    <div class="test-card">
+      <h2>2. iframe 日志测试</h2>
+      <p>测试 iframe 日志捕获功能</p>
+      <a href="iframe-test.html">打开测试</a>
+    </div>
+
+    <script>
+      console.log('[Index] 测试索引页面加载完成');
+    </script>
+  </body>
+</html>

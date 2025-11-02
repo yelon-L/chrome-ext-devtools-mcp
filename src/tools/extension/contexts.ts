@@ -17,44 +17,9 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const listExtensionContexts = defineTool({
   name: 'list_extension_contexts',
-  description: `List all running contexts (execution environments) of an extension.
+  description: `List all running contexts (background, popup, content_script, etc.) of an extension with their type, URL, and target ID.
 
-**This is the tool you need when:**
-- ✅ You want to see where the extension code is currently running
-- ✅ You need to verify Service Worker is active (before running code)
-- ✅ You want to check if popup/options pages are open
-- ✅ You need context IDs for code execution
-
-**Context types you'll see**:
-- **background**: Service Worker (MV3) or Background Page (MV2)
-- **popup**: Extension popup windows
-- **options_page**: Options/settings pages
-- **content_script**: Scripts running in web pages
-- **offscreen**: Offscreen Document (MV3)
-- **devtools_page**: DevTools extension pages
-
-**What you get**:
-- Context type and URL
-- Target ID (needed for \`evaluate_in_extension\`)
-- Active/inactive status
-- Frame information
-
-**⚠️ MV3 Service Worker**: If you see "No active contexts", the SW is likely inactive. Use \`activate_extension_service_worker\` first.
-
-**Example scenarios**:
-1. Before running code: "Where can I execute code?"
-   → Use this tool to see available contexts
-   
-2. Service Worker check: "Is the background script running?"
-   → Use this tool to verify SW is active
-
-3. Content script check: "Is my script injected?"
-   → Use this tool to see content_script contexts
-
-**Related tools**:
-- \`activate_extension_service_worker\` - Wake up inactive SW (if no contexts)
-- \`evaluate_in_extension\` - Run code in a specific context
-- \`switch_extension_context\` - Change active context for code execution`,
+Use this to verify Service Worker is active before running code. If no contexts, use \`activate_extension_service_worker\` first.`,
   annotations: {
     category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
@@ -159,13 +124,13 @@ Use list_extension_contexts first to get available Target IDs.`,
       );
       response.appendResponseLine(`\n**Next Steps**:`);
       response.appendResponseLine(
-        '- Use evaluate_in_extension to run code in this context',
+        '- Use `evaluate_in_extension` to run code in this context',
       );
       response.appendResponseLine(
-        '- Use inspect_extension_storage to check storage',
+        '- Use `inspect_extension_storage` to check storage',
       );
       response.appendResponseLine(
-        '- Use get_extension_logs to view logs from this context',
+        '- Use `get_background_logs` to view logs from this context',
       );
     } catch {
       // ✅ Following navigate_page_history pattern: simple error message

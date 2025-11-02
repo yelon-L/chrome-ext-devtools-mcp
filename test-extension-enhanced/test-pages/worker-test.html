@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Worker 日志测试</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      #output {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        min-height: 100px;
+        background: #f5f5f5;
+      }
+      .log-entry {
+        margin: 5px 0;
+        padding: 5px;
+        background: white;
+        border-left: 3px solid #4caf50;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Worker 日志测试页面</h1>
+    <p>点击按钮测试 Worker 日志捕获功能</p>
+
+    <button id="startWorker">启动 Web Worker</button>
+    <button id="testComplexObjects">测试复杂对象</button>
+    <button id="testErrors">测试错误</button>
+    <button id="clearOutput">清空输出</button>
+
+    <div id="output"></div>
+
+    <script>
+      console.log('[Main] Worker 测试页面加载完成');
+
+      let worker = null;
+      const output = document.getElementById('output');
+
+      function addOutput(message) {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+        output.appendChild(entry);
+      }
+
+      // 启动 Web Worker
+      document.getElementById('startWorker').onclick = () => {
+        console.log('[Main] 启动 Web Worker');
+
+        if (worker) {
+          worker.terminate();
+        }
+
+        worker = new Worker('test-worker.js');
+
+        worker.onmessage = e => {
+          console.log('[Main] 收到 Worker 消息:', e.data);
+          addOutput('Worker: ' + e.data);
+        };
+
+        worker.onerror = e => {
+          console.error('[Main] Worker 错误:', e.message);
+          addOutput('Worker Error: ' + e.message);
+        };
+
+        worker.postMessage({type: 'start', data: 'Hello Worker'});
+        addOutput('Worker 已启动');
+      };
+
+      // 测试复杂对象
+      document.getElementById('testComplexObjects').onclick = () => {
+        console.log('[Main] 测试复杂对象');
+
+        if (!worker) {
+          alert('请先启动 Worker');
+          return;
+        }
+
+        worker.postMessage({
+          type: 'testComplexObjects',
+          data: {
+            map: new Map([
+              ['key1', 'value1'],
+              ['key2', 'value2'],
+            ]),
+            set: new Set([1, 2, 3, 4, 5]),
+            date: new Date(),
+          },
+        });
+
+        addOutput('已发送复杂对象测试请求');
+      };
+
+      // 测试错误
+      document.getElementById('testErrors').onclick = () => {
+        console.log('[Main] 测试错误');
+
+        if (!worker) {
+          alert('请先启动 Worker');
+          return;
+        }
+
+        worker.postMessage({type: 'testErrors'});
+        addOutput('已发送错误测试请求');
+      };
+
+      // 清空输出
+      document.getElementById('clearOutput').onclick = () => {
+        output.innerHTML = '';
+      };
+    </script>
+  </body>
+</html>
