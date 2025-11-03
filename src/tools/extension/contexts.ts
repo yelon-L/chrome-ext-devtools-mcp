@@ -17,9 +17,11 @@ import {defineTool} from '../ToolDefinition.js';
 
 export const listExtensionContexts = defineTool({
   name: 'list_extension_contexts',
-  description: `List all running contexts (background, popup, content_script, etc.) of an extension with their type, URL, and target ID.
+  description: `List all running contexts (background, popup, options, etc.) of an extension with their type, URL, and target ID.
 
-Use this to verify Service Worker is active before running code. If no contexts, use \`activate_extension_service_worker\` first.`,
+**Note**: Content scripts are not listed here as they run in page contexts without separate targets. Use \`check_content_script_injection\` to verify content script injection.
+
+**Use this to**: Verify Service Worker is active before running code. If no contexts, use \`activate_extension_service_worker\` first.`,
   annotations: {
     category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
@@ -74,12 +76,31 @@ Use this to verify Service Worker is active before running code. If no contexts,
         if (ctx.isPrimary) {
           response.appendResponseLine('- **Primary Context**: ✅');
         }
+
+        // 标注是否可以切换
+        const canSwitch = !(ctx.type === 'background' && ctx.isPrimary);
+        if (canSwitch) {
+          response.appendResponseLine(
+            '- **Switchable**: ✅ (use `switch_extension_context`)',
+          );
+        } else {
+          response.appendResponseLine(
+            '- **Switchable**: ❌ (Service Worker - use `evaluate_in_extension` instead)',
+          );
+        }
         response.appendResponseLine('');
       }
     }
 
+    response.appendResponseLine('\n**Next Steps**:');
     response.appendResponseLine(
-      '\n**Next Steps**: Use switch_extension_context with a Target ID to debug that specific context.',
+      '- Use `switch_extension_context` with a Target ID to switch to popup/options contexts',
+    );
+    response.appendResponseLine(
+      '- Use `evaluate_in_extension` to execute code in Service Worker contexts',
+    );
+    response.appendResponseLine(
+      '- Use `check_content_script_injection` to verify content script injection',
     );
 
     response.setIncludePages(true);
@@ -92,9 +113,11 @@ export const switchExtensionContext = defineTool({
 
 After switching, operations like evaluate_in_extension will run in the selected context.
 This is essential for debugging different parts of an extension:
-- Switch to background/service worker for background logic
 - Switch to popup for UI code
 - Switch to content script for page interaction code
+- Switch to options page or devtools panel
+
+⚠️ **Note**: Service Worker contexts cannot be switched to (no Page object). Use \`evaluate_in_extension\` directly for Service Worker code execution.
 
 Use list_extension_contexts first to get available Target IDs.`,
   annotations: {
@@ -113,15 +136,50 @@ Use list_extension_contexts first to get available Target IDs.`,
       ),
   },
   handler: async (request, response, context) => {
-    const {targetId} = request.params;
+    const {extensionId, targetId} = request.params;
 
     try {
+      // 先检查目标上下文类型
+      const contexts = await context.getExtensionContexts(extensionId);
+      const targetContext = contexts.find(ctx => ctx.targetId === targetId);
+
+      if (!targetContext) {
+        response.appendResponseLine(
+          `❌ Context \`${targetId}\` not found. The context may no longer exist or the extension was reloaded.`,
+        );
+        response.appendResponseLine(
+          '\n💡 **Tip**: Use `list_extension_contexts` to see available contexts.',
+        );
+        response.setIncludePages(true);
+        return;
+      }
+
+      // Service Worker 不支持切换
+      if (targetContext.type === 'background' && targetContext.isPrimary) {
+        response.appendResponseLine(
+          `❌ Cannot switch to Service Worker context (\`${targetId}\`).`,
+        );
+        response.appendResponseLine(
+          '\n**Reason**: Service Worker contexts do not have a Page object.',
+        );
+        response.appendResponseLine(
+          '\n💡 **Solution**: Use `evaluate_in_extension` to execute code in the Service Worker directly:',
+        );
+        response.appendResponseLine(
+          `\n\`\`\`\nevaluate_in_extension(extensionId="${extensionId}", code="your_code_here")\n\`\`\``,
+        );
+        response.setIncludePages(true);
+        return;
+      }
+
       await context.switchToExtensionContext(targetId);
 
       response.appendResponseLine(`# Context Switched\n`);
       response.appendResponseLine(
         `✅ Successfully switched to context: \`${targetId}\``,
       );
+      response.appendResponseLine(`\n**Context Type**: ${targetContext.type}`);
+      response.appendResponseLine(`**URL**: ${targetContext.url}`);
       response.appendResponseLine(`\n**Next Steps**:`);
       response.appendResponseLine(
         '- Use `evaluate_in_extension` to run code in this context',
@@ -132,10 +190,14 @@ Use list_extension_contexts first to get available Target IDs.`,
       response.appendResponseLine(
         '- Use `get_background_logs` to view logs from this context',
       );
-    } catch {
+    } catch (error) {
       // ✅ Following navigate_page_history pattern: simple error message
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       response.appendResponseLine(
-        'Unable to switch extension context. The context may no longer exist or the extension was reloaded.',
+        `❌ Unable to switch extension context: ${errorMsg}`,
+      );
+      response.appendResponseLine(
+        '\n💡 **Tip**: The context may no longer exist or the extension was reloaded.',
       );
     }
 

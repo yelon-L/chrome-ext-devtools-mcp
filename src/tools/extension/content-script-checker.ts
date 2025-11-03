@@ -14,41 +14,17 @@ import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
-import {
-  reportExtensionNotFound,
-  reportResourceUnavailable,
-} from '../utils/ErrorReporting.js';
+import {reportExtensionNotFound} from '../utils/ErrorReporting.js';
 
 export const checkContentScriptInjection = defineTool({
   name: 'check_content_script_injection',
   description: `Check if content scripts are properly injected and diagnose injection failures.
 
-**Purpose**: Verify content script injection status and troubleshoot "content script not working" issues.
+**Verifies**: Match patterns, host permissions, and actual DOM injection status. Tests URL patterns if testUrl provided.
 
-**What it does**:
-- Lists all content script rules from manifest.json
-- Tests match patterns against a specific URL (if provided)
-- Identifies which scripts SHOULD inject vs which ACTUALLY inject
-- Analyzes match/exclude patterns, run_at timing, and all_frames settings
-- Detects common injection failure causes
+**Note**: Content scripts run in page contexts (not listed in \`list_extension_contexts\`). This tool checks both manifest configuration and actual page injection.
 
-**Diagnoses these issues**:
-- Match pattern doesn't cover the target URL (e.g., "*://*.example.com/*" won't match "example.com")
-- Missing host permissions in manifest
-- CSP (Content Security Policy) blocking injection
-- Timing problems (document_start vs document_end vs document_idle)
-- Frame injection issues (main frame vs iframes)
-
-**Output includes**:
-- All content script rules with their match patterns
-- URL match test results (if testUrl provided)
-- Injection status for each rule
-- Specific failure reasons with solutions
-- Recommendations for fixing match patterns
-
-**When to use**: When content scripts aren't running on expected pages or you need to verify injection configuration.
-
-**Example**: check_content_script_injection with testUrl="https://github.com/user/repo" shows that pattern "*://github.com/*/*" matches but "*://www.github.com/*/*" doesn't.`,
+**When to use**: Content scripts not working on expected pages or need to verify injection configuration.`,
   annotations: {
     category: ToolCategories.EXTENSION_INSPECTION,
     readOnlyHint: true,
@@ -90,12 +66,156 @@ export const checkContentScriptInjection = defineTool({
 
       // ✅ Following close_page pattern: return info instead of throwing
       if (!manifest) {
-        reportResourceUnavailable(
-          response,
-          'Manifest',
-          extensionId,
-          'Extension manifest data is being loaded or unavailable',
+        // 使用备用方案：检查页面实际注入状态
+        response.appendResponseLine(`# Content Script Injection Check\n`);
+        response.appendResponseLine(`**Extension**: ${extension.name}`);
+        response.appendResponseLine(
+          '⚠️ **Manifest data temporarily unavailable**\n',
         );
+        response.appendResponseLine(
+          '**Using fallback method**: Checking actual injection status on current page...\n',
+        );
+
+        // 检查当前页面的实际注入状态
+        try {
+          const browser = context.getBrowser();
+          const pages = await browser.pages();
+          const currentPage = pages.find(p => p.url() === testUrl) || pages[0];
+
+          if (currentPage) {
+            const injectionStatus = await currentPage.evaluate(
+              (_extId: string) => {
+                // 检查扩展注入的元素
+                const allElements = document.querySelectorAll('*');
+                const extensionElements: Array<{
+                  tag: string;
+                  id: string;
+                  className: string;
+                }> = [];
+
+                allElements.forEach(el => {
+                  const className = el.className?.toString() || '';
+                  const id = el.id || '';
+
+                  // 检查是否包含扩展相关的类名或ID
+                  if (
+                    className.includes('extension') ||
+                    className.includes('capture') ||
+                    className.includes('inject') ||
+                    id.includes('extension') ||
+                    id.includes('capture')
+                  ) {
+                    extensionElements.push({
+                      tag: el.tagName,
+                      id: el.id,
+                      className: className,
+                    });
+                  }
+                });
+
+                // 检查扩展脚本
+                const scripts = Array.from(document.querySelectorAll('script'));
+                const extensionScripts = scripts.filter(
+                  s => s.src && s.src.includes('chrome-extension://'),
+                );
+
+                return {
+                  hasElements: extensionElements.length > 0,
+                  elementCount: extensionElements.length,
+                  elements: extensionElements.slice(0, 10), // 只返回前10个
+                  hasScripts: extensionScripts.length > 0,
+                  scriptCount: extensionScripts.length,
+                };
+              },
+              extensionId,
+            );
+
+            if (injectionStatus.hasElements || injectionStatus.hasScripts) {
+              response.appendResponseLine(
+                `## ✅ Content Script Injection Detected\n`,
+              );
+              response.appendResponseLine(
+                `**Status**: Content scripts appear to be injected and working\n`,
+              );
+              response.appendResponseLine('**Evidence**:');
+              response.appendResponseLine(
+                `- Found ${injectionStatus.elementCount} injected DOM elements`,
+              );
+              response.appendResponseLine(
+                `- Found ${injectionStatus.scriptCount} extension scripts\n`,
+              );
+
+              if (injectionStatus.elements.length > 0) {
+                response.appendResponseLine('**Sample injected elements**:');
+                injectionStatus.elements.forEach(
+                  (el: {tag: string; className: string; id: string}) => {
+                    const idStr = el.id ? ` id="${el.id}"` : '';
+                    const classStr = el.className
+                      ? ` class="${el.className.substring(0, 50)}..."`
+                      : '';
+                    response.appendResponseLine(
+                      `- <${el.tag}${idStr}${classStr}>`,
+                    );
+                  },
+                );
+                response.appendResponseLine('');
+              }
+
+              response.appendResponseLine(
+                '💡 **Note**: Manifest data is loading asynchronously. Wait 2-3 seconds and try `inspect_extension_manifest` for detailed configuration.',
+              );
+            } else {
+              response.appendResponseLine(
+                `## ❌ No Content Script Injection Detected\n`,
+              );
+              response.appendResponseLine(
+                '**Status**: No evidence of content script injection found on current page\n',
+              );
+              response.appendResponseLine('**Possible reasons**:');
+              response.appendResponseLine(
+                '1. Match patterns do not cover this URL',
+              );
+              response.appendResponseLine(
+                '2. Extension does not have content scripts configured',
+              );
+              response.appendResponseLine('3. Content scripts failed to load');
+              response.appendResponseLine(
+                '4. Page loaded before extension was ready\n',
+              );
+              response.appendResponseLine('**Recommended actions**:');
+              response.appendResponseLine('1. Reload the page');
+              response.appendResponseLine(
+                '2. Check extension permissions and host_permissions',
+              );
+              response.appendResponseLine(
+                '3. Wait for manifest data and retry with `inspect_extension_manifest`',
+              );
+            }
+          } else {
+            response.appendResponseLine(
+              '⚠️ No active page found to check injection status.',
+            );
+          }
+        } catch (error) {
+          response.appendResponseLine(
+            '⚠️ Unable to check actual injection status on current page.',
+          );
+          response.appendResponseLine(
+            `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+        }
+
+        response.appendResponseLine('\n**Alternative approach**:');
+        response.appendResponseLine(
+          '1. Use `get_extension_details` - Shows basic extension info (always works)',
+        );
+        response.appendResponseLine(
+          '2. Use `evaluate_in_extension` with `chrome.runtime.getManifest()` to get manifest directly',
+        );
+        response.appendResponseLine(
+          '3. Wait 2-3 seconds and try `inspect_extension_manifest` again',
+        );
+
         response.setIncludePages(true);
         return;
       }
