@@ -61,7 +61,7 @@ export async function validateBrowserURL(browserURL: string): Promise<void> {
       throw new Error('Invalid browser response: missing required fields');
     }
 
-    console.log(
+    console.error(
       `[Browser] ✅ Validated browser connection: ${data.Browser || 'Unknown'}`,
     );
   } catch (error) {
@@ -121,8 +121,8 @@ export async function ensureBrowserConnected(options: {
   }
 
   // 执行连接（首次或重连）
-  console.log('[Browser] 📡 Connecting to browser:', options.browserURL);
-  console.log('');
+  console.error('[Browser] 📡 Connecting to browser:', options.browserURL);
+  console.error('');
 
   try {
     browser = await puppeteer.connect({
@@ -135,7 +135,7 @@ export async function ensureBrowserConnected(options: {
     isExternalBrowser = true; // 标记为外部浏览器
     initialBrowserURL = options.browserURL; // 保存初始 URL
 
-    console.log('[Browser] ✅ Connected successfully to:', initialBrowserURL);
+    console.error('[Browser] ✅ Connected successfully to:', initialBrowserURL);
 
     return browser;
   } catch (error) {
@@ -280,7 +280,7 @@ export async function verifyBrowserConnection(
   expectedURL?: string,
 ): Promise<boolean> {
   if (!browser?.connected) {
-    console.log('[Browser] ✗ Not connected');
+    console.error('[Browser] ✗ Not connected');
     return false;
   }
 
@@ -288,7 +288,7 @@ export async function verifyBrowserConnection(
     const version = await browser.version();
     const wsEndpoint = browser.wsEndpoint();
 
-    console.log('[Browser] ✓ Connection verified:', {
+    console.error('[Browser] ✓ Connection verified:', {
       version,
       endpoint: wsEndpoint,
       initialURL: initialBrowserURL,
@@ -325,7 +325,7 @@ export function resetBrowserConnection(): void {
   browser = undefined;
   initialBrowserURL = undefined;
   isExternalBrowser = false;
-  console.log('[Browser] 🔄 Connection state reset');
+  console.error('[Browser] 🔄 Connection state reset');
 }
 
 export type Channel = 'stable' | 'canary' | 'beta' | 'dev';

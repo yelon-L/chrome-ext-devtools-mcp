@@ -33,10 +33,10 @@ if (modeIndex !== -1) {
   const modeValue = process.argv[modeIndex + 1];
 
   if (modeValue === 'multi-tenant') {
-    console.log(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
-    console.log('[MCP] Mode: multi-tenant (SSE transport)');
-    console.log('[MCP] Starting Multi-tenant server...');
-    console.log('');
+    console.error(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
+    console.error('[MCP] Mode: multi-tenant (SSE transport)');
+    console.error('[MCP] Starting Multi-tenant server...');
+    console.error('');
     await import('./multi-tenant/server-multi-tenant.js');
     // Multi-tenant 服务器已启动，不再执行后续启动逻辑
   } else {
@@ -65,11 +65,11 @@ if (modeIndex !== -1) {
 async function startStandardMode() {
   const transport = args.transport || 'stdio';
 
-  console.log(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
-  console.log(`[MCP] Transport: ${transport}`);
+  console.error(`[MCP] Chrome Extension Debug MCP v${VERSION}`);
+  console.error(`[MCP] Transport: ${transport}`);
 
   if (transport === 'sse') {
-    console.log('[MCP] Starting SSE server...');
+    console.error('[MCP] Starting SSE server...');
     const defaultPort = 32122;
     const port =
       args.port || parseInt(process.env.PORT || String(defaultPort), 10);
@@ -78,11 +78,11 @@ async function startStandardMode() {
     } else if (!process.env.PORT) {
       process.env.PORT = String(defaultPort);
     }
-    console.log(`[MCP] Port: ${port}`);
-    console.log('');
+    console.error(`[MCP] Port: ${port}`);
+    console.error('');
     await import('./server-sse.js');
   } else if (transport === 'streamable') {
-    console.log('[MCP] Starting Streamable HTTP server...');
+    console.error('[MCP] Starting Streamable HTTP server...');
     const defaultPort = 32123;
     const port =
       args.port || parseInt(process.env.PORT || String(defaultPort), 10);
@@ -91,13 +91,13 @@ async function startStandardMode() {
     } else if (!process.env.PORT) {
       process.env.PORT = String(defaultPort);
     }
-    console.log(`[MCP] Port: ${port}`);
-    console.log('');
+    console.error(`[MCP] Port: ${port}`);
+    console.error('');
     await import('./server-http.js');
   } else {
     // stdio mode
-    console.log('[MCP] Starting stdio server...');
-    console.log('');
+    console.error('[MCP] Starting stdio server...');
+    console.error('');
     await import('./main.js');
   }
 }

@@ -140,10 +140,10 @@ for (const tool of tools) {
 // 如果配置了 --browserUrl，在启动时验证浏览器连接
 if (args.browserUrl) {
   try {
-    console.log('[MCP] Validating browser connection...');
+    console.error('[MCP] Validating browser connection...');
     await validateBrowserURL(args.browserUrl);
-    console.log('[MCP] Browser validation successful');
-    console.log('');
+    console.error('[MCP] Browser validation successful');
+    console.error('');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('\n❌ Browser Connection Validation Failed');
