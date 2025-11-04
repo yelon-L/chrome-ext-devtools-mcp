@@ -39,6 +39,7 @@ import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {displayStreamableModeInfo} from './utils/modeMessages.js';
+import {setupResponseErrorHandling} from './utils/response-error-handler.js';
 import {VERSION} from './version.js';
 
 // 存储所有会话
@@ -198,6 +199,9 @@ async function startHTTPServer() {
 
     // MCP 端点
     if (url.pathname === '/mcp') {
+      // ✅ 添加 Response 错误处理，防止客户端断开时触发未捕获的异常
+      setupResponseErrorHandling(res, 'HTTP');
+
       const sessionIdFromHeader = req.headers['mcp-session-id'] as
         | string
         | undefined;

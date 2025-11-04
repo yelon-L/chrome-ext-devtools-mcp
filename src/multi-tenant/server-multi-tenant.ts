@@ -35,6 +35,7 @@ import {Mutex} from '../Mutex.js';
 import {getAllTools} from '../tools/registry.js';
 import type {ToolDefinition} from '../tools/ToolDefinition.js';
 import {displayMultiTenantModeInfo} from '../utils/modeMessages.js';
+import {setupResponseErrorHandling} from '../utils/response-error-handler.js';
 import {VERSION} from '../version.js';
 
 import {BrowserConnectionPool} from './core/BrowserConnectionPool.js';
@@ -927,6 +928,9 @@ class MultiTenantMCPServer {
       const browser = await this.browserPool.connect(browserId, browserURL);
       logger(`[Server] ✓ browser connected: ${userId}/${tokenName}`);
 
+      // ✅ 添加 Response 错误处理，防止客户端断开时触发未捕获的异常
+      setupResponseErrorHandling(res, 'Multi-tenant-V2');
+
       // Create SSE transport
       logger(`[Server] 📡 creating SSE transport: ${userId}/${tokenName}`);
       const transport = new SSEServerTransport('/message', res);
@@ -1077,6 +1081,9 @@ class MultiTenantMCPServer {
       // Connect to the user's browser
       const browser = await this.browserPool.connect(userId, browserURL);
       logger(`[Server] ✓ browser connected: ${userId}`);
+
+      // ✅ 添加 Response 错误处理，防止客户端断开时触发未捕获的异常
+      setupResponseErrorHandling(res, 'Multi-tenant-V1');
 
       // Create SSE transport
       logger(`[Server] 📡 creating SSE transport: ${userId}`);

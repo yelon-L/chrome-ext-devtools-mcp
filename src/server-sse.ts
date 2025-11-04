@@ -41,6 +41,7 @@ import {Mutex} from './Mutex.js';
 import {getAllTools} from './tools/registry.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {displaySSEModeInfo} from './utils/modeMessages.js';
+import {setupResponseErrorHandling} from './utils/response-error-handler.js';
 import {VERSION} from './version.js';
 
 const sessions = new Map<
@@ -181,6 +182,9 @@ async function startSSEServer() {
     // SSE 连接
     if (url.pathname === '/sse' && req.method === 'GET') {
       console.log('[SSE] 📡 New SSE connection');
+
+      // ✅ 添加 Response 错误处理，防止客户端断开时触发未捕获的异常
+      setupResponseErrorHandling(res, 'SSE');
 
       // 使用 SSEServerTransport - 它会自动发送 endpoint 事件
       const transport = new SSEServerTransport('/message', res);
