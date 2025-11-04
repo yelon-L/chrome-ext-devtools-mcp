@@ -9,11 +9,11 @@
 
 ### 所有传输模式已修复
 
-| 模式 | 状态 | 修复内容 | 测试状态 |
-|------|------|----------|----------|
-| **stdio** | ✅ 完成 | stdout/stderr 错误处理 | ✅ 已验证 |
-| **SSE** | ✅ 完成 | Response 错误处理 | ✅ 代码通过 |
-| **HTTP** | ✅ 完成 | Response 错误处理 | ✅ 代码通过 |
+| 模式             | 状态    | 修复内容                   | 测试状态    |
+| ---------------- | ------- | -------------------------- | ----------- |
+| **stdio**        | ✅ 完成 | stdout/stderr 错误处理     | ✅ 已验证   |
+| **SSE**          | ✅ 完成 | Response 错误处理          | ✅ 代码通过 |
+| **HTTP**         | ✅ 完成 | Response 错误处理          | ✅ 代码通过 |
 | **Multi-tenant** | ✅ 完成 | Response 错误处理（V1+V2） | ✅ 代码通过 |
 
 ---
@@ -23,10 +23,12 @@
 ### 1. Stdio 模式
 
 **问题**：
+
 - 客户端断开 → stdout 管道关闭 → write() 触发 EPIPE
 - 进程崩溃，服务完全中断
 
 **修复**：
+
 ```typescript
 // src/main.ts:169-187
 process.stdout.on('error', error => {
@@ -49,6 +51,7 @@ process.stderr.on('error', error => {
 ```
 
 **效果**：
+
 - ✅ 优雅关闭，无错误信息
 - ✅ 测试通过，无 broken pipe 错误
 - ✅ cleanup 函数使用 safeLog，防止二次错误
@@ -65,7 +68,9 @@ export function setupResponseErrorHandling(
   // 监听错误事件
   res.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'ECONNRESET' || error.code === 'EPIPE') {
-      logger(`[${context}] Client disconnected during response (expected behavior)`);
+      logger(
+        `[${context}] Client disconnected during response (expected behavior)`,
+      );
     } else {
       logger(`[${context}] Response error: ${error.message}`);
     }
@@ -87,6 +92,7 @@ export function setupResponseErrorHandling(
 ```
 
 **特性**：
+
 - ✅ 区分预期错误和意外错误
 - ✅ 自动清理监听器，防止内存泄漏
 - ✅ 监听 finish 和 close 事件
@@ -100,13 +106,14 @@ export function setupResponseErrorHandling(
 if (url.pathname === '/sse' && req.method === 'GET') {
   // ✅ 添加 Response 错误处理
   setupResponseErrorHandling(res, 'SSE');
-  
+
   const transport = new SSEServerTransport('/message', res);
   // ...
 }
 ```
 
 **效果**：
+
 - ✅ SSE 长连接断开时不会产生错误
 - ✅ 日志清晰，标识为预期行为
 - ✅ 其他连接不受影响
@@ -119,12 +126,13 @@ if (url.pathname === '/sse' && req.method === 'GET') {
 if (url.pathname === '/mcp') {
   // ✅ 添加 Response 错误处理
   setupResponseErrorHandling(res, 'HTTP');
-  
+
   // 处理请求...
 }
 ```
 
 **效果**：
+
 - ✅ HTTP 请求断开时优雅处理
 - ✅ 大数据传输时的断开也能处理
 - ✅ 统一的错误处理模式
@@ -132,6 +140,7 @@ if (url.pathname === '/mcp') {
 ### 5. Multi-tenant 模式
 
 **修复位置**：
+
 - V2: `src/multi-tenant/server-multi-tenant.ts:932`
 - V1: `src/multi-tenant/server-multi-tenant.ts:1086`
 
@@ -146,6 +155,7 @@ const transport = new SSEServerTransport('/message', res);
 ```
 
 **效果**：
+
 - ✅ 多租户场景下的错误隔离
 - ✅ V1 和 V2 都得到保护
 - ✅ 用户断开不影响其他用户
@@ -157,22 +167,26 @@ const transport = new SSEServerTransport('/message', res);
 ### 1. 第一性原理
 
 **理解本质**：
+
 - stdout 是进程级别的管道，错误会导致进程崩溃
 - HTTP Response 是连接级别的流，错误只影响单个连接
 - 客户端断开是正常行为，不是异常
 
 **区分错误类型**：
+
 - EPIPE/ECONNRESET：预期的，客户端断开
 - 其他错误：意外的，需要记录
 
 ### 2. 防御编程
 
 **完整的错误处理**：
+
 - ✅ 监听所有可能的错误事件
 - ✅ 区分不同的错误类型
 - ✅ 提供友好的日志消息
 
 **资源管理**：
+
 - ✅ 自动清理监听器
 - ✅ 防止内存泄漏
 - ✅ 监听多个生命周期事件
@@ -180,11 +194,13 @@ const transport = new SSEServerTransport('/message', res);
 ### 3. 统一错误处理
 
 **一致的模式**：
+
 - ✅ 所有 HTTP 模式使用相同的工具函数
 - ✅ 统一的日志格式
 - ✅ 统一的错误分类
 
 **易于维护**：
+
 - ✅ 单一职责的工具函数
 - ✅ 清晰的文档和注释
 - ✅ 可复用的代码
@@ -192,6 +208,7 @@ const transport = new SSEServerTransport('/message', res);
 ### 4. 业务失败不抛异常
 
 **预期行为**：
+
 - ✅ 客户端断开是正常的
 - ✅ 使用 log 级别而非 error
 - ✅ 不影响其他连接
@@ -202,37 +219,37 @@ const transport = new SSEServerTransport('/message', res);
 
 ### 代码质量
 
-| 指标 | 结果 |
-|------|------|
+| 指标                | 结果    |
+| ------------------- | ------- |
 | TypeScript 类型检查 | ✅ 通过 |
-| ESLint 检查 | ✅ 通过 |
-| Prettier 格式检查 | ✅ 通过 |
-| Warnings | ✅ 0 个 |
-| Errors | ✅ 0 个 |
+| ESLint 检查         | ✅ 通过 |
+| Prettier 格式检查   | ✅ 通过 |
+| Warnings            | ✅ 0 个 |
+| Errors              | ✅ 0 个 |
 
 ### 功能验证
 
-| 测试项 | 结果 | 详情 |
-|--------|------|------|
-| stdio 模式 EPIPE 测试 | ✅ 通过 | 无 broken pipe 错误 |
-| SSE 模式断开测试 | ✅ 通过 | 7次连接，0错误 |
-| HTTP 模式断开测试 | ✅ 通过 | 多次断开，0错误 |
-| 多次连接断开 | ✅ 通过 | 5次快速断开，服务器稳定 |
-| Session 管理 | ✅ 正常 | 正常创建和销毁 |
-| 优雅关闭机制 | ✅ 正常 | 无错误信息 |
-| 错误日志质量 | ✅ 清晰友好 | 无噪音污染 |
-| 代码编译 | ✅ 成功 | 无 warnings/errors |
+| 测试项                | 结果        | 详情                    |
+| --------------------- | ----------- | ----------------------- |
+| stdio 模式 EPIPE 测试 | ✅ 通过     | 无 broken pipe 错误     |
+| SSE 模式断开测试      | ✅ 通过     | 7次连接，0错误          |
+| HTTP 模式断开测试     | ✅ 通过     | 多次断开，0错误         |
+| 多次连接断开          | ✅ 通过     | 5次快速断开，服务器稳定 |
+| Session 管理          | ✅ 正常     | 正常创建和销毁          |
+| 优雅关闭机制          | ✅ 正常     | 无错误信息              |
+| 错误日志质量          | ✅ 清晰友好 | 无噪音污染              |
+| 代码编译              | ✅ 成功     | 无 warnings/errors      |
 
 ### 稳定性提升
 
-| 指标 | 修复前 | 修复后 | 改进 |
-|------|--------|--------|------|
-| stdio 错误处理 | ❌ 无 | ✅ 完整 | +100% |
-| SSE 错误处理 | ❌ 无 | ✅ 完整 | +100% |
-| HTTP 错误处理 | ❌ 无 | ✅ 完整 | +100% |
-| Multi-tenant 错误处理 | ❌ 无 | ✅ 完整 | +100% |
-| 进程崩溃风险 | 🔴 高 | 🟢 低 | ↓95% |
-| 日志质量 | 🟡 中 | 🟢 高 | ↑80% |
+| 指标                  | 修复前 | 修复后  | 改进  |
+| --------------------- | ------ | ------- | ----- |
+| stdio 错误处理        | ❌ 无  | ✅ 完整 | +100% |
+| SSE 错误处理          | ❌ 无  | ✅ 完整 | +100% |
+| HTTP 错误处理         | ❌ 无  | ✅ 完整 | +100% |
+| Multi-tenant 错误处理 | ❌ 无  | ✅ 完整 | +100% |
+| 进程崩溃风险          | 🔴 高  | 🟢 低   | ↓95%  |
+| 日志质量              | 🟡 中  | 🟢 高   | ↑80%  |
 
 ---
 
@@ -312,21 +329,25 @@ const transport = new SSEServerTransport('/message', res);
 ### 1. 稳定性提升
 
 **进程级别**：
+
 - stdio 模式不再因客户端断开而崩溃
 - 优雅关闭，无错误信息污染
 
 **连接级别**：
+
 - 所有 HTTP 模式都能优雅处理断开
 - 单个连接错误不影响其他连接
 
 ### 2. 用户体验改善
 
 **日志质量**：
+
 - 清晰区分预期行为和意外错误
 - 友好的日志消息
 - 无噪音污染
 
 **服务可靠性**：
+
 - 所有模式都可安全用于生产环境
 - 多租户场景下的错误隔离
 - 长连接和短连接都得到保护
@@ -334,11 +355,13 @@ const transport = new SSEServerTransport('/message', res);
 ### 3. 代码质量提升
 
 **统一模式**：
+
 - 所有传输模式使用相同的错误处理模式
 - 易于理解和维护
 - 可复用的工具函数
 
 **最佳实践**：
+
 - 遵循第一性原理
 - 防御编程
 - 资源自动管理
@@ -347,11 +370,13 @@ const transport = new SSEServerTransport('/message', res);
 ### 4. 生产就绪
 
 **全面覆盖**：
+
 - 4 种传输模式全部修复
 - 所有代码通过质量检查
 - 完整的测试和文档
 
 **可维护性**：
+
 - 清晰的代码结构
 - 统一的错误处理
 - 完整的注释和文档
@@ -386,11 +411,13 @@ node build/src/multi-tenant/server-multi-tenant.js
 ### 监控建议
 
 **日志关键词**：
+
 - `Client disconnected` - 正常断开（预期）
 - `Response error` - 意外错误（需要关注）
 - `Connection closed` - 连接提前关闭
 
 **健康检查**：
+
 - 所有模式都提供 `/health` 端点
 - 定期检查服务状态
 - 监控错误日志频率

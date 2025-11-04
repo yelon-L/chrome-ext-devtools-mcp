@@ -7,12 +7,12 @@
 
 ## 📋 排查范围
 
-| 模式                | 文件                                      | 传输方式              | 状态        |
-| ------------------- | ----------------------------------------- | --------------------- | ----------- |
-| **stdio**           | `src/main.ts`                             | stdin/stdout 管道     | ✅ 已修复   |
-| **SSE**             | `src/server-sse.ts`                       | HTTP Response Stream  | ✅ 已修复   |
-| **Streamable HTTP** | `src/server-http.ts`                      | HTTP Request/Response | ✅ 已修复   |
-| **Multi-tenant**    | `src/multi-tenant/server-multi-tenant.ts` | SSE (多会话)          | ✅ 已修复   |
+| 模式                | 文件                                      | 传输方式              | 状态      |
+| ------------------- | ----------------------------------------- | --------------------- | --------- |
+| **stdio**           | `src/main.ts`                             | stdin/stdout 管道     | ✅ 已修复 |
+| **SSE**             | `src/server-sse.ts`                       | HTTP Response Stream  | ✅ 已修复 |
+| **Streamable HTTP** | `src/server-http.ts`                      | HTTP Request/Response | ✅ 已修复 |
+| **Multi-tenant**    | `src/multi-tenant/server-multi-tenant.ts` | SSE (多会话)          | ✅ 已修复 |
 
 ---
 
@@ -41,10 +41,12 @@ process.stdout.on('error', error => {
 ### 2. SSE 模式（已修复）
 
 **问题**：
+
 - `res.write()` 可能在客户端断开后失败
 - 没有监听 `res.on('error')`
 
 **修复**：
+
 ```typescript
 // src/server-sse.ts:187
 setupResponseErrorHandling(res, 'SSE');
@@ -52,6 +54,7 @@ const transport = new SSEServerTransport('/message', res);
 ```
 
 **修复内容**：
+
 - 创建了通用的 `setupResponseErrorHandling()` 函数
 - 在 SSE 连接创建时添加 Response 错误处理
 - 区分预期错误（ECONNRESET/EPIPE）和意外错误
@@ -62,16 +65,19 @@ const transport = new SSEServerTransport('/message', res);
 ### 3. Streamable HTTP 模式（已修复）
 
 **问题**：
+
 - `res.writeHead()` 和 `res.end()` 可能失败
 - 没有监听 `res.on('error')`
 
 **修复**：
+
 ```typescript
 // src/server-http.ts:202
 setupResponseErrorHandling(res, 'HTTP');
 ```
 
 **修复内容**：
+
 - 在 MCP 端点处理开始时添加 Response 错误处理
 - 使用统一的 `setupResponseErrorHandling()` 函数
 - 覆盖所有 HTTP 请求的响应错误
@@ -81,10 +87,12 @@ setupResponseErrorHandling(res, 'HTTP');
 ### 4. Multi-tenant 模式（已修复）
 
 **问题**：
+
 - 继承 SSE 模式的所有潜在问题
 - 多会话场景下，错误可能更频繁
 
 **修复**：
+
 ```typescript
 // src/multi-tenant/server-multi-tenant.ts:932 (V2)
 setupResponseErrorHandling(res, 'Multi-tenant-V2');
@@ -94,6 +102,7 @@ setupResponseErrorHandling(res, 'Multi-tenant-V1');
 ```
 
 **修复内容**：
+
 - 在两个 SSE 连接点（V1 和 V2）都添加了错误处理
 - 区分不同版本的上下文标识
 - Request 错误处理已存在，无需修改
@@ -152,7 +161,9 @@ export function setupResponseErrorHandling(
   res.on('error', (error: NodeJS.ErrnoException) => {
     // 客户端断开是预期的，使用 log 级别
     if (error.code === 'ECONNRESET' || error.code === 'EPIPE') {
-      logger(`[${context}] Client disconnected during response (expected behavior)`);
+      logger(
+        `[${context}] Client disconnected during response (expected behavior)`,
+      );
     } else {
       // 其他错误使用 error 级别
       logger(`[${context}] Response error: ${error.message}`);
@@ -250,6 +261,7 @@ if (url.pathname === '/sse') {
 **执行时间**: 2025-11-04 17:51
 
 #### stdio 模式
+
 ```bash
 $ ./test-epipe-simple.sh
 ✅ stdio 模式测试通过
@@ -257,6 +269,7 @@ $ ./test-epipe-simple.sh
 ```
 
 #### SSE 模式
+
 ```bash
 $ ./test-sse-mode.sh
 ✅ SSE 服务器已启动
@@ -268,12 +281,14 @@ $ ./test-sse-mode.sh
 ```
 
 **日志验证**：
+
 - 7 次 SSE 连接建立和关闭
 - 无任何错误或异常
 - Session 正常创建和销毁
 - 服务器保持稳定运行
 
 #### HTTP 模式
+
 ```bash
 $ ./test-http-mode.sh
 ✅ HTTP 服务器已启动
@@ -285,6 +300,7 @@ $ ./test-http-mode.sh
 ```
 
 **日志验证**：
+
 - 多次 POST 请求处理
 - 无任何错误或异常
 - 浏览器连接验证正常
@@ -292,13 +308,14 @@ $ ./test-http-mode.sh
 
 ### 测试总结
 
-| 模式 | 测试场景 | 结果 | 错误数 |
-|------|---------|------|--------|
-| stdio | 立即断开 | ✅ 通过 | 0 |
-| SSE | 立即断开 + 延迟断开 + 多次断开 | ✅ 通过 | 0 |
-| HTTP | 立即断开 + 多次断开 + 正常请求 | ✅ 通过 | 0 |
+| 模式  | 测试场景                       | 结果    | 错误数 |
+| ----- | ------------------------------ | ------- | ------ |
+| stdio | 立即断开                       | ✅ 通过 | 0      |
+| SSE   | 立即断开 + 延迟断开 + 多次断开 | ✅ 通过 | 0      |
+| HTTP  | 立即断开 + 多次断开 + 正常请求 | ✅ 通过 | 0      |
 
 **验证结果**：
+
 - ✅ 所有模式服务器不崩溃
 - ✅ 其他连接不受影响
 - ✅ 无未捕获的 EPIPE/ECONNRESET 异常
@@ -310,8 +327,8 @@ $ ./test-http-mode.sh
 
 ## 📊 风险评估
 
-| 模式         | 风险等级            | 影响范围 | 优先级 | 状态      |
-| ------------ | ------------------- | -------- | ------ | --------- |
+| 模式         | 风险等级          | 影响范围 | 优先级 | 状态      |
+| ------------ | ----------------- | -------- | ------ | --------- |
 | stdio        | 🔴 高 → 🟢 已解决 | 整个进程 | P0     | ✅ 已修复 |
 | SSE          | 🟡 中 → 🟢 已解决 | 单个会话 | P1     | ✅ 已修复 |
 | HTTP         | 🟡 中 → 🟢 已解决 | 单个请求 | P2     | ✅ 已修复 |
@@ -428,12 +445,14 @@ $ ./test-http-mode.sh
 ### 修复效果
 
 **代码质量**：
+
 - ✅ 所有代码通过 TypeScript 类型检查
 - ✅ 所有代码通过 ESLint 检查
 - ✅ 所有代码通过 Prettier 格式检查
 - ✅ 无 warnings 和 errors
 
 **功能验证**：
+
 - ✅ stdio 模式测试通过，无 broken pipe 错误
 - ✅ SSE 模式测试通过，7次连接无任何错误
 - ✅ HTTP 模式测试通过，多次断开无任何错误
@@ -443,6 +462,7 @@ $ ./test-http-mode.sh
 - ✅ 错误日志清晰友好，无噪音污染
 
 **设计原则**：
+
 - ✅ 遵循第一性原理
 - ✅ 防御编程
 - ✅ 统一错误处理

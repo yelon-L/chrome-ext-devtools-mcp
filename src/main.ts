@@ -89,6 +89,9 @@ function registerTool(tool: ToolDefinition): void {
     async (params): Promise<CallToolResult> => {
       const guard = await toolMutex.acquire();
       try {
+        // 更新活动时间（用于空闲超时检测）
+        lastRequestTime = Date.now();
+
         logger(`${tool.name} request: ${JSON.stringify(params, null, '  ')}`);
         const context = await getContext();
         const response = new McpResponse();
@@ -194,13 +197,13 @@ displayStdioModeInfo();
 // Resource Cleanup and Signal Handling for stdio mode
 // ============================================================================
 
-const lastRequestTime = Date.now();
+let lastRequestTime = Date.now();
 // 空闲超时配置（毫秒）
-// 0 = 永不超时，适合开发环境
-// 默认 30 分钟，给用户足够思考时间
+// 0 = 永不超时，适合 IDE 长期连接场景（推荐）
+// IDE 连接后需要保持长期有效，随时可调用
 const IDLE_TIMEOUT = process.env.STDIO_IDLE_TIMEOUT
   ? parseInt(process.env.STDIO_IDLE_TIMEOUT, 10)
-  : 1800000; // 默认 30 分钟（从 5 分钟提升）
+  : 0; // 默认禁用超时，适合 IDE 使用场景
 let cleanupInProgress = false;
 
 if (IDLE_TIMEOUT === 0) {

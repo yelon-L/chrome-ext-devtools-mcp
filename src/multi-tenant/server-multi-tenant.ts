@@ -113,7 +113,9 @@ class MultiTenantMCPServer {
   private userRateLimiter: PerUserRateLimiter;
 
   // 配置常量
-  private static readonly SESSION_TIMEOUT = 3600000; // 1 hour
+  private static readonly SESSION_TIMEOUT = process.env.MCP_SESSION_TIMEOUT
+    ? parseInt(process.env.MCP_SESSION_TIMEOUT, 10)
+    : 28800000; // 默认 8 小时，适合 IDE 长期连接
   private static readonly CLEANUP_INTERVAL = 60000; // 1 minute
   private static readonly CONNECTION_TIMEOUT = 30000; // 30 seconds
   private static readonly BROWSER_HEALTH_CHECK = 30000; // 30 seconds
