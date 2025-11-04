@@ -296,11 +296,25 @@ export class EnhancedConsoleCollector {
           },
         );
       } catch (error) {
-        console.error(
-          '[EnhancedConsoleCollector] Failed to enable Worker monitoring:',
-          error,
-        );
-        // 继续执行，不影响页面日志收集
+        // ✅ 区分错误类型：Session 关闭是预期的，不需要 error 级别
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        if (
+          errorMsg.includes('Target closed') ||
+          errorMsg.includes('Session closed')
+        ) {
+          // 页面快速关闭时的预期行为，使用 log 级别
+          console.log(
+            '[EnhancedConsoleCollector] Session closed during Worker monitoring setup (expected when page closes quickly)',
+          );
+        } else {
+          // 其他意外错误，使用 error 级别
+          console.error(
+            '[EnhancedConsoleCollector] Failed to enable Worker monitoring:',
+            error,
+          );
+        }
+        // 继续执行，不影响页面日志收集（有备用方案：Puppeteer events）
       }
 
       // 使用 Puppeteer 的 console 事件捕获 Worker 日志

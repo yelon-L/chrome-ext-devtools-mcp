@@ -164,6 +164,28 @@ if (args.browserUrl) {
 }
 
 const transport = new StdioServerTransport();
+
+// Handle stdout errors (EPIPE, broken pipe, etc.)
+process.stdout.on('error', error => {
+  // EPIPE errors are expected when client disconnects
+  if (error.code === 'EPIPE') {
+    logger('[stdio] Client disconnected (EPIPE), shutting down gracefully');
+    void cleanup('stdout EPIPE').then(() => process.exit(0));
+  } else {
+    logger(`[stdio] stdout error: ${error.message}`);
+    void cleanup('stdout error').then(() => process.exit(1));
+  }
+});
+
+// Handle stderr errors as well
+process.stderr.on('error', error => {
+  if (error.code === 'EPIPE') {
+    logger('[stdio] stderr EPIPE, ignoring');
+  } else {
+    logger(`[stdio] stderr error: ${error.message}`);
+  }
+});
+
 await server.connect(transport);
 logger('Chrome DevTools MCP Server connected');
 displayStdioModeInfo();
@@ -201,13 +223,26 @@ async function cleanup(reason: string): Promise<void> {
   }
   cleanupInProgress = true;
 
-  console.log(`\n[stdio] Cleanup initiated: ${reason}`);
+  // Safe logging that won't throw on EPIPE
+  const safeLog = (msg: string) => {
+    try {
+      logger(msg);
+    } catch {
+      // Ignore logging errors during cleanup
+    }
+  };
+
+  safeLog(`\n[stdio] Cleanup initiated: ${reason}`);
 
   try {
     // Stop idle timeout check
     if (idleCheckInterval) {
       clearInterval(idleCheckInterval);
     }
+
+    // Remove stdout/stderr error handlers to prevent recursive cleanup
+    process.stdout.removeAllListeners('error');
+    process.stderr.removeAllListeners('error');
 
     // Pause and cleanup stdin
     process.stdin.pause();
@@ -216,13 +251,16 @@ async function cleanup(reason: string): Promise<void> {
 
     // Close browser if managed by us
     if (context?.browser && !args.browserUrl) {
-      console.log('[stdio] Closing managed browser...');
+      safeLog('[stdio] Closing managed browser...');
       await context.browser.close();
     }
 
-    console.log('[stdio] Cleanup complete');
+    safeLog('[stdio] Cleanup complete');
   } catch (error) {
-    console.error('[stdio] Cleanup error:', error);
+    // Use logger instead of console.error to avoid EPIPE
+    safeLog(
+      `[stdio] Cleanup error: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

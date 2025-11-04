@@ -12,10 +12,16 @@ import z from 'zod';
 
 import {ToolCategories} from '../categories.js';
 import {defineTool} from '../ToolDefinition.js';
+import {
+  reportExtensionNotFound,
+  reportNoBackgroundContext,
+} from '../utils/ErrorReporting.js';
 
 export const inspectExtensionStorage = defineTool({
   name: 'inspect_extension_storage',
   description: `Inspect extension storage (local, sync, session, or managed).
+
+🎯 **For AI**: Check Service Worker status with list_extensions first. Use activate_extension_service_worker if SW is 🔴 Inactive.
 
 **Purpose**: Read and inspect data stored by an extension using chrome.storage API.
 
@@ -64,6 +70,27 @@ export const inspectExtensionStorage = defineTool({
   handler: async (request, response, context) => {
     const {extensionId, storageType = 'local'} = request.params;
 
+    // ✅ Following reload_extension pattern: check preconditions first
+    // 1. Check if extension exists
+    const extensions = await context.getExtensions();
+    const extension = extensions.find(e => e.id === extensionId);
+
+    if (!extension) {
+      reportExtensionNotFound(response, extensionId, extensions);
+      response.setIncludePages(true);
+      return;
+    }
+
+    // 2. Check Service Worker status (MV3 only)
+    if (
+      extension.manifestVersion === 3 &&
+      extension.serviceWorkerStatus !== 'active'
+    ) {
+      reportNoBackgroundContext(response, extensionId, extension);
+      response.setIncludePages(true);
+      return;
+    }
+
     try {
       const storage = await context.getExtensionStorage(
         extensionId,
@@ -72,6 +99,7 @@ export const inspectExtensionStorage = defineTool({
 
       response.appendResponseLine(`# Extension Storage: ${storageType}\n`);
       response.appendResponseLine(`**Extension ID**: ${extensionId}`);
+      response.appendResponseLine(`**Extension Name**: ${extension.name}`);
 
       // Display quota information
       if (storage.bytesUsed !== undefined && storage.quota !== undefined) {
@@ -95,11 +123,51 @@ export const inspectExtensionStorage = defineTool({
         response.appendResponseLine(formatted);
         response.appendResponseLine('```');
       }
-    } catch {
-      // ✅ Following navigate_page_history pattern: simple error message
-      response.appendResponseLine(
-        'Unable to inspect extension storage. The extension may be inactive or lack storage permission.',
-      );
+    } catch (error) {
+      // ✅ Following navigate_page_history pattern: distinguish error types
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      if (
+        errorMsg.includes('Storage type') &&
+        errorMsg.includes('not available')
+      ) {
+        response.appendResponseLine(
+          `❌ Storage type "${storageType}" is not available for this extension.\n`,
+        );
+        response.appendResponseLine('**Available types**:');
+        response.appendResponseLine('- `local` - Local storage (5MB quota)');
+        response.appendResponseLine(
+          '- `sync` - Sync storage (100KB quota, syncs across devices)',
+        );
+        if (extension.manifestVersion === 3) {
+          response.appendResponseLine(
+            '- `session` - Session storage (10MB quota, MV3 only)',
+          );
+        }
+        response.appendResponseLine(
+          '- `managed` - Managed storage (enterprise policies only)',
+        );
+      } else if (errorMsg.includes('chrome.storage API not available')) {
+        response.appendResponseLine(
+          '❌ The extension does not have storage permission.\n',
+        );
+        response.appendResponseLine(
+          '**Required permission**: Add `"storage"` to `permissions` array in manifest.json',
+        );
+        response.appendResponseLine('');
+        response.appendResponseLine('**Related tools**:');
+        response.appendResponseLine(
+          '- `get_extension_details` - Check extension permissions',
+        );
+        response.appendResponseLine(
+          '- `inspect_extension_manifest` - Inspect manifest.json',
+        );
+      } else {
+        // Generic error message for other cases
+        response.appendResponseLine(
+          'Unable to inspect extension storage. The storage API may be unavailable or the operation failed.',
+        );
+      }
     }
 
     response.setIncludePages(true);
