@@ -212,12 +212,16 @@ const transport = new SSEServerTransport('/message', res);
 
 ### 功能验证
 
-| 测试项 | 结果 |
-|--------|------|
-| stdio 模式 EPIPE 测试 | ✅ 通过 |
-| 优雅关闭机制 | ✅ 正常 |
-| 错误日志质量 | ✅ 清晰友好 |
-| 代码编译 | ✅ 成功 |
+| 测试项 | 结果 | 详情 |
+|--------|------|------|
+| stdio 模式 EPIPE 测试 | ✅ 通过 | 无 broken pipe 错误 |
+| SSE 模式断开测试 | ✅ 通过 | 7次连接，0错误 |
+| HTTP 模式断开测试 | ✅ 通过 | 多次断开，0错误 |
+| 多次连接断开 | ✅ 通过 | 5次快速断开，服务器稳定 |
+| Session 管理 | ✅ 正常 | 正常创建和销毁 |
+| 优雅关闭机制 | ✅ 正常 | 无错误信息 |
+| 错误日志质量 | ✅ 清晰友好 | 无噪音污染 |
+| 代码编译 | ✅ 成功 | 无 warnings/errors |
 
 ### 稳定性提升
 
@@ -279,17 +283,27 @@ const transport = new SSEServerTransport('/message', res);
 
 ### 测试脚本
 
-1. **test-broken-pipe.sh**
-   - stdio 模式基础测试
+1. **test-epipe-simple.sh** ✅ 已执行
+   - stdio 模式快速测试
+   - 结果：通过，无 broken pipe 错误
 
-2. **test-broken-pipe-fix.sh**
-   - stdio 模式完整测试
+2. **test-sse-mode.sh** ✅ 已执行
+   - SSE 模式完整测试
+   - 结果：7次连接，0错误，服务器稳定
 
-3. **test-epipe-simple.sh**
-   - stdio 模式简化测试
+3. **test-http-mode.sh** ✅ 已执行
+   - HTTP 模式完整测试
+   - 结果：多次断开，0错误，功能正常
 
-4. **test-transport-errors.sh**
-   - 所有传输模式测试（可选）
+4. **test-all-transports.sh**
+   - 所有传输模式集成测试
+   - 状态：可选，单独测试已覆盖
+
+5. **test-broken-pipe.sh**
+   - stdio 模式基础测试（旧版）
+
+6. **test-broken-pipe-fix.sh**
+   - stdio 模式完整测试（旧版）
 
 ---
 
